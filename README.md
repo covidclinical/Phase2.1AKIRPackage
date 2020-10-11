@@ -9,7 +9,7 @@ devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage",
 
 Ensure that the data files are placed in your working directory before running the package!
 
-Note for Diagnoses Codes:
+## Note for Diagnoses Codes
 Due to the variations in the way ICD codes may be stored, we have adhered to the following conventions:
 - icd_code will store the broad category of the diagnosis
 - Full ICD diagnosis codes will have the major category abd subcategory separated by a period
