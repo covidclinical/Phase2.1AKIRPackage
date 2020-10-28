@@ -19,9 +19,9 @@ Imports:
     tibble (>= 3.0.0),
     data.table (>= 1.0.0),
     RcppRoll (>= 0.3.0),
-    zoo (>= 1.0),
-    survival (>= 3.0-0),
-    survminer (>= 0.3.0),
+    zoo (>= 1.8-5),
+    survival (>= 2.4-0),
+    survminer (>= 0.4.3),
     magrittr
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.1.1
