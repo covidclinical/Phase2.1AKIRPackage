@@ -25,8 +25,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     ## PART 1: Read in Data Tables
     ## ========================================
     
-    demographics <- read.csv("LocalPatientSummary.csv")
-    observations <- read.csv("LocalPatientObservations.csv")
+    demographics <- read.csv("Input/LocalPatientSummary.csv")
+    observations <- read.csv("Input/LocalPatientObservations.csv")
     data("thromb_ref")
     data("comorbid_ref")
     data("thromb_icd9_ref")
