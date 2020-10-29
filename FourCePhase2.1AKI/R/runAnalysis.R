@@ -25,8 +25,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     ## PART 1: Read in Data Tables
     ## ========================================
     
-    demographics <- read.csv("PatientSummary.csv")
-    observations <- read.csv("PatientObservations.csv")
+    demographics <- read.csv("LocalPatientSummary.csv")
+    observations <- read.csv("LocalPatientObservations.csv")
     data("thromb_ref")
     data("comorbid_ref")
     data("thromb_icd9_ref")
@@ -35,9 +35,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     data("comorbid_icd10_ref")
     
     # first generate a unique ID for each patient
-    demographics <- demographics %>% dplyr::mutate(patient_id=paste(siteid,patient_num,sep="_"))
-    # course <- course %>% mutate(patient_id=paste(siteid,patient_num,sep="_"))
-    observations <- observations %>% dplyr::mutate(patient_id=paste(siteid,patient_num,sep="_"))
+    demographics <- demographics %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
+    # course <- course %>% mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
+    observations <- observations %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
     
     # From this point on, we will be using our custom-generated patient_id as a unique patient identifier
     # Reorder the columns in each table to bring patient_id to the first column and remove patient_num
