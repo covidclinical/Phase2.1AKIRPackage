@@ -27,18 +27,18 @@ sclerosis, dermatomyositis, polymyositis, Sjogren's syndrome)
 }
 \details{
 The headers in the table are as follows:
-icd_version  icd_code  full_code comorbid_type description
-
-icd_version - ICD version ("DIAG-ICD9" or "DIAG-ICD10")
-icd_code - shortened ICD code (see below)
-full_code - full ICD code (see below)
-comorbid_type - diagnosis category as above
-description - full-text description of diagnosis
+\itemize{
+\item icd_version - ICD version ("DIAG-ICD9" or "DIAG-ICD10")
+\item icd_code - shortened ICD code (see below)
+\item full_code - full ICD code (see below)
+\item comorbid_type - diagnosis category as above
+\item description - full-text description of diagnosis
+}
 
 Due to the variations in the way ICD codes may be stored, we have adhered to the following conventions:
 \itemize{
 \item icd_code will store the broad category of the diagnosis
-\item Full ICD diagnosis codes will have the major category abd subcategory separated by a period
+\item Full ICD diagnosis codes will have the major category and subcategory separated by a period.
 For example, the ICD-10 diagnosis "Chronic kidney disease, stage 1" with full code N18.1 will have
 icd_code = "N18" and full_code = "N18.1".
 Please ensure that your data tables store diagnoses codes as their broad categories. (e.g. N18.1 will be

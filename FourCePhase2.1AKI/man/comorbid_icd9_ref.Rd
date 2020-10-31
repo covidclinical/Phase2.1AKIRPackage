@@ -29,16 +29,16 @@ This table is a truncated version derived from the main table comorbid_ref.
 }
 \details{
 The headers in the table are as follows:
-icd_code  full_code comorbid_type
-
-icd_code - shortened ICD code (see below)
-full_code - full ICD code (see below)
-comorbid_type - diagnosis category as above
+\itemize{
+\item icd_code - shortened ICD code (see below)
+\item full_code - full ICD code (see below)
+\item comorbid_type - diagnosis category as above
+}
 
 Due to the variations in the way ICD codes may be stored, we have adhered to the following conventions:
 \itemize{
 \item icd_code will store the broad category of the diagnosis
-\item Full ICD diagnosis codes will have the major category abd subcategory separated by a period
+\item Full ICD diagnosis codes will have the major category and subcategory separated by a period.
 For example, the ICD-9 diagnosis "Chronic kidney disease, Stage V" with full code 585.5 will have
 icd_code = "585" and full_code = "585.5".
 Please ensure that your data tables store diagnoses codes as their broad categories. (e.g. 585.5 will be
