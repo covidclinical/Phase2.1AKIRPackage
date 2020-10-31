@@ -5,11 +5,12 @@
 #' This table is an abbreviated version derived from the main table thromb_ref
 #' 
 #' The headers in the table are as follows:
-#' icd_code  full_code type
+#' icd_code  full_code type description
 #' 
 #' icd_code - shortened ICD code (see below)
 #' full_code - full ICD code (see below)
 #' type - diagnosis category as above
+#' description - full test description
 #' 
 #' Due to the variations in the way ICD codes may be stored, we have adhered to the following conventions:
 #' - icd_code will store the broad category of the diagnosis
