@@ -342,7 +342,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     med_new_aki <- med_new_aki %>% dplyr::distinct()
     med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(offset_aki = start_day - day_min) %>% dplyr::filter(offset_aki == min(offset_aki))
     # Re-code whether medication was given before AKI - 1 = yes, 0 = no
-    med_new_aki <- dplyr::mutate(med_before_aki = ifelse(offset_aki <=0,1,0))
+    med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(med_before_aki = ifelse(offset_aki <=0,1,0))
     med_new_aki <- med_new_aki[,c(1,2,6)]
     med_new_aki <- med_new_aki %>% tidyr::spread(concept_code,med_before_aki)
     med_new_aki[is.na(med_new_aki)] <- -999
