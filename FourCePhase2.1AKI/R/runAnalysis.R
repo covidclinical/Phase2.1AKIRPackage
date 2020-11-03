@@ -317,7 +317,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     if("old_ACEI" %in% colnames(med_acearb_chronic) && "old_ARB" %in% colnames(med_chronic)) {
         med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
         med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0))
-    } else if ("old_ACEI" %in% colnames(med_acearb_chronic)) {
+    } else if ("old_ACEI" %in% colnames(med_chronic)) {
         med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI)
         med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0))
     } else {
