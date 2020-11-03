@@ -85,18 +85,18 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     comorbid[is.na(comorbid)] <- 0
     # 
     # # Filter prothrombotic events from all diagnoses
-    thromb_icd9 <- diag_icd9[diag_icd9$icd_code %in% thromb_icd9_ref$icd_code,]
-    thromb_icd10 <- diag_icd10[diag_icd10$icd_code %in% thromb_icd10_ref$icd_code,]
-    # Filter prothrombotic diagnoses to be restricted to diagnosis codes made after -15days
-    thromb_icd9 <- thromb_icd9[thromb_icd9$days_since_admission >= -15,-c(2,4)]
-    thromb_icd10 <- thromb_icd10[thromb_icd10$days_since_admission >= -15,-c(2,4)]
-    # Map the prothrombotic codes - store day diagnosed
-    thromb_icd9 <- merge(thromb_icd9,thromb_icd9_ref,by="icd_code",all.x=TRUE)
-    thromb_icd10 <- merge(thromb_icd10,thromb_icd10_ref,by="icd_code",all.x=TRUE)
-    thromb_diag <- rbind(thromb_icd9,thromb_icd10)
-    thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type,days_since_admission) %>% dplyr::distinct()
-    thromb_diag <- thromb_diag %>% tidyr::spread(type,days_since_admission)
-    thromb_diag[is.na(thromb_diag)] <- NA
+    # thromb_icd9 <- diag_icd9[diag_icd9$icd_code %in% thromb_icd9_ref$icd_code,]
+    # thromb_icd10 <- diag_icd10[diag_icd10$icd_code %in% thromb_icd10_ref$icd_code,]
+    # # Filter prothrombotic diagnoses to be restricted to diagnosis codes made after -15days
+    # thromb_icd9 <- thromb_icd9[thromb_icd9$days_since_admission >= -15,-c(2,4)]
+    # thromb_icd10 <- thromb_icd10[thromb_icd10$days_since_admission >= -15,-c(2,4)]
+    # # Map the prothrombotic codes - store day diagnosed
+    # thromb_icd9 <- merge(thromb_icd9,thromb_icd9_ref,by="icd_code",all.x=TRUE)
+    # thromb_icd10 <- merge(thromb_icd10,thromb_icd10_ref,by="icd_code",all.x=TRUE)
+    # thromb_diag <- rbind(thromb_icd9,thromb_icd10)
+    # thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type,days_since_admission) %>% dplyr::distinct()
+    # thromb_diag <- thromb_diag %>% tidyr::spread(type,days_since_admission)
+    # thromb_diag[is.na(thromb_diag)] <- NA
     
     # Final headers for comorbid table
     # Note: order of columns may depend on the overall characteristics of your patient population
