@@ -314,7 +314,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     med_chronic[is.na(med_chronic)] <- 0
     
     # Create subtable for ACE-i/ARB pre-exposure
-    if("old_ACEI" %in% colnames(med_acearb_chronic) && "old_ARB" %in% colnames(med_chronic)) {
+    if("old_ACEI" %in% colnames(med_chronic) && "old_ARB" %in% colnames(med_chronic)) {
         med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
         med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0))
     } else if ("old_ACEI" %in% colnames(med_chronic)) {
