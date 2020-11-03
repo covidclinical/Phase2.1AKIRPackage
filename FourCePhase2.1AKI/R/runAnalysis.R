@@ -115,14 +115,14 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     intubation_code <- c("0BH13EZ","0BH17EZ","0BH18EZ","0B21XEZ","5A09357","5A09358","5A09359","5A0935B","5A0935Z","5A09457","5A09458","5A09459","5A0945B","5A0945Z","5A09557","5A09558","5A09559","5A0955B","5A0955Z","96.7","96.04","96.70","96.71","96.72")
     intubation <- procedures[procedures$procedure_code %in% intubation_code,-c(2,4)]
     intubation <- intubation[,c(1,2)]
-    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission)]
+    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
     intubation <- intubation[!duplicated(intubation$patient_id),]
     # (2) In some cases intubation may not be coded as a procedure. Hence surrogate way is to determine if 
     #     patient had been diagnosed with ARDS and/or VAP
     vap_ards_codes <- c("J80","J95.851","518.82","997.31")
     vap_ards_diag <- diagnosis[diagnosis$icd_code %in% vap_ards_codes,]
     intubation <- rbind(vap_ards_diag[,c(1,3)],intubation)
-    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission)]
+    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
     intubation <- intubation[!duplicated(intubation$patient_id),]
     
     # Final table headers:
@@ -136,7 +136,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     #pd_code <- c("3E1.M39Z","549.8")
     rrt <- procedures[procedures$procedure_code %in% rrt_code,-c(2,4)]
     rrt <- rrt[,c(1,2)]
-    rrt <- rrt[order(rrt$patient_id,rrt$days_since_admission)]
+    rrt <- rrt[order(rrt$patient_id,rrt$days_since_admission),]
     rrt <- rrt[!duplicated(rrt$patient_id),]
     
     # Generate list of patients already on RRT prior to admission
@@ -220,13 +220,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # Now we have to start grading AKI severity at each time point
     # This approach is similar to how the MIMIC-III dataset generates AKI severity
     # Generate two columns using both the formal KDIGO AKI definition and the modified retrospective AKI definition
-    labs_cr_aki$aki_kdigo <- apply(labs_cr_aki,1,aki_kdigo_grade)
-    labs_cr_aki$aki_kdigo_retro <- apply(labs_cr_aki,1,aki_kdigo_grade_retro)
+    labs_cr_aki$aki_kdigo <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade)
+    labs_cr_aki$aki_kdigo_retro <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade_retro)
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo,aki_kdigo_retro))
     
     # Generate two columns grading AKD severity at 7d and 90d (grade 0B/C is coded as 0.5)
-    labs_cr_aki$akd_7d <- apply(labs_cr_aki,1,akd_grade_7d)
-    labs_cr_aki$akd_90d <- apply(labs_cr_aki,1,akd_grade_90d)
+    labs_cr_aki$akd_7d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_7d)
+    labs_cr_aki$akd_90d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_90d)
     
     # Now we are going to generate the start days of each AKI
     labs_cr_aki_tmp <- labs_cr_aki
@@ -314,8 +314,16 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     med_chronic[is.na(med_chronic)] <- 0
     
     # Create subtable for ACE-i/ARB pre-exposure
-    med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
-    med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0))
+    if("old_ACEI" %in% colnames(med_acearb_chronic) && "old_ARB" %in% colnames(med_acearb_chronic)) {
+        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0))
+    } else if ("old_ACEI" %in% colnames(med_acearb_chronic)) {
+        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI)
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0))
+    } else {
+        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ARB)
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0))
+    }
     med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
     
     # For simplicity of initial analysis, we will use the earliest date where each new medication class is
