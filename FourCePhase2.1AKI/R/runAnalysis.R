@@ -314,17 +314,21 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     med_chronic[is.na(med_chronic)] <- 0
     
     # Create subtable for ACE-i/ARB pre-exposure
-    if("old_ACEI" %in% colnames(med_chronic) && "old_ARB" %in% colnames(med_chronic)) {
+    acei_present = ("old_ACEI" %in% colnames(med_chronic))
+    arb_present = ("old_ARB" %in% colnames(med_chronic))
+    if(acei_present == TRUE && arb_present == TRUE) {
         med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
         med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0))
-    } else if ("old_ACEI" %in% colnames(med_chronic)) {
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
+    } else if (acei_present == TRUE) {
         med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI)
         med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0))
-    } else {
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
+    } else if (arb_present == TRUE) {
         med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ARB)
         med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0))
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
     }
-    med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
     
     # For simplicity of initial analysis, we will use the earliest date where each new medication class is
     # used. However, if we are to incorporate a recurrent neural network model to account for temporal changes
@@ -357,13 +361,16 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     med_coagb_new$COAGB[med_coagb_new$COAGB >= -15] <- 1
     
     # Generate simplified table for determining who were started on novel antivirals
-    med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL)
-    # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
-    #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
-    med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(COVIDVIRAL >= 0,1,0))
-    med_covid19_new_date <- med_covid19_new
-    colnames(med_covid19_new_date)[2] <- "covid_rx_start"
-    med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
+    covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
+    if(covid19antiviral_present == TRUE){
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL)
+        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
+        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
+        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(COVIDVIRAL >= 0,1,0))
+        med_covid19_new_date <- med_covid19_new
+        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
+        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
+    }
     
     
     ## ==================================================================================
@@ -500,9 +507,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     adm_to_aki_cr <- adm_to_aki_cr[order(adm_to_aki_cr$patient_id,adm_to_aki_cr$days_since_admission),]
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     adm_to_aki_summ <- adm_to_aki_cr %>% dplyr::group_by(severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n()),n=n()) %>% dplyr::ungroup()
-    adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
-    adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
+        adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
     if(is_obfuscated==TRUE) {
         adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
@@ -521,8 +528,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_start,-10,10)) %>% dplyr::ungroup()
     aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
     aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+    aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     aki_10d_cr_summ <- aki_10d_cr %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n()),n=n()) %>% dplyr::ungroup()
-    aki_10d_cr_summ <- aki_10d_cr_summ %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     aki_10d_cr_summ <- merge(aki_10d_cr_summ,severe_label,by="severe",all.x=TRUE)
     if(is_obfuscated==TRUE) {
         aki_10d_cr_summ <- aki_10d_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
@@ -535,44 +542,46 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # ================================================================================================================================
     # Figure 1(b) Comparing serum creatinine trends of severe and non-severe patients, with or without remdesivir/lopinavir+ritonavir
     # ================================================================================================================================
-    # Plotting from peak
-    peak_trend_covidviral <- peak_trend %>% dplyr::select(patient_id,covidrx_grp,time_from_peak,ratio)
-    peak_cr_covidviral_summ <- peak_trend_covidviral %>% dplyr::group_by(covidrx_grp,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n())) %>% dplyr::ungroup()
-    if(is_obfuscated==TRUE) {
-        peak_cr_covidviral_summ  <- peak_cr_covidviral_summ  %>% dplyr::group_by(covidrx_grp) %>% dplyr::filter(n >= obfuscation_value)
+    if(covid19antiviral_present == TRUE) {
+        # Plotting from peak
+        peak_trend_covidviral <- peak_trend %>% dplyr::select(patient_id,covidrx_grp,time_from_peak,ratio)
+        peak_cr_covidviral_summ <- peak_trend_covidviral %>% dplyr::group_by(covidrx_grp,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n())) %>% dplyr::ungroup()
+        if(is_obfuscated==TRUE) {
+            peak_cr_covidviral_summ  <- peak_cr_covidviral_summ  %>% dplyr::group_by(covidrx_grp) %>% dplyr::filter(n >= obfuscation_value)
+        }
+        write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.csv")),row.names=FALSE)
+        peak_cr_covidviral_timeplot <- ggplot2::ggplot(peak_cr_covidviral_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=covidrx_grp))+ggplot2::geom_line(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_point(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity + COVID-19 Treatment")
+        print(peak_cr_covidviral_timeplot)
+        ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.png")),plot=peak_cr_covidviral_timeplot)
+        
+        # Plotting from initiation of novel anti-virals
+        cr_from_covidrx_trend <- merge(peak_trend,med_covid19_new_date,by="patient_id",all.x=TRUE)
+        # dplyr::filter out patients who have never received any of the novel antivirals
+        cr_from_covidrx_trend$covid_rx_start[is.na(cr_from_covidrx_trend$covid_rx_start)] <- -999
+        cr_from_covidrx_trend$covid_rx[is.na(cr_from_covidrx_trend$covid_rx)] <- 0
+        cr_from_covidrx_trend <- cr_from_covidrx_trend[cr_from_covidrx_trend$covid_rx == 1,]
+        
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,covid_rx_start,peak_cr_time,value,min_cr_90d,min_cr_7day_retro)
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(severe <= 2,0,1)) %>% dplyr::mutate(covidrx_grp = ifelse((covidrx_grp == 2 || covidrx_grp == 4),1,0)) %>% dplyr::ungroup()
+        # Calculate the day from initiation of novel anti-virals
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_covidrx = days_since_admission - ifelse(covidrx_grp == 1,covid_rx_start,0)) %>% dplyr::ungroup()
+        # dplyr::filter this table for Cr values that fall within the 7 day window
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_covidrx,0,7)) %>% dplyr::ungroup()
+        # Normalise to baseline values used for AKI calculation
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+        cr_from_covidrx_trend_severe <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,time_from_covidrx,ratio)
+        # Headers: patient_id  severe (coded as 0/1)  time_from_covidrx  ratio
+        cr_from_covidrx_summ <- cr_from_covidrx_trend_severe %>% dplyr::group_by(severe,time_from_covidrx) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n())) %>% dplyr::ungroup()
+        if(is_obfuscated==TRUE) {
+            cr_from_covidrx_summ  <- cr_from_covidrx_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
+        }
+        
+        write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.csv")),row.names=FALSE)
+        cr_from_covidrx_timeplot <- ggplot2::ggplot(cr_from_covidrx_summ,ggplot2::aes(x=time_from_covidrx,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from COVIDVIRAL Start",y = "Serum Cr/Baseline Cr", color = "Severity")
+        print(cr_from_covidrx_timeplot)
+        ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.png")),plot=cr_from_covidrx_timeplot)
     }
-    write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.csv")),row.names=FALSE)
-    peak_cr_covidviral_timeplot <- ggplot2::ggplot(peak_cr_covidviral_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=covidrx_grp))+ggplot2::geom_line(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_point(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity + COVID-19 Treatment")
-    print(peak_cr_covidviral_timeplot)
-    ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.png")),plot=peak_cr_covidviral_timeplot)
-    
-    # Plotting from initiation of novel anti-virals
-    cr_from_covidrx_trend <- merge(peak_trend,med_covid19_new_date,by="patient_id",all.x=TRUE)
-    # dplyr::filter out patients who have never received any of the novel antivirals
-    cr_from_covidrx_trend$covid_rx_start[is.na(cr_from_covidrx_trend$covid_rx_start)] <- -999
-    cr_from_covidrx_trend$covid_rx[is.na(cr_from_covidrx_trend$covid_rx)] <- 0
-    cr_from_covidrx_trend <- cr_from_covidrx_trend[cr_from_covidrx_trend$covid_rx == 1,]
-    
-    cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,covid_rx_start,peak_cr_time,value,min_cr_90d,min_cr_7day_retro)
-    cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(severe <= 2,0,1)) %>% dplyr::mutate(covidrx_grp = ifelse((covidrx_grp == 2 || covidrx_grp == 4),1,0)) %>% dplyr::ungroup()
-    # Calculate the day from initiation of novel anti-virals
-    cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_covidrx = days_since_admission - ifelse(covidrx_grp == 1,covid_rx_start,0)) %>% dplyr::ungroup()
-    # dplyr::filter this table for Cr values that fall within the 7 day window
-    cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_covidrx,0,7)) %>% dplyr::ungroup()
-    # Normalise to baseline values used for AKI calculation
-    cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
-    cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
-    cr_from_covidrx_trend_severe <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,time_from_covidrx,ratio)
-    # Headers: patient_id  severe (coded as 0/1)  time_from_covidrx  ratio
-    cr_from_covidrx_summ <- cr_from_covidrx_trend_severe %>% dplyr::group_by(severe,time_from_covidrx) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n())) %>% dplyr::ungroup()
-    if(is_obfuscated==TRUE) {
-        cr_from_covidrx_summ  <- cr_from_covidrx_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
-    }
-    
-    write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.csv")),row.names=FALSE)
-    cr_from_covidrx_timeplot <- ggplot2::ggplot(cr_from_covidrx_summ,ggplot2::aes(x=time_from_covidrx,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from COVIDVIRAL Start",y = "Serum Cr/Baseline Cr", color = "Severity")
-    print(cr_from_covidrx_timeplot)
-    ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.png")),plot=cr_from_covidrx_timeplot)
     
     ## ====================================
     ## PART 4: Time To Event Analysis
