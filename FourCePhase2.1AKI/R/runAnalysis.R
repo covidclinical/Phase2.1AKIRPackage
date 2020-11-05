@@ -394,7 +394,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # Feel free to modify the code to look at other types of AKI episodes, e.g. you can dplyr::filter for the most severe AKI episode
     # First, dplyr::filter the labs_aki_severe table to show only the index AKI episodes
     aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
-    # patient_id	site_id	days_since_admission	value	day_min	day_min_retro	min_cr_90d	min_cr_48h	min_cr_7day_retro	min_cr_48h_retro	min_cr_7d_final	cr_7d	cr_90d	delta_cr	aki_kdigo	aki_kdigo_retro	aki_kdigo_final	akd_7d	akd_90d	severe  time_to_severe	severe_to_aki	severe_before_aki
+    # patient_id	site_id	days_since_admission	value	day_min	day_min_retro	min_cr_90d	min_cr_48h	min_cr_retro_7day	min_cr_48h_retro	min_cr_7d_final	cr_7d	cr_90d	delta_cr	aki_kdigo	aki_kdigo_retro	aki_kdigo_final	akd_7d	akd_90d	severe  time_to_severe	severe_to_aki	severe_before_aki
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
     # severe - 2 = never severe, 4 = severe, AKI before severity onset, 5 = severe, AKI after severity onset
@@ -421,40 +421,50 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     no_aki_index$severe_to_aki <- -999
     
     aki_index <- dplyr::bind_rows(aki_only_index,no_aki_index)
-    
-    aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
-    aki_index$covid_rx[is.na(aki_index$covid_rx)] <- 0
-    aki_index <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidrx_grp = ifelse(severe <= 2, ifelse(covid_rx == 0,1,2),ifelse(covid_rx == 0,3,4))) %>% dplyr::ungroup()
-    aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki,covidrx_grp)
+    if(covid19antiviral_present == TRUE) {
+        aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
+        aki_index$covid_rx[is.na(aki_index$covid_rx)] <- 0
+        aki_index <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidrx_grp = ifelse(severe <= 2, ifelse(covid_rx == 0,1,2),ifelse(covid_rx == 0,3,4))) %>% dplyr::ungroup()
+        aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki,covidrx_grp)
+    } else {
+        aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki)
+    }
     # Headers of aki_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki  covidrx_grp
     
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
     # aki_index <- aki_index[!(aki_index$patient_id %in% patients_already_rrt),]
     
     # Create a common labs_cr_all table containing the serum Cr values, the severity groupings and anti-viral groupings
-    labs_cr_aki_tmp <- labs_cr_aki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_90d,min_cr_7day_retro)
-    labs_cr_nonaki_tmp <- labs_cr_nonaki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_90d,min_cr_7day_retro)
+    labs_cr_aki_tmp <- labs_cr_aki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_90d,min_cr_retro_7day)
+    labs_cr_nonaki_tmp <- labs_cr_nonaki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_90d,min_cr_retro_7day)
     labs_cr_all <- dplyr::bind_rows(labs_cr_aki_tmp,labs_cr_nonaki_tmp)
     labs_cr_all <- merge(labs_cr_all,aki_index,by="patient_id",all.x=TRUE)
     
     # Now, generate a table containing lab values with timepoints calculated from time of peak cr
     peak_trend <- labs_cr_all
-    peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_7day_retro)
-    # patient_id  severe  covidrx_grp  days_since_admission  peak_cr_time  value min_cr_90d min_cr_7day_retro
+    if(covid19antiviral_present == TRUE) {
+        peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day)
+    } else {
+        peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day)
+    }
+    # patient_id  severe  covidrx_grp  days_since_admission  peak_cr_time  value min_cr_90d min_cr_retro_7day
     
     # Calculate the day from peak Cr
     peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_peak = days_since_admission - peak_cr_time) %>% dplyr::ungroup()
     ## dplyr::filter this table for Cr values that fall within the 7 day window
     # peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_peak,0,7)) %>% dplyr::ungroup()
     # Normalise to baseline values used for AKI calculation
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
     
     # In the event longitudinal data becomes very long, we will create a column where the very first baseline Cr for the index AKI is generated for each patient
     first_baseline <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak == 0) %>% dplyr::select(patient_id,baseline_cr) %>% dplyr::distinct()
     colnames(first_baseline)[2] <- "first_baseline_cr"
     peak_trend <- merge(peak_trend,first_baseline,by="patient_id",all.x=TRUE)
-    peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_7day_retro,time_from_peak,baseline_cr,first_baseline_cr)
-    
+    if(covid19antiviral_present == TRUE) {
+        peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
+    } else {
+        peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
+    }
     peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% dplyr::ungroup()
     #peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     
@@ -476,9 +486,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::group_by(aki,time_from_peak) %>% dplyr::filter(n >= obfuscation_value)
     }
     write.csv(peak_aki_vs_non_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromPeak_AKI_vs_NonAKI.csv")),row.names=FALSE)
-    peak_aki_vs_non_aki_timeplot <- ggplot2::ggplot(peak_aki_vs_non_aki_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=aki))+ggplot2::geom_line(ggplot2::aes(color = factor(aki))) + ggplot2::geom_point(ggplot2::aes(color = factor(aki))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "AKI Group")
+    peak_aki_vs_non_aki_timeplot <- ggplot2::ggplot(peak_aki_vs_non_aki_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=aki))+ggplot2::geom_line(ggplot2::aes(color = factor(aki))) + ggplot2::geom_point(ggplot2::aes(color = factor(aki))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "AKI Group") + ggplot2::xlim(-30,30)
     print(peak_aki_vs_non_aki_timeplot)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI.png")),plot=peak_aki_vs_non_aki_timeplot)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI.png")),plot=peak_aki_vs_non_aki_timeplot,width=12,height=9,units="cm")
     
 
     # Now, derive our first table peak_trend_severe to compare across the different severity groups
@@ -496,48 +506,47 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     }
     write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromPeak_Severe_AKI.csv")),row.names=FALSE)
     # Plot the graphs
-    peak_cr_timeplot <- ggplot2::ggplot(peak_cr_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity")
+    peak_cr_timeplot <- ggplot2::ggplot(peak_cr_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30)
     print(peak_cr_timeplot)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_Severe_AKI.png")),plot=peak_cr_timeplot)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_Severe_AKI.png")),plot=peak_cr_timeplot,width=12,height=9,units="cm")
     
-    # Plot from start of admission to 10 days post-peak AKI (if no AKI, then from peak Cr)
+    # Plot from start of admission to 30 days post-peak AKI (if no AKI, then from peak Cr)
     adm_to_aki_cr <- labs_cr_all
     #adm_to_aki_cr$peak_cr_time[is.na(adm_to_aki_cr$peak_cr_time)] <- 0
-    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(days_since_admission,0,peak_cr_time+10)) %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(days_since_admission,0,peak_cr_time+30)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr[order(adm_to_aki_cr$patient_id,adm_to_aki_cr$days_since_admission),]
-    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     adm_to_aki_summ <- adm_to_aki_cr %>% dplyr::group_by(severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n()),n=n()) %>% dplyr::ungroup()
-        adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
+    adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
     if(is_obfuscated==TRUE) {
         adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
     write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.csv")),row.names=FALSE)
-    adm_to_aki_timeplot <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 10),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity")
+    adm_to_aki_timeplot <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity")
     print(adm_to_aki_timeplot)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.png")),plot=adm_to_aki_timeplot)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.png")),plot=adm_to_aki_timeplot,width=12,height=9,units="cm")
     
-    # Plot from start of AKI to 10 days later 
+    # Plot from start of AKI to 30 days later 
     
-    aki_10d_cr <- labs_cr_all
+    aki_30d_cr <- labs_cr_all
     # Uncomment the following line to restrict analysis to AKI patients only
-    #aki_10d_cr <- aki_10d_cr[aki_10d_cr$severe %in% c(2,4,5),]
-    aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_start = days_since_admission - aki_start) %>% dplyr::ungroup()
-    aki_10d_cr <- aki_10d_cr[order(aki_10d_cr$patient_id,aki_10d_cr$days_since_admission),]
-    aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_start,-10,10)) %>% dplyr::ungroup()
-    aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
-    aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
-    aki_10d_cr <- aki_10d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
-    aki_10d_cr_summ <- aki_10d_cr %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n()),n=n()) %>% dplyr::ungroup()
-    aki_10d_cr_summ <- merge(aki_10d_cr_summ,severe_label,by="severe",all.x=TRUE)
+    #aki_30d_cr <- aki_30d_cr[aki_30d_cr$severe %in% c(2,4,5),]
+    aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_start = days_since_admission - aki_start) %>% dplyr::ungroup()
+    aki_30d_cr <- aki_30d_cr[order(aki_30d_cr$patient_id,aki_30d_cr$days_since_admission),]
+    aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
+    aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+    aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
+    aki_30d_cr_summ <- aki_30d_cr %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(n()),n=n()) %>% dplyr::ungroup()
+    aki_30d_cr_summ <- merge(aki_30d_cr_summ,severe_label,by="severe",all.x=TRUE)
     if(is_obfuscated==TRUE) {
-        aki_10d_cr_summ <- aki_10d_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
+        aki_30d_cr_summ <- aki_30d_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
-    write.csv(aki_10d_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.csv")),row.names=FALSE)
-    aki_10d_cr_timeplot <- ggplot2::ggplot(aki_10d_cr_summ,ggplot2::aes(x=time_from_start,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI start",y = "Serum Cr/Baseline Cr", color = "Severity")
-    print(aki_10d_cr_timeplot)
-    ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.png")),plot=aki_10d_cr_timeplot)
+    write.csv(aki_30d_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.csv")),row.names=FALSE)
+    aki_30d_cr_timeplot <- ggplot2::ggplot(aki_30d_cr_summ,ggplot2::aes(x=time_from_start,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30)
+    print(aki_30d_cr_timeplot)
+    ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.png")),plot=aki_30d_cr_timeplot,width=12,height=9,units="cm")
     
     # ================================================================================================================================
     # Figure 1(b) Comparing serum creatinine trends of severe and non-severe patients, with or without remdesivir/lopinavir+ritonavir
@@ -550,9 +559,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
             peak_cr_covidviral_summ  <- peak_cr_covidviral_summ  %>% dplyr::group_by(covidrx_grp) %>% dplyr::filter(n >= obfuscation_value)
         }
         write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.csv")),row.names=FALSE)
-        peak_cr_covidviral_timeplot <- ggplot2::ggplot(peak_cr_covidviral_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=covidrx_grp))+ggplot2::geom_line(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_point(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity + COVID-19 Treatment")
+        peak_cr_covidviral_timeplot <- ggplot2::ggplot(peak_cr_covidviral_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=covidrx_grp))+ggplot2::geom_line(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_point(ggplot2::aes(color = factor(covidrx_grp))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity + COVID-19 Treatment") + ggplot2::xlim(-30,30)
         print(peak_cr_covidviral_timeplot)
-        ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.png")),plot=peak_cr_covidviral_timeplot)
+        ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.png")),plot=peak_cr_covidviral_timeplot,width=12,height=9,units="cm")
         
         # Plotting from initiation of novel anti-virals
         cr_from_covidrx_trend <- merge(peak_trend,med_covid19_new_date,by="patient_id",all.x=TRUE)
@@ -561,14 +570,14 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         cr_from_covidrx_trend$covid_rx[is.na(cr_from_covidrx_trend$covid_rx)] <- 0
         cr_from_covidrx_trend <- cr_from_covidrx_trend[cr_from_covidrx_trend$covid_rx == 1,]
         
-        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,covid_rx_start,peak_cr_time,value,min_cr_90d,min_cr_7day_retro)
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,covid_rx_start,peak_cr_time,value,min_cr_90d,min_cr_retro_7day)
         cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(severe <= 2,0,1)) %>% dplyr::mutate(covidrx_grp = ifelse((covidrx_grp == 2 || covidrx_grp == 4),1,0)) %>% dplyr::ungroup()
         # Calculate the day from initiation of novel anti-virals
         cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_covidrx = days_since_admission - ifelse(covidrx_grp == 1,covid_rx_start,0)) %>% dplyr::ungroup()
-        # dplyr::filter this table for Cr values that fall within the 7 day window
-        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_covidrx,0,7)) %>% dplyr::ungroup()
+        # Filter this table for Cr values that fall within the 7 day window
+        # cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_covidrx,0,30)) %>% dplyr::ungroup()
         # Normalise to baseline values used for AKI calculation
-        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_7day_retro)) %>% dplyr::ungroup()
+        cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
         cr_from_covidrx_trend <- cr_from_covidrx_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
         cr_from_covidrx_trend_severe <- cr_from_covidrx_trend %>% dplyr::select(patient_id,severe,time_from_covidrx,ratio)
         # Headers: patient_id  severe (coded as 0/1)  time_from_covidrx  ratio
@@ -578,9 +587,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         }
         
         write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.csv")),row.names=FALSE)
-        cr_from_covidrx_timeplot <- ggplot2::ggplot(cr_from_covidrx_summ,ggplot2::aes(x=time_from_covidrx,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from COVIDVIRAL Start",y = "Serum Cr/Baseline Cr", color = "Severity")
+        cr_from_covidrx_timeplot <- ggplot2::ggplot(cr_from_covidrx_summ,ggplot2::aes(x=time_from_covidrx,y=mean_ratio,group=severe))+ggplot2::geom_line(ggplot2::aes(color = factor(severe))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from COVIDVIRAL Start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30)
         print(cr_from_covidrx_timeplot)
-        ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.png")),plot=cr_from_covidrx_timeplot)
+        ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.png")),plot=cr_from_covidrx_timeplot,width=12,height=9,units="cm")
     }
     
     ## ====================================
@@ -606,52 +615,52 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     comorbid_list <- colnames(comorbid)[-1]
     aki_index_recovery <- merge(aki_index_recovery,comorbid,by="patient_id",all.x=TRUE)
     
-    surv_recover <- survival::Surv(time=time_to_ratio1.25,event=recover_1.25x)
+    surv_recover <- survival::Surv(time=aki_index_recovery$time_to_ratio1.25,event=aki_index_recovery$recover_1.25x)
     fit_km_recover <- survival::survfit(surv_recover ~ severe, data=aki_index_recovery)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = theme_bw(),fun="event")
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
     plot_recover_summ_table <- plot_recover$data.survtable
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_recover_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Table.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=9,height=12,units="cm")
     coxph_recover <- survival::coxph(as.formula(paste("surv_recover ~ ",paste(severe,aki_kdigo_final,comorbid_list,collapse="+"))), data=aki_index_recovery)
     coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
     coxph_recover_summ <- summary(coxph_recover) 
     write.csv(coxph_recover_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.png")),plot=coxph_recover_plot)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.png")),plot=coxph_recover_plot,width=10,height=5,units="cm")
     
-    surv_death_aki_only<- survival::Surv(time=time_to_death_km,event=deceased)
+    surv_death_aki_only<- survival::Surv(time=aki_index_recovery$time_to_death_km,event=aki_index_recovery$deceased)
     fit_death_aki_only <- survival::survfit(surv_death_aki_only ~ severe, data=aki_index_recovery)
     plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = theme_bw())
     plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
     plot_death_aki_only_summ_table <- plot_death_aki_only$data.survtable
     write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=9,height=12,units="cm")
     coxph_death_aki_only <- survival::coxph(as.formula(paste("surv_death_aki_only ~ ",paste(severe,aki_kdigo_final,comorbid_list,collapse="+"))), data=aki_index_recovery)
     coxph_death_aki_only_plot <- survminer::ggforest(coxph_death_aki_only,data=aki_index_recovery)
     coxph_death_aki_only_summ <- summary(coxph_death_aki_only) 
     write.csv(coxph_death_aki_only_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.png")),plot=coxph_death_aki_only_plot)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.png")),plot=coxph_death_aki_only_plot,width=10,height=5,units="cm")
     
     aki_index_death <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(is_aki=ifelse(severe %in% c(3,4,5),1,0)) %>% dplyr::mutate(severe=ifelse(severe %in% c(2,4,5),1,0))
     aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE)
     aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
     aki_index_death <- merge(aki_index_death,comorbid,by="patient_id",all.x=TRUE)
     
-    surv_death <- survival::Surv(time=time_to_death_km,event=deceased)
+    surv_death <- survival::Surv(time=aki_index_death$time_to_death_km,event=aki_index_death$deceased)
     fit_death <- survival::survfit(surv_death ~ severe, data=aki_index_death)
     plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = theme_bw())
     plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
     plot_death_summ_table <- plot_death$data.survtable
     write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_death_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe_Table.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe.png")),plot=plot_death)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe.png")),plot=plot_death,width=9,height=12,units="cm")
     coxph_death <- survival::coxph(as.formula(paste("surv_death ~ ",paste(severe,is_aki,comorbid_list,collapse="+"))), data=aki_index_death)
     coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
     coxph_death_summ <- summary(coxph_death) 
     write.csv(coxph_death_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.png")),plot=coxph_death_plot)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.png")),plot=coxph_death_plot,width=10,height=5,units="cm")
     
 }
 
