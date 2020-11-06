@@ -27,12 +27,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     
     demographics <- read.csv("Input/LocalPatientSummary.csv")
     observations <- read.csv("Input/LocalPatientObservations.csv")
-    data(FourCePhase2.1AKI::thromb_ref)
-    data(FourCePhase2.1AKI::comorbid_ref)
-    data(FourCePhase2.1AKI::thromb_icd9_ref)
-    data(FourCePhase2.1AKI::comorbid_icd9_ref)
-    data(FourCePhase2.1AKI::thromb_icd10_ref)
-    data(FourCePhase2.1AKI::comorbid_icd10_ref)
+    data(thromb_ref)
+    data(comorbid_ref)
+    data(thromb_icd9_ref)
+    data(comorbid_icd9_ref)
+    data(thromb_icd10_ref)
+    data(comorbid_icd10_ref)
     
     # first generate a unique ID for each patient
     demographics <- demographics %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
