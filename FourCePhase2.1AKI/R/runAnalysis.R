@@ -650,12 +650,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     plot_recover_summ_table <- plot_recover$data.survtable
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_recover_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Table.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=9,height=12,units="cm")
-    coxph_recover <- survival::coxph(as.formula(paste("surv_recover ~ ",paste(severe,aki_kdigo_final,comorbid_list,collapse="+"))), data=aki_index_recovery)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover),width=9,height=12,units="cm")
+    coxph_recover <- survival::coxph(as.formula(paste("surv_recover ~ ",paste(c("severe","aki_kdigo_final"),comorbid_list,collapse="+"))), data=aki_index_recovery)
     coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
     coxph_recover_summ <- summary(coxph_recover) 
     write.csv(coxph_recover_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.png")),plot=coxph_recover_plot,width=10,height=5,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.png")),plot=print(coxph_recover_plot),width=10,height=5,units="cm")
     
     surv_death_aki_only<- survival::Surv(time=aki_index_recovery$time_to_death_km,event=aki_index_recovery$deceased)
     fit_death_aki_only <- survival::survfit(surv_death_aki_only ~ severe, data=aki_index_recovery)
@@ -664,12 +664,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     plot_death_aki_only_summ_table <- plot_death_aki_only$data.survtable
     write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=9,height=12,units="cm")
-    coxph_death_aki_only <- survival::coxph(as.formula(paste("surv_death_aki_only ~ ",paste(severe,aki_kdigo_final,comorbid_list,collapse="+"))), data=aki_index_recovery)
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=9,height=12,units="cm")
+    coxph_death_aki_only <- survival::coxph(as.formula(paste("surv_death_aki_only ~ ",paste(c("severe","aki_kdigo_final"),comorbid_list,collapse="+"))), data=aki_index_recovery)
     coxph_death_aki_only_plot <- survminer::ggforest(coxph_death_aki_only,data=aki_index_recovery)
     coxph_death_aki_only_summ <- summary(coxph_death_aki_only) 
     write.csv(coxph_death_aki_only_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.png")),plot=coxph_death_aki_only_plot,width=10,height=5,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.png")),plot=print(coxph_death_aki_only_plot),width=10,height=5,units="cm")
     
     aki_index_death <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(is_aki=ifelse(severe %in% c(3,4,5),1,0)) %>% dplyr::mutate(severe=ifelse(severe %in% c(2,4,5),1,0))
     aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE)
@@ -683,12 +683,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     plot_death_summ_table <- plot_death$data.survtable
     write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_death_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe_Table.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe.png")),plot=plot_death,width=9,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe.png")),plot=print(plot_death),width=9,height=12,units="cm")
     coxph_death <- survival::coxph(as.formula(paste("surv_death ~ ",paste(severe,is_aki,comorbid_list,collapse="+"))), data=aki_index_death)
     coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
     coxph_death_summ <- summary(coxph_death) 
     write.csv(coxph_death_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.png")),plot=coxph_death_plot,width=10,height=5,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.png")),plot=print(coxph_death_plot),width=10,height=5,units="cm")
     
 }
 
