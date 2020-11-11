@@ -53,8 +53,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     procedures <- observations[observations$concept_type %in% c("PROC-ICD9", "PROC-ICD10"),-6]
     colnames(procedures) <- c("patient_id","siteid","days_since_admission","icd_version","procedure_code")
     
-    demographics_filt <- demographics %>% dplyr::mutate(time_to_severe = ifelse(severe == 1, as.numeric(as.Date(severe_date) - as.Date(admission_date)),-999))
-    demographics_filt <- demographics_filt %>% dplyr::mutate(time_to_death = ifelse(deceased == 1, as.numeric(as.Date(death_date) - as.Date(admission_date)),-1))
+    demographics_filt <- demographics %>% dplyr::mutate(time_to_severe = ifelse(severe == 1, as.numeric(as.Date(severe_date) - as.Date(admission_date)),NA))
+    demographics_filt <- demographics_filt %>% dplyr::mutate(time_to_death = ifelse(deceased == 1, as.numeric(as.Date(death_date) - as.Date(admission_date)),NA))
     demographics_filt <- demographics_filt %>% dplyr::mutate(length_stay = ifelse(still_in_hospital==1,days_since_admission,as.numeric(as.Date(last_discharge_date) - as.Date(admission_date))))
     
     # Reorder the columns to be more readable
@@ -287,13 +287,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # These tables will help in segregating the populations for analysis later
     severe_time <- demographics_filt %>% dplyr::select(patient_id,severe,time_to_severe)
     labs_aki_severe <- merge(labs_aki_summ,severe_time,by="patient_id",all.x=TRUE)
-    labs_aki_severe <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = ifelse(time_to_severe != -999, time_to_severe - day_min,-999))
+    labs_aki_severe <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = ifelse(!is.na(time_to_severe), time_to_severe - day_min,NA))
     labs_aki_severe <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_before_aki = ifelse(severe_to_aki < 0,1,0))
     # Final headers for labs_aki_severe:
     # patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_90d,min_cr_48h,min_cr_retro_7day,min_cr_48h_retro,min_cr_7d_final,cr_7d,cr_90d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_7d,akd_90d  severe time_to_severe  severe_to_aki severe_before_aki
     
     labs_nonaki_severe <- merge(labs_nonaki_summ,severe_time,by="patient_id",all.x=TRUE)
-    labs_nonaki_severe$severe_to_aki <- -999 
+    labs_nonaki_severe$severe_to_aki <- NA 
     labs_nonaki_severe$severe_before_aki <- 1 
     
     ## Save the generated AKI tables for future reference / debugging (note: these will NOT be uploaded!!)
@@ -354,11 +354,11 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(med_before_aki = ifelse(offset_aki <=0,1,0))
     med_new_aki <- med_new_aki[,c(1,2,6)]
     med_new_aki <- med_new_aki %>% tidyr::spread(concept_code,med_before_aki)
-    med_new_aki[is.na(med_new_aki)] <- -999
+    #med_new_aki[is.na(med_new_aki)] <- -999
     
     # Generate another table with the start date of the new medications
     med_new <- med_new %>% tidyr::spread(concept_code,start_day)
-    med_new[is.na(med_new)] <- -999
+    #med_new[is.na(med_new)] <- -999
     
     # Generate simplified table for determining who were started on COAGB near admission
     med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB)
@@ -426,7 +426,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
     # severe - 2 = never severe, 4 = severe, AKI before severity onset, 5 = severe, AKI after severity onset
-    aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(time_to_severe != -999,ifelse(severe_before_aki == 1,5,4),2)) %>% dplyr::ungroup()
+    aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(!is.na(time_to_severe),ifelse(severe_before_aki == 1,5,4),2)) %>% dplyr::ungroup()
     aki_only_index <- aki_only_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     colnames(aki_only_index)[2] <- "peak_cr_time"
     colnames(aki_only_index)[4] <- "aki_start"
@@ -446,7 +446,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(severe == 1,3,1))
     colnames(no_aki_index)[2] <- "peak_cr_time"
     colnames(no_aki_index)[4] <- "aki_start"
-    no_aki_index$severe_to_aki <- -999
+    #no_aki_index$severe_to_aki <- -999
     
     aki_index <- dplyr::bind_rows(aki_only_index,no_aki_index)
     if(covid19antiviral_present == TRUE) {
@@ -594,7 +594,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         # Plotting from initiation of novel anti-virals
         cr_from_covidrx_trend <- merge(peak_trend,med_covid19_new_date,by="patient_id",all.x=TRUE)
         # dplyr::filter out patients who have never received any of the novel antivirals
-        cr_from_covidrx_trend$covid_rx_start[is.na(cr_from_covidrx_trend$covid_rx_start)] <- -999
+        #cr_from_covidrx_trend$covid_rx_start[is.na(cr_from_covidrx_trend$covid_rx_start)] <- -999
         cr_from_covidrx_trend$covid_rx[is.na(cr_from_covidrx_trend$covid_rx)] <- 0
         cr_from_covidrx_trend <- cr_from_covidrx_trend[cr_from_covidrx_trend$covid_rx == 1,]
         
@@ -651,7 +651,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_recover_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Table.csv")),row.names=FALSE)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover),width=9,height=12,units="cm")
-    coxph_recover <- survival::coxph(as.formula(paste("surv_recover ~ ",paste(c("severe","aki_kdigo_final"),comorbid_list,collapse="+"))), data=aki_index_recovery)
+    coxph_recover <- survival::coxph(as.formula(paste("surv_recover ~ ",paste(c("severe","aki_kdigo_final",comorbid_list),collapse="+"))), data=aki_index_recovery)
     coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
     coxph_recover_summ <- summary(coxph_recover) 
     write.csv(coxph_recover_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH.csv")),row.names=FALSE)
@@ -665,7 +665,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=9,height=12,units="cm")
-    coxph_death_aki_only <- survival::coxph(as.formula(paste("surv_death_aki_only ~ ",paste(c("severe","aki_kdigo_final"),comorbid_list,collapse="+"))), data=aki_index_recovery)
+    coxph_death_aki_only <- survival::coxph(as.formula(paste("surv_death_aki_only ~ ",paste(c("severe","aki_kdigo_final",comorbid_list),collapse="+"))), data=aki_index_recovery)
     coxph_death_aki_only_plot <- survminer::ggforest(coxph_death_aki_only,data=aki_index_recovery)
     coxph_death_aki_only_summ <- summary(coxph_death_aki_only) 
     write.csv(coxph_death_aki_only_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.csv")),row.names=FALSE)
@@ -684,7 +684,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe_Plot.csv")),row.names=FALSE)
     write.csv(plot_death_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe_Table.csv")),row.names=FALSE)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_Severe.png")),plot=print(plot_death),width=9,height=12,units="cm")
-    coxph_death <- survival::coxph(as.formula(paste("surv_death ~ ",paste(severe,is_aki,comorbid_list,collapse="+"))), data=aki_index_death)
+    coxph_death <- survival::coxph(as.formula(paste("surv_death ~ ",paste(c("severe","is_aki",comorbid_list),collapse="+"))), data=aki_index_death)
     coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
     coxph_death_summ <- summary(coxph_death) 
     write.csv(coxph_death_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.csv")),row.names=FALSE)
