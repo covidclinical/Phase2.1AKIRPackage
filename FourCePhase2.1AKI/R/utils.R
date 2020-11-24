@@ -9,13 +9,13 @@ aki_kdigo_grade <- function(x) {
   grade = 0
   diff = creat - baseline_48h
   ratio = round(creat/baseline_90d,2)
-  if(diff > 26.5 || ratio >= 1.5) {
+  if(diff > 0.3 || ratio >= 1.5) {
     grade = 1
   }
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 353.7 || ratio >= 3) {
+  if(diff > 4 || ratio >= 3) {
     grade = 3
   }
   grade
@@ -34,13 +34,13 @@ aki_kdigo_grade_retro <- function(x) {
   grade = 0
   diff = creat - baseline_48h
   ratio = round(creat/baseline_7d,2)
-  if(diff > 26.5 || ratio >= 1.5) {
+  if(diff > 0.3 || ratio >= 1.5) {
     grade = 1
   }
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 353.7 || ratio >= 3) {
+  if(diff > 4 || ratio >= 3) {
     grade = 3
   }
   grade
@@ -71,7 +71,7 @@ akd_grade_7d <- function(x) {
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 353.7 || ratio >= 3) {
+  if(diff > 4 || ratio >= 3) {
     grade = 3
   }
   grade
@@ -102,7 +102,7 @@ akd_grade_90d <- function(x) {
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 353.7 || ratio >= 3) {
+  if(diff > 4 || ratio >= 3) {
     grade = 3
   }
   grade
