@@ -626,11 +626,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     colnames(time_to_ratio1.25)[2] <- "time_to_ratio1.25"
     
     labs_aki_summ_index <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission))
+    #Get index AKI grade
     index_aki_grade <- labs_aki_summ_index %>% dplyr::select(patient_id,aki_kdigo_final)
+    # Filter for AKI cases only
     aki_index_recovery <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::filter(severe %in% c(2,4,5)) %>% dplyr::mutate(severe=ifelse(severe==2,0,1))
     aki_index_recovery <- merge(aki_index_recovery,time_to_ratio1.25,by="patient_id",all.x=TRUE)
     aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(recover_1.25x = ifelse(is.na(time_to_ratio1.25),0,1))
-    
+    # Get death times/censor times
     discharge_day <- demographics %>% dplyr::select(patient_id,admission_date,last_discharge_date,deceased) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = as.numeric(as.Date(last_discharge_date)-as.Date(admission_date))) %>% dplyr::select(patient_id,deceased,time_to_death_km)
     aki_index_recovery <- merge(aki_index_recovery,discharge_day,by="patient_id",all.x=TRUE)
     aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_ratio1.25 = dplyr::if_else(recover_1.25x == 0,time_to_death_km,time_to_ratio1.25))
