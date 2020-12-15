@@ -392,17 +392,21 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     demog_summ$severe <- factor(demog_summ$severe,levels=c(0,1),labels=c("Non-severe","Severe"))
     demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
     demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
-    label(demog_summ$sex) <- "Sex"
-    label(demog_summ$age_group) <- "Age Group"
-    label(demog_summ$race) <- "Race"
-    label(demog_summ$severe) <- "Severity"
-    label(demog_summ$deceased) <- "Survival"
-    label(demog_summ$time_to_severe) <- "Time to Severity Onset"
-    label(demog_summ$time_to_death) <- "Time to Death"
-    units(demog_summ$time_to_severe) <- "days"
-    units(demog_summ$time_to_death) <- "days"
-    
-    demog_table <- table1::table1(~ sex + age_group + race + severe + deceased + time_to_severe + time_to_death | aki,data=demog_summ,overall="Total",render.continuous=FourCePhase2.1AKI:::my.render.cont,render.categorical=FourCePhase2.1AKI:::my.render.cat,export=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_Demographics_Summary.csv")))
+    # table1::label(demog_summ$sex) <- "Sex"
+    # table1::label(demog_summ$age_group) <- "Age Group"
+    # table1::label(demog_summ$race) <- "Race"
+    # table1::label(demog_summ$severe) <- "Severity"
+    # table1::label(demog_summ$deceased) <- "Survival"
+    # table1::label(demog_summ$time_to_severe) <- "Time to Severity Onset"
+    # table1::label(demog_summ$time_to_death) <- "Time to Death"
+    # table1::units(demog_summ$time_to_severe) <- "days"
+    # table1::units(demog_summ$time_to_death) <- "days"
+    # 
+    # demog_table <- table1::table1(~ sex + age_group + race + severe + deceased + time_to_severe + time_to_death | aki,data=demog_summ,overall="Total",render.continuous=FourCePhase2.1AKI:::my.render.cont,render.categorical=FourCePhase2.1AKI:::my.render.cat)
+    table_one_vars <- c("sex","age_group","race","severe","deceased","time_to_severe","time_to_death",comorbid_list)
+    table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
+    export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
+    write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
     
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
