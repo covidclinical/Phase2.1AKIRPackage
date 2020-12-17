@@ -21,6 +21,29 @@ DIAG-ICD10,I7502,I7502.9,arterial_thromb,Atheroembolism of unspecified lower ext
 DIAG-ICD10,I758,I758.1,arterial_thromb,Atheroembolism of kidney
 DIAG-ICD10,I758,I758.9,arterial_thromb,Atheroembolism of other site
 DIAG-ICD10,I76,I76,arterial_thromb,Septic arterial embolism
+DIAG-ICD10,I210,I210.1,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving left main coronary artery
+DIAG-ICD10,I210,I210.2,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving left anterior descending coronary artery
+DIAG-ICD10,I210,I210.9,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving other coronary artery of anterior wall
+DIAG-ICD10,I211,I211.1,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving right coronary artery
+DIAG-ICD10,I211,I211.9,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving other coronary artery of inferior wall
+DIAG-ICD10,I212,I212.1,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving left circumflex coronary artery
+DIAG-ICD10,I212,I212.9,myocardial_infarct,ST elevation (STEMI) myocardial infarction involving other sites
+DIAG-ICD10,I213,I213,myocardial_infarct,ST elevation (STEMI) myocardial infarction of unspecified site
+DIAG-ICD10,I214,I214,myocardial_infarct,Non-ST elevation (NSTEMI) myocardial infarction
+DIAG-ICD10,I219,I219,myocardial_infarct,"Acute myocardial infarction, unspecified"
+DIAG-ICD10,I22,I22.0,myocardial_infarct,Subsequent ST elevation (STEMI) myocardial infarction of anterior wall
+DIAG-ICD10,I22,I22.1,myocardial_infarct,Subsequent ST elevation (STEMI) myocardial infarction of inferior wall
+DIAG-ICD10,I22,I22.2,myocardial_infarct,Subsequent non-ST elevation (NSTEMI) myocardial infarction
+DIAG-ICD10,I22,I22.8,myocardial_infarct,Subsequent ST elevation (STEMI) myocardial infarction of other sites
+DIAG-ICD10,I22,I22.9,myocardial_infarct,Subsequent ST elevation (STEMI) myocardial infarction of unspecified site
+DIAG-ICD10,I23,I23.0,myocardial_infarct,Hemopericardium as current complication following acute myocardial infarction
+DIAG-ICD10,I23,I23.1,myocardial_infarct,Atrial septal defect as current complication following acute myocardial infarction
+DIAG-ICD10,I23,I23.2,myocardial_infarct,Ventricular septal defect as current complication following acute myocardial infarction
+DIAG-ICD10,I23,I23.3,myocardial_infarct,Rupture of cardiac wall without hemopericardium as current complication following acute myocardial infarction
+DIAG-ICD10,I23,I23.4,myocardial_infarct,Rupture of chordae tendineae as current complication following acute myocardial infarction
+DIAG-ICD10,I23,I23.5,myocardial_infarct,Rupture of papillary muscle as current complication following acute myocardial infarction
+DIAG-ICD10,I23,I23.6,myocardial_infarct,"Thrombosis of atrium, auricular appendage, and ventricle as current complications following acute myocardial infarction"
+DIAG-ICD10,I23,I23.8,myocardial_infarct,Other current complications following acute myocardial infarction
 DIAG-ICD10,I260,I260.1,pe,Septic pulmonary embolism with acute cor pulmonale
 DIAG-ICD10,I260,I260.2,pe,Saddle embolus of pulmonary artery with acute cor pulmonale
 DIAG-ICD10,I260,I260.9,pe,Other pulmonary embolism with acute cor pulmonale
@@ -154,6 +177,36 @@ DIAG-ICD9,445,445.01,arterial_thromb,Atheroembolism of upper extremity
 DIAG-ICD9,445,445.02,arterial_thromb,Atheroembolism of lower extremity
 DIAG-ICD9,445,445.81,arterial_thromb,Atheroembolism of kidney
 DIAG-ICD9,445,445.89,arterial_thromb,Atheroembolism of other site
+DIAG-ICD9,410,410,myocardial_infarct,"Acute myocardial infarction of anterolateral wall, episode of care unspecified"
+DIAG-ICD9,410,410.01,myocardial_infarct,"Acute myocardial infarction of anterolateral wall, initial episode of care"
+DIAG-ICD9,410,410.02,myocardial_infarct,"Acute myocardial infarction of anterolateral wall, subsequent episode of care"
+DIAG-ICD9,410,410.1,myocardial_infarct,"Acute myocardial infarction of other anterior wall, episode of care unspecified"
+DIAG-ICD9,410,410.11,myocardial_infarct,"Acute myocardial infarction of other anterior wall, initial episode of care"
+DIAG-ICD9,410,410.12,myocardial_infarct,"Acute myocardial infarction of other anterior wall, subsequent episode of care"
+DIAG-ICD9,410,410.2,myocardial_infarct,"Acute myocardial infarction of inferolateral wall, episode of care unspecified"
+DIAG-ICD9,410,410.21,myocardial_infarct,"Acute myocardial infarction of inferolateral wall, initial episode of care"
+DIAG-ICD9,410,410.22,myocardial_infarct,"Acute myocardial infarction of inferolateral wall, subsequent episode of care"
+DIAG-ICD9,410,410.3,myocardial_infarct,"Acute myocardial infarction of inferoposterior wall, episode of care unspecified"
+DIAG-ICD9,410,410.31,myocardial_infarct,"Acute myocardial infarction of inferoposterior wall, initial episode of care"
+DIAG-ICD9,410,410.32,myocardial_infarct,"Acute myocardial infarction of inferoposterior wall, subsequent episode of care"
+DIAG-ICD9,410,410.4,myocardial_infarct,"Acute myocardial infarction of other inferior wall, episode of care unspecified"
+DIAG-ICD9,410,410.41,myocardial_infarct,"Acute myocardial infarction of other inferior wall, initial episode of care"
+DIAG-ICD9,410,410.42,myocardial_infarct,"Acute myocardial infarction of other inferior wall, subsequent episode of care"
+DIAG-ICD9,410,410.5,myocardial_infarct,"Acute myocardial infarction of other lateral wall, episode of care unspecified"
+DIAG-ICD9,410,410.51,myocardial_infarct,"Acute myocardial infarction of other lateral wall, initial episode of care"
+DIAG-ICD9,410,410.52,myocardial_infarct,"Acute myocardial infarction of other lateral wall, subsequent episode of care"
+DIAG-ICD9,410,410.6,myocardial_infarct,"True posterior wall infarction, episode of care unspecified"
+DIAG-ICD9,410,410.61,myocardial_infarct,"True posterior wall infarction, initial episode of care"
+DIAG-ICD9,410,410.62,myocardial_infarct,"True posterior wall infarction, subsequent episode of care"
+DIAG-ICD9,410,410.7,myocardial_infarct,"Subendocardial infarction, episode of care unspecified"
+DIAG-ICD9,410,410.71,myocardial_infarct,"Subendocardial infarction, initial episode of care"
+DIAG-ICD9,410,410.72,myocardial_infarct,"Subendocardial infarction, subsequent episode of care"
+DIAG-ICD9,410,410.8,myocardial_infarct,"Acute myocardial infarction of other specified sites, episode of care unspecified"
+DIAG-ICD9,410,410.81,myocardial_infarct,"Acute myocardial infarction of other specified sites, initial episode of care"
+DIAG-ICD9,410,410.82,myocardial_infarct,"Acute myocardial infarction of other specified sites, subsequent episode of care"
+DIAG-ICD9,410,410.9,myocardial_infarct,"Acute myocardial infarction of unspecified site, episode of care unspecified"
+DIAG-ICD9,410,410.91,myocardial_infarct,"Acute myocardial infarction of unspecified site, initial episode of care"
+DIAG-ICD9,410,410.92,myocardial_infarct,"Acute myocardial infarction of unspecified site, subsequent episode of care"
 DIAG-ICD9,415,415.11,pe,Iatrogenic pulmonary embolism and infarction
 DIAG-ICD9,415,415.12,pe,Septic pulmonary embolism
 DIAG-ICD9,415,415.13,pe,Saddle embolus of pulmonary artery
@@ -181,3 +234,7 @@ DIAG-ICD9,453,453.84,vte,Acute venous embolism and thrombosis of axillary veins
 DIAG-ICD9,453,453.85,vte,Acute venous embolism and thrombosis of subclavian veins
 DIAG-ICD9,453,453.86,vte,Acute venous embolism and thrombosis of internal jugular veins
 DIAG-ICD9,453,453.87,vte,Acute venous embolism and thrombosis of other thoracic veins
+DIAG-ICD10,D65,D65,dic,Disseminated intravascular coagulation
+DIAG-ICD10,P60,P60,dic,Disseminated intravascular coagulation of newborn
+DIAG-ICD9,286,286.6,dic,Defibrination syndrome [Disseminated intravascular coagulation]
+DIAG-ICD9,776,776.2,dic,Disseminated intravascular coagulation of newborn
