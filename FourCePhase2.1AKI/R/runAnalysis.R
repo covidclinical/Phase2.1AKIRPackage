@@ -84,6 +84,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     comorbid <- comorbid %>% tidyr::spread(comorbid_type,present)
     comorbid[is.na(comorbid)] <- 0
     
+    comorbid_list <- colnames(comorbid)[-1]
     # 
     # # Filter prothrombotic events from all diagnoses
     # thromb_icd9 <- diag_icd9[diag_icd9$icd_code %in% thromb_icd9_ref$icd_code,]
@@ -392,6 +393,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     demog_summ$severe <- factor(demog_summ$severe,levels=c(0,1),labels=c("Non-severe","Severe"))
     demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
     demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
+    demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
     # table1::label(demog_summ$sex) <- "Sex"
     # table1::label(demog_summ$age_group) <- "Age Group"
     # table1::label(demog_summ$race) <- "Race"
@@ -407,7 +409,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
     export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
     write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
-    capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.csv")))
+    capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
     ## ==================================================================================
@@ -465,7 +467,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki)
     }
     # Headers of aki_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki  covidrx_grp
-    
+    aki_index <- aki_index %>% arrange(patient_id,peak_cr_time,desc(severe))%>% distinct(patient_id,peak_cr_time,.keep_all = TRUE)
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
     # aki_index <- aki_index[!(aki_index$patient_id %in% patients_already_rrt),]
     
@@ -637,11 +639,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     ## PART 4: Time To Event Analysis
     ## ====================================
     
+    # First generate table where we find the time taken to achieve 1.25x baseline ratio
     labs_cr_recovery <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak >= 0)
     labs_cr_recovery_tmp <- labs_cr_recovery %>% dplyr::group_by(patient_id) %>% tidyr::complete(time_from_peak = tidyr::full_seq(time_from_peak,1)) %>% dplyr::mutate(ratio = zoo::na.fill(ratio,Inf))
     time_to_ratio1.25 <- labs_cr_recovery_tmp %>% split(.$patient_id) %>% purrr::map(~get_day(.$ratio,.$time_from_peak,target=1.25)) %>% purrr::map_df(~dplyr::data_frame(.x),.id='patient_id')
     colnames(time_to_ratio1.25)[2] <- "time_to_ratio1.25"
-    
+
     labs_aki_summ_index <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission))
     #Get index AKI grade
     index_aki_grade <- labs_aki_summ_index %>% dplyr::select(patient_id,aki_kdigo_final)
@@ -650,14 +653,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     aki_index_recovery <- merge(aki_index_recovery,time_to_ratio1.25,by="patient_id",all.x=TRUE)
     aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(recover_1.25x = ifelse(is.na(time_to_ratio1.25),0,1))
     # Get death times/censor times
-    discharge_day <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = if_else(deceased==0,days_since_admission,as.numeric(death_date - admission_date))) %>% dplyr::select(patient_id,deceased,time_to_death_km)
+    discharge_day <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = if_else(deceased==0,as.integer(days_since_admission),as.integer(as.Date(death_date) - as.Date(admission_date)))) %>% dplyr::select(patient_id,deceased,time_to_death_km)
     aki_index_recovery <- merge(aki_index_recovery,discharge_day,by="patient_id",all.x=TRUE)
-    aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_ratio1.25 = dplyr::if_else(recover_1.25x == 0,time_to_death_km,time_to_ratio1.25))
+    aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_ratio1.25 = dplyr::if_else(recover_1.25x == 0,as.integer(time_to_death_km),as.integer(time_to_ratio1.25)))
     aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
     
-    comorbid_list <- colnames(comorbid)[-1]
     aki_index_recovery <- merge(aki_index_recovery,comorbid,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
-    
+    aki_index_recovery[is.na(aki_index_recovery)] <- 0
     aki_index_recovery[c("severe","aki_kdigo_final",comorbid_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",comorbid_list)],factor)
     
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
@@ -696,7 +698,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE)
     aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
     aki_index_death <- merge(aki_index_death,comorbid,by="patient_id",all.x=TRUE)
-    aki_index_death <- aki_index_death %>% group_by(patient_id) %>% mutate(severe_to_aki = if_else(!is.na(severe_to_aki),min(severe_to_aki),NA_real_)) %>% distinct()
+    aki_index_death <- aki_index_death %>% group_by(patient_id) %>% mutate(severe_to_aki = if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% distinct()
     
     aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_list)] <- lapply(aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_list)],factor)
     
