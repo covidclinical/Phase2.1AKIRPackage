@@ -25,8 +25,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     ## PART 1: Read in Data Tables
     ## ========================================
     
-    demographics <- read.csv("Input/LocalPatientSummary.csv")
-    observations <- read.csv("Input/LocalPatientObservations.csv")
+    demographics <- read.csv("Input/LocalPatientSummary.csv",na.strings = '1/1/1900')
+    observations <- read.csv("Input/LocalPatientObservations.csv",na.strings = '-999')
     data(thromb_ref)
     data(comorbid_ref)
     data(thromb_icd9_ref)
@@ -166,7 +166,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # Remove unnecessary columns
     labs_cr_aki <- labs_cr_aki[,-c(4,5)]
     # Filter for labs >= -90 days
-    labs_cr_aki <- labs_cr_aki %>% filter(days_since_admission >= -90)
+    labs_cr_aki <- labs_cr_aki %>% dplyr::filter(days_since_admission >= -60)
     
     # Generate separate demographics table for patients who do not have any sCr values fulfilling 
     # the above (e.g. all the labs are before t= -90days or patient has no sCr value)
@@ -435,7 +435,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
     # severe - 2 = never severe, 4 = severe, AKI
-    aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = if_else(!is.na(time_to_severe),4,2)) %>% dplyr::ungroup()
+    aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(!is.na(time_to_severe),4,2)) %>% dplyr::ungroup()
     aki_only_index <- aki_only_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     colnames(aki_only_index)[2] <- "peak_cr_time"
     colnames(aki_only_index)[4] <- "aki_start"
@@ -443,7 +443,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     
     no_aki_list <- demographics_filt %>% dplyr::select(patient_id,severe)
     no_aki_list <- no_aki_list[!(no_aki_list$patient_id %in% aki_only_index$patient_id),]
-    no_aki_list <- no_aki_list %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = if_else(severe == 1,3,1))
+    no_aki_list <- no_aki_list %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(severe == 1,3,1))
     
     labs_nonaki_summ <- labs_nonaki_summ[labs_nonaki_summ$patient_id %in% no_aki_list$patient_id,]
     labs_nonaki_severe <- labs_nonaki_severe[labs_nonaki_severe$patient_id %in% no_aki_list$patient_id,]
@@ -467,7 +467,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki)
     }
     # Headers of aki_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki  covidrx_grp
-    aki_index <- aki_index %>% arrange(patient_id,peak_cr_time,desc(severe))%>% distinct(patient_id,peak_cr_time,.keep_all = TRUE)
+    aki_index <- aki_index %>% dplyr::arrange(patient_id,peak_cr_time,desc(severe))%>% distinct(patient_id,peak_cr_time,.keep_all = TRUE)
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
     # aki_index <- aki_index[!(aki_index$patient_id %in% patients_already_rrt),]
     
@@ -550,7 +550,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # Plot from start of admission to 30 days post-peak AKI (if no AKI, then from peak Cr)
     adm_to_aki_cr <- labs_cr_all
     #adm_to_aki_cr$peak_cr_time[is.na(adm_to_aki_cr$peak_cr_time)] <- 0
-    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(days_since_admission,0,peak_cr_time+30)) %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(dplyr::between(days_since_admission,0,peak_cr_time+30)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr[order(adm_to_aki_cr$patient_id,adm_to_aki_cr$days_since_admission),]
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
@@ -653,7 +653,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     aki_index_recovery <- merge(aki_index_recovery,time_to_ratio1.25,by="patient_id",all.x=TRUE)
     aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(recover_1.25x = ifelse(is.na(time_to_ratio1.25),0,1))
     # Get death times/censor times
-    discharge_day <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = if_else(deceased==0,as.integer(days_since_admission),as.integer(as.Date(death_date) - as.Date(admission_date)))) %>% dplyr::select(patient_id,deceased,time_to_death_km)
+    discharge_day <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = dplyr::if_else(deceased==0,as.integer(days_since_admission),as.integer(as.Date(death_date) - as.Date(admission_date)))) %>% dplyr::select(patient_id,deceased,time_to_death_km)
     aki_index_recovery <- merge(aki_index_recovery,discharge_day,by="patient_id",all.x=TRUE)
     aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_ratio1.25 = dplyr::if_else(recover_1.25x == 0,as.integer(time_to_death_km),as.integer(time_to_ratio1.25)))
     aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
@@ -692,13 +692,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     coxph_death_aki_only_plot <- survminer::ggforest(coxph_death_aki_only,data=aki_index_recovery)
     coxph_death_aki_only_summ <- summary(coxph_death_aki_only) 
     write.csv(coxph_death_aki_only_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.png")),plot=print(coxph_death_aki_only_plot),width=10,height=5,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH.png")),plot=print(coxph_death_aki_only_plot),width=20,height=20,units="cm")
     
     aki_index_death <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(is_aki=ifelse(severe %in% c(3,4,5),1,0)) %>% dplyr::mutate(severe=ifelse(severe %in% c(2,4,5),1,0))
     aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE)
     aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
     aki_index_death <- merge(aki_index_death,comorbid,by="patient_id",all.x=TRUE)
-    aki_index_death <- aki_index_death %>% group_by(patient_id) %>% mutate(severe_to_aki = if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% distinct()
+    aki_index_death <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = dplyr::if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% dplyr::distinct()
     
     aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_list)] <- lapply(aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_list)],factor)
     
