@@ -96,8 +96,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # thromb_icd9 <- merge(thromb_icd9,thromb_icd9_ref,by="icd_code",all.x=TRUE)
     # thromb_icd10 <- merge(thromb_icd10,thromb_icd10_ref,by="icd_code",all.x=TRUE)
     # thromb_diag <- rbind(thromb_icd9,thromb_icd10)
-    # thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type,days_since_admission) %>% dplyr::distinct()
-    # thromb_diag <- thromb_diag %>% tidyr::spread(type,days_since_admission)
+    # thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type) %>% dplyr::mutate(present = 1) %>% dplyr::distinct()
+    # thromb_diag <- thromb_diag %>% tidyr::spread(type,present)
     # thromb_diag[is.na(thromb_diag)] <- NA
     
     # Final headers for comorbid table
@@ -108,8 +108,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # Final headers for thromb_diag table
     # Note: order of columns may depend on the overall characteristics of your patient population
     # patient_id	dvt,vt,pe,mi
-    # Values stored are the number of days since admission when the event was first recorded
-    # (stored as NA if no such event occurred)
+    # Values stored are in binary, 1 = present, 0 = absent
     
     # Time to Intubation
     # ====================
@@ -418,14 +417,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # (1) non-severe, no AKI
     # (2) non-severe, AKI
     # (3) severe, no AKI
-    # (4) severe, AKI before severity onset
-    # (5) severe, AKI after severity onset
+    # (4) severe, AKI
     
     # Novel antivirals indices
     # (1) non-severe, no novel anti-COVID-19 agents (i.e. severe == 1 or 2 && covidrx == 0)
     # (2) non-severe, with novel anti-COVID-19 agents (i.e. severe == 1 or 2 && covidrx == 1)
-    # (3) severe, no novel anti-COVID-19 agents (i.e. severe == 3, 4 or 5 && covidrx == 0)
-    # (4) severe, with novel anti-COVID-19 agents (i.e. severe == 3, 4 or 5 && covidrx == 1)
+    # (3) severe, no novel anti-COVID-19 agents (i.e. severe == 3, 4 && covidrx == 0)
+    # (4) severe, with novel anti-COVID-19 agents (i.e. severe == 3, 4 && covidrx == 1)
     
     # This analysis uses the index AKI episode
     # Feel free to modify the code to look at other types of AKI episodes, e.g. you can dplyr::filter for the most severe AKI episode
@@ -467,7 +465,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki)
     }
     # Headers of aki_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki  covidrx_grp
-    aki_index <- aki_index %>% dplyr::arrange(patient_id,peak_cr_time,desc(severe))%>% distinct(patient_id,peak_cr_time,.keep_all = TRUE)
+    aki_index <- aki_index %>% dplyr::arrange(patient_id,peak_cr_time,desc(severe))%>% dplyr::distinct(patient_id,peak_cr_time,.keep_all = TRUE)
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
     # aki_index <- aki_index[!(aki_index$patient_id %in% patients_already_rrt),]
     
@@ -666,12 +664,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     comorbid_recovery_tmp <- merge(aki_index_recovery,comorbid,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     comorbid_recovery_tmp[is.na(comorbid_recovery_tmp)] <- 0
     comorbid_recovery_tmp <- comorbid_recovery_tmp[comorbid_list]
-    comorbid_recovery_tmp <- lapply(comorbid_recovery_tmp,factor)
-    comorbid_recovery_tmp <- comorbid_recovery_tmp[,sapply(comorbid_recovery_tmp,function(col) nlevels(col) > 1)] 
+    comorbid_recovery_tmp <- data.table::as.data.table(lapply(comorbid_recovery_tmp,factor))
+    comorbid_recovery_tmp <- data.table::as.data.table(comorbid_recovery_tmp)[,sapply(comorbid_recovery_tmp,function(col) nlevels(col) > 1),with=FALSE] 
     comorbid_recovery_list <- colnames(comorbid_recovery_tmp)
     
     # Then run the actual merging
-    aki_index_recovery <- merge(aki_index_recovery,comorbid[comorbid_recovery_list],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+    aki_index_recovery <- merge(aki_index_recovery,comorbid[c("patient_id",comorbid_recovery_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_recovery[is.na(aki_index_recovery)] <- 0
     aki_index_recovery[c("severe","aki_kdigo_final",comorbid_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",comorbid_recovery_list)],factor)
     
