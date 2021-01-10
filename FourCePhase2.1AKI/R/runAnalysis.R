@@ -716,17 +716,16 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     comorbid_death_tmp <- merge(aki_index_death,comorbid,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     comorbid_death_tmp[is.na(comorbid_death_tmp)] <- 0
     comorbid_death_tmp <- comorbid_death_tmp[comorbid_list]
-    comorbid_death_tmp <- lapply(comorbid_death_tmp,factor)
-    comorbid_death_tmp <- comorbid_death_tmp[,sapply(comorbid_death_tmp,function(col) nlevels(col) > 1)] 
+    comorbid_death_tmp <- data.table::as.data.table(lapply(comorbid_death_tmp,factor))
+    comorbid_death_tmp <- data.table::as.data.table(comorbid_death_tmp)[,sapply(comorbid_death_tmp,function(col) nlevels(col) > 1),with=FALSE] 
     comorbid_death_list <- colnames(comorbid_death_tmp)
     
     # 2) Create a new table with the cleaned up comorbids
-    aki_index_death <- merge(aki_index_death,comorbid[comorbid_death_list],by="patient_id",all.x=TRUE)
+    aki_index_death <- merge(aki_index_death,comorbid[c("patient_id",comorbid_death_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_death[is.na(aki_index_death)] <- 0
     aki_index_death <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = dplyr::if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% dplyr::distinct()
-    
     aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_death_list)] <- lapply(aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_death_list)],factor)
-    
+
     # 3) Run analysis
     deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ is_aki")
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~",paste(c("is_aki","severe",comorbid_death_list),collapse="+")))
