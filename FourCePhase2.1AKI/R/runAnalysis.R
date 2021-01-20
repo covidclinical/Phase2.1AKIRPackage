@@ -673,6 +673,23 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     aki_index_recovery[is.na(aki_index_recovery)] <- 0
     aki_index_recovery[c("severe","aki_kdigo_final",comorbid_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",comorbid_recovery_list)],factor)
     
+    # This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
+    # We are going to select for the variables where there are at least 10 occurrences of an event for each factor level
+    # We will then modify comorbid_recovery_list to only include variable names where this criteria is fulfilled
+    # This does NOT require the aki_index_recovery table to be modified
+    factor_cutoff <- 10 # modify as appropriate
+    recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",comorbid_recovery_list)]
+    comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
+    for(i in 1:length(comorbid_recovery_list)) {
+        recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.25x")]
+        recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(comorbid_recovery_list[i]),recover_1.25x)
+        recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+        if(min(recovery_tmp3$n) >= factor_cutoff) {
+            comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+        }
+    }
+    comorbid_recovery_list <- unlist(comorbid_recovery_list_tmp[lengths(comorbid_recovery_list_tmp) > 0L])
+    
     # Now run the actual time-to-event analysis
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c("severe","aki_kdigo_final",comorbid_recovery_list),collapse="+")))
@@ -726,7 +743,24 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     aki_index_death <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = dplyr::if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% dplyr::distinct()
     aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_death_list)] <- lapply(aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_death_list)],factor)
 
-    # 3) Run analysis
+    # 3) This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
+    # We are going to select for the variables where there are at least 10 occurrences of an event for each factor level
+    # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
+    # This does NOT require the aki_index_death table to be modified
+    factor_cutoff <- 10 # modify as appropriate
+    death_tmp <- aki_index_death[,c("patient_id","recover_1.25x",comorbid_death_list)]
+    comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
+    for(i in 1:length(comorbid_death_list)) {
+        death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"recover_1.25x")]
+        death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),recover_1.25x)
+        death_tmp3 <- death_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+        if(min(death_tmp3$n) >= factor_cutoff) {
+            comorbid_death_list_tmp[i] <- comorbid_death_list[i]
+        }
+    }
+    comorbid_death_list <- unlist(comorbid_death_list_tmp[lengths(comorbid_death_list_tmp) > 0L])
+    
+    # 4) Run analysis
     deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ is_aki")
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~",paste(c("is_aki","severe",comorbid_death_list),collapse="+")))
     
