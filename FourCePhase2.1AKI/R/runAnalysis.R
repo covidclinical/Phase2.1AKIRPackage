@@ -748,12 +748,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_death table to be modified
     factor_cutoff <- 10 # modify as appropriate
-    death_tmp <- aki_index_death[,c("patient_id","recover_1.25x",comorbid_death_list)]
+    death_tmp <- aki_index_death[,c("patient_id","deceased",comorbid_death_list)]
     comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
     for(i in 1:length(comorbid_death_list)) {
-        death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"recover_1.25x")]
-        death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),recover_1.25x)
-        death_tmp3 <- death_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+        death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"deceased")]
+        death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),deceased)
+        death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
         if(min(death_tmp3$n) >= factor_cutoff) {
             comorbid_death_list_tmp[i] <- comorbid_death_list[i]
         }
