@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
+runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 10) {
 
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -677,7 +677,6 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # We are going to select for the variables where there are at least 10 occurrences of an event for each factor level
     # We will then modify comorbid_recovery_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_recovery table to be modified
-    factor_cutoff <- 10 # modify as appropriate
     recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",comorbid_recovery_list)]
     comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
     for(i in 1:length(comorbid_recovery_list)) {
@@ -747,7 +746,6 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3) {
     # We are going to select for the variables where there are at least 10 occurrences of an event for each factor level
     # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_death table to be modified
-    factor_cutoff <- 10 # modify as appropriate
     death_tmp <- aki_index_death[,c("patient_id","deceased",comorbid_death_list)]
     comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
     for(i in 1:length(comorbid_death_list)) {
