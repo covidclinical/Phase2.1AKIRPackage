@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 10) {
+runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5) {
 
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
