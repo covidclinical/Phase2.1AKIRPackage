@@ -720,13 +720,16 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
     # We will then modify comorbid_recovery_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_recovery table to be modified
-    recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",comorbid_recovery_list)]
+    recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",comorbid_recovery_list)] %>% as.data.frame()
     comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
     for(i in 1:length(comorbid_recovery_list)) {
         recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.25x")]
         recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(comorbid_recovery_list[i]),recover_1.25x)
         recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
-        if(min(recovery_tmp3$n) >= factor_cutoff) {
+        # if(min(recovery_tmp3$n) >= factor_cutoff) {
+        #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+        # }
+        if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
             comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
         }
     }
@@ -793,13 +796,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
     # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_death table to be modified
-    death_tmp <- aki_index_death[,c("patient_id","deceased",comorbid_death_list)]
+    death_tmp <- aki_index_death[,c("patient_id","deceased",comorbid_death_list)] %>% as.data.frame()
     comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
     for(i in 1:length(comorbid_death_list)) {
         death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"deceased")]
         death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),deceased)
         death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
-        if(min(death_tmp3$n) >= factor_cutoff) {
+        if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
             comorbid_death_list_tmp[i] <- comorbid_death_list[i]
         }
     }
