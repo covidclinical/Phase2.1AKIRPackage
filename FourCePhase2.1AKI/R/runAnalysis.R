@@ -823,5 +823,46 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     write.csv(coxph_death_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_CoxPH.csv")),row.names=TRUE)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CoxPH.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
     
+    # # ================================================
+    # # Part 3: Extending analyses to Thrombotic Events
+    # # ================================================
+    # # Questions
+    # # 1) Does incidence of AKI in COVID-19 correlate with thrombotic events occurring during COVID-19 illness?
+    # # 2) Are there differences in serum Cr trends between patients with thrombotic events and those without?
+    # 
+    # aki_index_thromb <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(is_aki=ifelse(severe %in% c(3,4,5),1,0)) %>% dplyr::mutate(severe=ifelse(severe %in% c(2,4,5),1,0))
+    # aki_index_thromb <- merge(aki_index_thromb,discharge_day,by="patient_id",all.x=TRUE) # merge in time_to_death_km
+    # aki_index_thromb <- merge(aki_index_thromb,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE) # aki_kdigo_final
+    # aki_index_thromb <- merge(aki_index_thromb,time_to_ratio1.25,by="patient_id",all.x=TRUE)
+    # aki_index_thromb <- aki_index_thromb %>% dplyr::group_by(patient_id) %>% dplyr::mutate(recover_1.25x = ifelse(is.na(time_to_ratio1.25),0,1))
+    # 
+    # aki_index_thromb <- merge(aki_index_thromb,comorbid[c("patient_id",thromb_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+    # aki_index_thromb[is.na(aki_index_thromb)] <- 0
+    # aki_index_thromb <- aki_index_thromb %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = dplyr::if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% dplyr::distinct()
+    # aki_index_thromb[c("severe","aki_kdigo_final","is_aki",thromb_list)] <- lapply(aki_index_thromb[c("severe","aki_kdigo_final","is_aki",thromb_list)],factor)
+    # 
+    # # This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
+    # # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
+    # # We will then modify thromb_list to only include variable names where this criteria is fulfilled
+    # # This does NOT require the aki_index_thromb table to be modified
+    # message("thromb_list for Thromb Analysis before filtering for regression: ",paste(thromb_list,sep = ","))
+    # thromb_tmp <- aki_index_thromb[,c("patient_id","is_aki",thromb_list)]
+    # thromb_list_tmp <- vector(mode="list",length=length(thromb_list))
+    # for(i in 1:length(thromb_list)) {
+    #     thromb_tmp1 <- thromb_tmp[,c("patient_id",thromb_list[i],"is_aki")]
+    #     thromb_tmp2 <- thromb_tmp1 %>% dplyr::count(get(thromb_list[i]),is_aki)
+    #     thromb_tmp3 <- thromb_tmp2 %>% dplyr::filter(is_aki == 1)
+    #     if(min(thromb_tmp3$n) >= factor_cutoff) {
+    #         thromb_list_tmp[i] <- thromb_list[i]
+    #     }
+    # }
+    # thromb_list <- unlist(thromb_list_tmp[lengths(thromb_list_tmp) > 0L])
+    # message("thromb_list for Thromb Analysis after filtering for CoxPH: ",paste(thromb_list,sep = ","))
+    # 
+    # aki_thromb_formula <- as.formula(paste("is_aki ~ severe",thromb_list),sep="+")
+    # aki_thromb_logit <- glm(aki_thromb_formula,family = binomial,data=aki_index_thromb)
+    # writeLines(capture.output(summary(aki_thromb_logit)),con=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_ThrombGLMSummary.txt"))
+    # aki_thromb_logit_tidy <- aki_thromb_logit %>% broom::tidy(exponentiate=T,conf.int=T) %>% knitr::kable(align="l")
+    # 
 }
 
