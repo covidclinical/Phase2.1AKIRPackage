@@ -743,7 +743,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
         # }
         if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-            demog_recovery_list_tmp[i] <- demog_recovery_list[i]
+            demog_recovery_list_tmp[i] <- demog_list[i]
         }
     }
     demog_recovery_list <- unlist(demog_recovery_list_tmp[lengths(demog_recovery_list_tmp) > 0L])
@@ -832,7 +832,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
         # }
         if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
-            demog_death_list_tmp[i] <- demog_death_list[i]
+            demog_death_list_tmp[i] <- demog_list[i]
         }
     }
     demog_death_list <- unlist(demog_death_list_tmp[lengths(demog_death_list_tmp) > 0L])
