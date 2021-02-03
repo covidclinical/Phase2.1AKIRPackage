@@ -416,23 +416,19 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
     demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
     demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
-    # table1::label(demog_summ$sex) <- "Sex"
-    # table1::label(demog_summ$age_group) <- "Age Group"
-    # table1::label(demog_summ$race) <- "Race"
-    # table1::label(demog_summ$severe) <- "Severity"
-    # table1::label(demog_summ$deceased) <- "Survival"
-    # table1::label(demog_summ$time_to_severe) <- "Time to Severity Onset"
-    # table1::label(demog_summ$time_to_death) <- "Time to Death"
-    # table1::units(demog_summ$time_to_severe) <- "days"
-    # table1::units(demog_summ$time_to_death) <- "days"
-    # 
-    # demog_table <- table1::table1(~ sex + age_group + race + severe + deceased + time_to_severe + time_to_death | aki,data=demog_summ,overall="Total",render.continuous=FourCePhase2.1AKI:::my.render.cont,render.categorical=FourCePhase2.1AKI:::my.render.cat)
     table_one_vars <- c("sex","age_group","race","severe","deceased","time_to_severe","time_to_death",comorbid_list)
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
     export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
     write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
     capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
+    
+    demog_time_to_event_tmp <- demog_summ[,c("sex","age_group","race")]
+    demog_time_to_event_tmp <- data.table::as.data.table(lapply(demog_time_to_event_tmp,factor))
+    demog_time_to_event_tmp <- data.table::as.data.table(demog_time_to_event_tmp)[,sapply(demog_time_to_event_tmp,function(col) nlevels(col) > 1),with=FALSE] 
+    demog_list <- colnames(demog_time_to_event_tmp)
+    demog_time_to_event <- demog_summ[,c("patient_id",demog_list)]
+    
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
     ## ==================================================================================
@@ -711,16 +707,18 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     
     # Then run the actual merging
     aki_index_recovery <- merge(aki_index_recovery,comorbid[c("patient_id",comorbid_recovery_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+    aki_index_recovery <- merge(aki_index_recovery,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_recovery[is.na(aki_index_recovery)] <- 0
-    aki_index_recovery[c("severe","aki_kdigo_final",comorbid_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",comorbid_recovery_list)],factor)
+    aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list)],factor)
     
-    message("Current comorbid list for recovery: ",paste(comorbid_recovery_list,sep=", "))
-    message("Filtering comorbid list down further for CoxPH models...")
+    message("Current factor list for recovery: ",paste(comorbid_recovery_list,demog_list,sep=", "))
+    message("Filtering factor list down further for CoxPH models...")
     # This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
     # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
     # We will then modify comorbid_recovery_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_recovery table to be modified
-    recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",comorbid_recovery_list)] %>% as.data.frame()
+    recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",demog_list,comorbid_recovery_list)] %>% as.data.frame()
+   
     comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
     for(i in 1:length(comorbid_recovery_list)) {
         recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.25x")]
@@ -734,12 +732,27 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         }
     }
     comorbid_recovery_list <- unlist(comorbid_recovery_list_tmp[lengths(comorbid_recovery_list_tmp) > 0L])
-    message("Final comorbid list for recovery: ",paste(comorbid_recovery_list,sep=", "))
+    
+    demog_recovery_list_tmp <- vector(mode="list",length=length(demog_list))
+    for(i in 1:length(demog_list)) {
+        recovery_tmp1 <- recovery_tmp[,c("patient_id",demog_list[i],"recover_1.25x")]
+        recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(demog_list[i]),recover_1.25x)
+        recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+        # if(min(recovery_tmp3$n) >= factor_cutoff) {
+        #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+        # }
+        if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+            demog_recovery_list_tmp[i] <- demog_recovery_list[i]
+        }
+    }
+    demog_recovery_list <- unlist(demog_recovery_list_tmp[lengths(demog_recovery_list_tmp) > 0L])
+    
+    message("Final factor list for recovery: ",paste(comorbid_recovery_list,demog_recovery_list,sep=", "))
     
     message("Now proceeding to time-to-Cr recovery analysis...")
     # Now run the actual time-to-event analysis
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
-    recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c("severe","aki_kdigo_final",comorbid_recovery_list),collapse="+")))
+    recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list),collapse="+")))
     #surv_recover <- survival::Surv(time=aki_index_recovery$time_to_ratio1.25,event=aki_index_recovery$recover_1.25x)
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
@@ -756,7 +769,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     
     message("Now proceeding to time-to-death analysis for AKI patients only...")
     deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ severe")
-    deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~",paste(c("severe","aki_kdigo_final",comorbid_recovery_list),collapse="+")))
+    deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~",paste(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list),collapse="+")))
     #surv_death_aki_only<- survival::Surv(time=aki_index_recovery$time_to_death_km,event=aki_index_recovery$deceased)
     fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
     plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
@@ -785,18 +798,19 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     comorbid_death_tmp <- data.table::as.data.table(lapply(comorbid_death_tmp,factor))
     comorbid_death_tmp <- data.table::as.data.table(comorbid_death_tmp)[,sapply(comorbid_death_tmp,function(col) nlevels(col) > 1),with=FALSE] 
     comorbid_death_list <- colnames(comorbid_death_tmp)
-    message("Comorbid list for Death Analysis before filtering for CoxPH: ",paste(comorbid_death_list,sep = ","))
+    message("Factor list for Death Analysis before filtering for CoxPH: ",paste(comorbid_death_list,demog_list,sep = ","))
     # 2) Create a new table with the cleaned up comorbids
     aki_index_death <- merge(aki_index_death,comorbid[c("patient_id",comorbid_death_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+    aki_index_death <- merge(aki_index_death,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_death[is.na(aki_index_death)] <- 0
     aki_index_death <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = dplyr::if_else(!is.na(severe_to_aki),as.integer(min(severe_to_aki)),NA_integer_)) %>% dplyr::distinct()
-    aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_death_list)] <- lapply(aki_index_death[c("severe","aki_kdigo_final","is_aki",comorbid_death_list)],factor)
+    aki_index_death[c("severe","aki_kdigo_final","is_aki",demog_list,comorbid_death_list)] <- lapply(aki_index_death[c("severe","aki_kdigo_final","is_aki",demog_list,comorbid_death_list)],factor)
 
     # 3) This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
     # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
     # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
     # This does NOT require the aki_index_death table to be modified
-    death_tmp <- aki_index_death[,c("patient_id","deceased",comorbid_death_list)] %>% as.data.frame()
+    death_tmp <- aki_index_death[,c("patient_id","deceased",demog_list,comorbid_death_list)] %>% as.data.frame()
     comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
     for(i in 1:length(comorbid_death_list)) {
         death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"deceased")]
@@ -807,10 +821,26 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         }
     }
     comorbid_death_list <- unlist(comorbid_death_list_tmp[lengths(comorbid_death_list_tmp) > 0L])
-    message("Comorbid list for Death Analysis after filtering for CoxPH: ",paste(comorbid_death_list,sep = ","))
+    
+    demog_death_list_tmp <- vector(mode="list",length=length(demog_list))
+    for(i in 1:length(demog_list)) {
+        death_tmp1 <- death_tmp[,c("patient_id",demog_list[i],"deceased")]
+        death_tmp2 <- death_tmp1 %>% dplyr::count(get(demog_list[i]),deceased)
+        death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
+        # if(min(death_tmp3$n) >= factor_cutoff) {
+        #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
+        # }
+        if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+            demog_death_list_tmp[i] <- demog_death_list[i]
+        }
+    }
+    demog_death_list <- unlist(demog_death_list_tmp[lengths(demog_death_list_tmp) > 0L])
+    
+    message("Final factor list for death: ",paste(comorbid_death_list,demog_death_list,sep=", "))
+
     # 4) Run analysis
     deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ is_aki")
-    deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~",paste(c("is_aki","severe",comorbid_death_list),collapse="+")))
+    deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~",paste(c("is_aki","severe",demog_death_list,comorbid_death_list),collapse="+")))
     
     #surv_death <- survival::Surv(time=aki_index_death$time_to_death_km,event=aki_index_death$deceased)
     fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
