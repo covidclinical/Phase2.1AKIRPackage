@@ -153,7 +153,10 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     
     # Generate list of patients who were only initiated on RRT for the first time ever
     # during admission for COVID-19
-    rrt_new <- rrt[!(rrt$patient_id %in% patients_already_rrt),]
+    rrt_new <- rrt[!(rrt$patient_id %in% rrt_old),]
+    
+    # For debugging purposes
+    message(paste("Number of patients on RRT in total: ",nrow(rrt),"\nRRT previously: ",nrow(rrt_old),"\nRRT during admission: ",nrow(rrt_new))
     
     # Final table headers for rrt and rrt_new:
     # patient_id	days_since_admission
