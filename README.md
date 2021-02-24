@@ -29,6 +29,7 @@ An example of CustomModelVariables.txt is as follows:
 ```
 age_group sex severe aki_kdigo_final ckd htn hld ihd cld bronchiectasis copd rheum vte malig_solid malig_lymph COAGA COAGB covid_rx 
 ```
+This example is also included in the data-raw folder of this package for reference.
 
 Ensure to specify restrict_models = TRUE if you are using this method of customization, and inform the rest of the AKI gorup about any customization you are using with justification.
 
