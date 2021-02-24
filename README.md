@@ -22,7 +22,8 @@ FourCePhase2.1AKI::runAnalysis(is_obfuscated=TRUE,obfuscation_value=3,factor_cut
 - restrict_models - (ADVANCED) This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. 
 
 ## Specifying Custom Variables for Cox Models
-(ADVANCED) This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. 
+(ADVANCED) This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. 
+If using this feature, you must include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. 
 
 An example of CustomModelVariables.txt is as follows:
 ```
