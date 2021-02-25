@@ -27,7 +27,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     message("\nPlease ensure that your working directory is set to /4ceData")
     message("Reading in Input/LocalPatientSummary.csv and Input/LocalPatientObservations.csv...")
     #demographics <- read.csv(paste0(FourCePhase2.1Data::getInputDataDirectoryName(),"/LocalPatientSummary.csv"),na.strings = '1/1/1900')
-    demographics <- read.csv("Input/LocalPatientSummary.csv"),na.strings = '1/1/1900')
+    demographics <- read.csv("Input/LocalPatientSummary.csv",na.strings = '1/1/1900')
     #observations <- read.csv(paste0(FourCePhase2.1Data::getInputDataDirectoryName(),"/LocalPatientObservations.csv"),na.strings = '-999')
     observations <- read.csv("Input/LocalPatientObservations.csv",na.strings = '-999')
     message("Using data() to load internal tables (may result in errors)...")
