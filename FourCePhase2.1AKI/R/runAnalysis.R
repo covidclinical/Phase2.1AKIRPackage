@@ -26,7 +26,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     ## ========================================
     message("\nPlease ensure that your working directory is set to /4ceData")
     message("Reading in Input/LocalPatientSummary.csv and Input/LocalPatientObservations.csv...")
-    demographics <- read.csv("Input/LocalPatientSummary.csv",na.strings = '1/1/1900')
+    #demographics <- read.csv(paste0(FourCePhase2.1Data::getInputDataDirectoryName(),"/LocalPatientSummary.csv"),na.strings = '1/1/1900')
+    demographics <- read.csv("Input/LocalPatientSummary.csv"),na.strings = '1/1/1900')
+    #observations <- read.csv(paste0(FourCePhase2.1Data::getInputDataDirectoryName(),"/LocalPatientObservations.csv"),na.strings = '-999')
     observations <- read.csv("Input/LocalPatientObservations.csv",na.strings = '-999')
     message("Using data() to load internal tables (may result in errors)...")
     data(thromb_ref)
@@ -887,25 +889,14 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         error = function(c) "Problem generating univariate models."
         )
     # Extract data 
-    univ_results <- tryCatch(
-        lapply(univ_models,function(x){ 
-            x <- summary(x)
-            p.value<-x$wald["pvalue"]
-            wald.test<-x$wald["test"]
-            beta<-x$coef[1]
-            HR <-x$coef[2]
-            HR.confint.lower <- x$conf.int[,"lower .95"]
-            HR.confint.upper <- x$conf.int[,"upper .95"]
-            res<-c(beta, HR, HR.confint.lower, HR.confint.upper, wald.test, p.value)
-            names(res)<-c("beta", "HR", "HR.confint.lower", "HR.confint.upper","wald.test", "p.value")
-            return(res)
-            #return(exp(cbind(coef(x),confint(x))))
-        }),
-        error = function(c) "Problem generating table of coefficients for univariate analysis. Ensure that the univariate models have no issues."
-    )
+    
     try({
-        univ_res <- as.data.frame(t(as.data.frame(univ_results, check.names = FALSE)))
-        write.csv(univ_res,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
+        univ_results <- lapply(univ_models,function(x){
+            x <- summary(x)
+            return(coef(x))
+        })
+        univ_results <- do.call("rbind",univ_results)
+        write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     message("\nGenerating Model 1 (time to recovery, AKI patients only)...")
     try({
@@ -971,25 +962,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         error = "Problem generating univariate models."
     )
     # Extract data 
-    univ_results <- tryCatch(
-        lapply(univ_models,function(x){ 
-            x <- summary(x)
-            p.value<-x$wald["pvalue"]
-            wald.test<-x$wald["test"]
-            beta<-x$coef[1]
-            HR <-x$coef[2]
-            HR.confint.lower <- x$conf.int[,"lower .95"]
-            HR.confint.upper <- x$conf.int[,"upper .95"]
-            res<-c(beta, HR, HR.confint.lower, HR.confint.upper, wald.test, p.value)
-            names(res)<-c("beta", "HR", "HR.confint.lower", "HR.confint.upper","wald.test", "p.value")
-            return(res)
-            #return(exp(cbind(coef(x),confint(x))))
-        }),
-        error = function(c) "Problem generating table of coefficients for univariate analysis. Ensure that the univariate models have no issues."
-    )
     try({
-        univ_res <- as.data.frame(t(as.data.frame(univ_results, check.names = FALSE)))
-        write.csv(univ_res,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
+        univ_results <- lapply(univ_models,function(x){
+            x <- summary(x)
+            return(coef(x))
+        })
+        univ_results <- do.call("rbind",univ_results)
+        write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     
     message("Generating Model 1 (Time to death, AKI patients only)...")
@@ -1171,25 +1150,13 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         error = "Problem generating univariate models."
     )
     # Extract data 
-    univ_results <- tryCatch(
-        lapply(univ_models,function(x){ 
-            x <- summary(x)
-            p.value<-x$wald["pvalue"]
-            wald.test<-x$wald["test"]
-            beta<-x$coef[1]
-            HR <-x$coef[2]
-            HR.confint.lower <- x$conf.int[,"lower .95"]
-            HR.confint.upper <- x$conf.int[,"upper .95"]
-            res<-c(beta, HR, HR.confint.lower, HR.confint.upper, wald.test, p.value)
-            names(res)<-c("beta", "HR", "HR.confint.lower", "HR.confint.upper","wald.test", "p.value")
-            return(res)
-            #return(exp(cbind(coef(x),confint(x))))
-        }),
-        error = function(c) "Problem generating table of coefficients for univariate analysis. Ensure that the univariate models have no issues."
-    )
     try({
-        univ_res <- as.data.frame(t(as.data.frame(univ_results, check.names = FALSE)))
-        write.csv(univ_res,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
+        univ_results <- lapply(univ_models,function(x){
+            x <- summary(x)
+            return(coef(x))
+        })
+        univ_results <- do.call("rbind",univ_results)
+        write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     
     message("Generating Model 1 (Time to death, AKI patients only)...")
