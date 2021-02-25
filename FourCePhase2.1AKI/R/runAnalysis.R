@@ -866,7 +866,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
     }
-    readr::write_lines(paste("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list,collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+    readr::write_lines(paste("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list,collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
     
     message("Now proceeding to time-to-Cr recovery analysis...")
     # Now run the actual time-to-event analysis
@@ -939,6 +939,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         write.csv(coxph_recover_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.csv")),row.names=TRUE)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.png")),plot=print(coxph_recover_plot),width=20,height=20,units="cm")
     })
+    message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
     message("Now proceeding to time-to-death analysis for AKI patients only...")
     
@@ -1012,6 +1013,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         write.csv(coxph_death_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.csv")),row.names=TRUE)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
     })
+    message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
     # We now do the same to the time to death analyses:
     # 1) Create a temporary comorbid table and obtain the valid comorbids with more than 1 factor level
@@ -1200,6 +1202,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         write.csv(coxph_death_summ$coefficients,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.csv")),row.names=TRUE)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
     })
+    message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
     # # ================================================
     # # Part 3: Extending analyses to Thrombotic Events
