@@ -919,7 +919,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         recovery_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
         recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
-        message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
+        message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
         coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
         coxph_recover_summ <- summary(coxph_recover) 
@@ -1052,7 +1052,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     comorbid_death_tmp <- data.table::as.data.table(comorbid_death_tmp)[,sapply(comorbid_death_tmp,function(col) nlevels(col) > 1),with=FALSE] 
     comorbid_death_list <- colnames(comorbid_death_tmp)
     
-    message("Factor list for Death Analysis before filtering for CoxPH: ",paste(demog_list,comorbid_death_list,med_death_list,sep = ","))
+    message("Factor list for Death Analysis before filtering for CoxPH: ",paste(c(demog_list,comorbid_death_list,med_death_list),sep = ","))
     # 2) Create a new table with the cleaned up comorbids
     aki_index_death <- merge(aki_index_death,comorbid[c("patient_id",comorbid_death_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_death <- merge(aki_index_death,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
@@ -1115,7 +1115,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     }
     med_death_list <- unlist(med_death_list_tmp[lengths(med_death_list_tmp) > 0L])
     
-    message("\nFinal factor list for death (before user customisation):",paste(demog_death_list,comorbid_death_list,med_death_list,collapse=" "))
+    message("\nFinal factor list for death (before user customisation):",paste(c(demog_death_list,comorbid_death_list,med_death_list),collapse=" "))
     
     if(restrict_models == TRUE) {
         demog_death_list <- demog_death_list[demog_death_list %in% restrict_list]
@@ -1123,7 +1123,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_death_list <- med_death_list[med_death_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,sep = " "))
     }
-    readr::write_lines(paste("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list,collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+    readr::write_lines(paste("Final Death variable list: ",c(demog_death_list,comorbid_death_list,med_death_list),collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
     
     # 4) Run analysis
     message("Now proceeding with time-to-event analysis...")
