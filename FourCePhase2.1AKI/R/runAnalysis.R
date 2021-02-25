@@ -158,7 +158,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     rrt_new <- rrt[!(rrt$patient_id %in% rrt_old),]
     
     # For debugging purposes
-    message(paste("Number of patients on RRT in total: ",nrow(rrt),"\nRRT previously: ",nrow(rrt_old),"\nRRT during admission: ",nrow(rrt_new))
+    message(paste("Number of patients on RRT in total: ",nrow(rrt),"\nRRT previously: ",nrow(rrt_old),"\nRRT during admission: ",nrow(rrt_new)))
     
     # Final table headers for rrt and rrt_new:
     # patient_id	days_since_admission
