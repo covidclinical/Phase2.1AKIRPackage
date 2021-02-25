@@ -866,7 +866,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
     }
-    readr::write_lines(paste("Final Recovery variable list: ",paste(demog_recovery_list,comorbid_recovery_list,med_recovery_list,collapse=" ")),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+    readr::write_lines(paste("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list,collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
     
     message("Now proceeding to time-to-Cr recovery analysis...")
     # Now run the actual time-to-event analysis
@@ -1123,7 +1123,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_death_list <- med_death_list[med_death_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,sep = " "))
     }
-    readr::write_lines(paste("Final Death variable list: ",paste(demog_death_list,comorbid_death_list,med_death_list,collapse=" ")),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+    readr::write_lines(paste("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list,collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
     
     # 4) Run analysis
     message("Now proceeding with time-to-event analysis...")
