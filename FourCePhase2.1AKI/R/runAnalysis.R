@@ -392,18 +392,21 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     
     # Generate simplified table for determining who were started on COAGA near admission
     message("Generating table for COAGA use during the admission...")
-    med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA)
-    med_coaga_new$COAGA[med_coaga_new$COAGA < -15] <- 0
-    med_coaga_new$COAGA[med_coaga_new$COAGA >= -15] <- 1
+    coaga_present <- tryCatch({
+        med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA)
+        med_coaga_new$COAGA[med_coaga_new$COAGA < -15] <- 0
+        med_coaga_new$COAGA[med_coaga_new$COAGA >= -15] <- 1
+        TRUE
+    },error= function(c) FALSE)
     
     # Generate simplified table for determining who were started on COAGB near admission
     message("Generating table for COAGB use during the admission...")
-    med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB)
-    med_coagb_new$COAGB[med_coagb_new$COAGB < -15] <- 0
-    med_coagb_new$COAGB[med_coagb_new$COAGB >= -15] <- 1
-    
-    coaga_present <- dplyr::if_else(nrow(med_coaga_new) > 0,TRUE,FALSE)
-    coagb_present <- dplyr::if_else(nrow(med_coagb_new) > 0,TRUE,FALSE)
+    coagb_present <- tryCatch({
+        med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB)
+        med_coagb_new$COAGB[med_coagb_new$COAGB < -15] <- 0
+        med_coagb_new$COAGB[med_coagb_new$COAGB >= -15] <- 1
+        TRUE
+    },error=function(c) FALSE)
     
     # Generate simplified table for determining who were started on novel antivirals
     covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
@@ -527,7 +530,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     aki_index <- aki_index %>% dplyr::arrange(patient_id,peak_cr_time,desc(severe))%>% dplyr::distinct(patient_id,peak_cr_time,.keep_all = TRUE)
     message("Final table aki_index created.")
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
-    # aki_index <- aki_index[!(aki_index$patient_id %in% patients_already_rrt),]
+    # aki_index <- aki_index[!(aki_index$patient_id %in% rrt_new),]
     message("Now generating table of normalised serum Cr...")
     # Create a common labs_cr_all table containing the serum Cr values, the severity groupings and anti-viral groupings
     labs_cr_aki_tmp <- labs_cr_aki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_90d,min_cr_retro_7day)
