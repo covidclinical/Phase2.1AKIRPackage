@@ -893,7 +893,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     try({
         univ_results <- lapply(univ_models,function(x){
             x <- summary(x)
-            return(coef(x))
+            return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
         })
         univ_results <- do.call("rbind",univ_results)
         write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
@@ -965,7 +965,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     try({
         univ_results <- lapply(univ_models,function(x){
             x <- summary(x)
-            return(coef(x))
+            return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
         })
         univ_results <- do.call("rbind",univ_results)
         write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
@@ -1153,7 +1153,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     try({
         univ_results <- lapply(univ_models,function(x){
             x <- summary(x)
-            return(coef(x))
+            return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
         })
         univ_results <- do.call("rbind",univ_results)
         write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
