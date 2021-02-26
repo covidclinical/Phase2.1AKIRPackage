@@ -909,6 +909,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
         coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover_summ <- summary(coxph_recover) 
+        print(coxph_recover_summ)
         coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
         coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
         coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
@@ -927,6 +928,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
         coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover_summ <- summary(coxph_recover) 
+        print(coxph_recover_summ)
         coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
         coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
         coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
@@ -945,6 +947,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
         coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover_summ <- summary(coxph_recover) 
+        print(coxph_recover_summ)
         coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
         coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
         coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
@@ -997,7 +1000,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
         message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
         coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
-        coxph_death_summ <- summary(coxph_death) 
+        coxph_death_summ <- summary(coxph_death)
+        print(coxph_death_summ)
         coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
         coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
         coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
@@ -1016,6 +1020,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message("Formula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
         coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
         coxph_death_summ <- summary(coxph_death) 
+        print(coxph_death_summ)
         coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
         coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
         coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
@@ -1034,6 +1039,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
         coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
         coxph_death_summ <- summary(coxph_death) 
+        print(coxph_death_summ)
         coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
         coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
         coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
@@ -1202,6 +1208,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
         coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_summ <- summary(coxph_death)
+        print(coxph_death_summ)
         coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
         coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
         coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
@@ -1220,6 +1227,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message("Formula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model2,collapse="+")))
         coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_summ <- summary(coxph_death) 
+        print(coxph_death_summ)
         coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
         coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
         coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
@@ -1238,6 +1246,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
         coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_summ <- summary(coxph_death) 
+        print(coxph_death_summ)
         coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
         coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
         coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
