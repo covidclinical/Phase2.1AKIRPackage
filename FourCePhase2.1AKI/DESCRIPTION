@@ -23,7 +23,7 @@ Imports:
     zoo (>= 1.8-5),
     survival (>= 2.4-0),
     survminer (>= 0.4.8),
-    broom (>=0.7.5),
+    broom (>= 0.7.5),
     tableone,
     magrittr
 Roxygen: list(markdown = TRUE)
