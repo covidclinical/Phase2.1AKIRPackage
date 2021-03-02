@@ -858,7 +858,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     }
     med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
     
-    message("\nFinal factor list for recovery (before user customisation):",paste(demog_recovery_list,comorbid_recovery_list,med_recovery_list,collapse=" "))
+    message("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
     
     if(restrict_models == TRUE) {
         demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
@@ -866,7 +866,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
     }
-    readr::write_lines(paste("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list,collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
+    readr::write_lines(paste("Final Recovery variable list:",c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
     
     message("Now proceeding to time-to-Cr recovery analysis...")
     # Now run the actual time-to-event analysis
@@ -1300,4 +1300,3 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     # aki_thromb_logit_tidy <- aki_thromb_logit %>% broom::tidy(exponentiate=T,conf.int=T) %>% knitr::kable(align="l")
     # 
 }
-
