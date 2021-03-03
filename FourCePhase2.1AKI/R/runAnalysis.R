@@ -105,7 +105,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     # thromb_diag <- rbind(thromb_icd9,thromb_icd10)
     # thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type) %>% dplyr::mutate(present = 1) %>% dplyr::distinct()
     # thromb_diag <- thromb_diag %>% tidyr::spread(type,present)
-    # thromb_diag[is.na(thromb_diag)] <- NA
+    # thromb_diag[is.na(thromb_diag)] <- 0
     
     # Final headers for comorbid table
     # Note: order of columns may depend on the overall characteristics of your patient population
@@ -465,6 +465,9 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     demog_time_to_event_tmp <- data.table::as.data.table(demog_time_to_event_tmp)[,sapply(demog_time_to_event_tmp,function(col) nlevels(col) > 1),with=FALSE] 
     demog_list <- colnames(demog_time_to_event_tmp)
     demog_time_to_event <- demog_summ[,c("patient_id",demog_list)] %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()
+    
+    # Deals with the special case where there is a sex category of others (e.g. KUMC)
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyrr::ungroup()
     
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
@@ -866,7 +869,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
     }
-    readr::write_lines(paste("Final Recovery variable list:",c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
+    variable_list_output <- paste("Final Recovery variable list:",c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
+    readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
     
     message("Now proceeding to time-to-Cr recovery analysis...")
     # Now run the actual time-to-event analysis
@@ -898,8 +902,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
             x <- summary(x)
             return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
         })
-        univ_results <- do.call("rbind",univ_results)
-        write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
+        univ_results_recover <- do.call("rbind",univ_results)
+        write.csv(univ_results_recover,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     message("\nGenerating Model 1 (time to recovery, AKI patients only)...")
     try({
@@ -907,17 +911,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
         recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
         message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
-        coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
-        coxph_recover_summ <- summary(coxph_recover) 
-        print(coxph_recover_summ)
-        coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
-        coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
-        coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
-        write.csv(coxph_recover_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.csv")),row.names=TRUE)
-        write.csv(coxph_recover_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_recover_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.png")),plot=print(coxph_recover_plot),width=20,height=20,units="cm")
+        coxph_recover1 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
+        coxph_recover1_summ <- summary(coxph_recover1) 
+        print(coxph_recover1_summ)
+        coxph_recover1_hr <- cbind(coxph_recover1_summ$coefficients,coxph_recover1_summ$conf.int)[,-c(6,7)]
+        coxph_recover1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover1_summ$logtest,coxph_recover1_summ$sctest,coxph_recover1_summ$waldtest))
+        coxph_recover1_stats2 <- rbind(data.table::as.data.table(coxph_recover1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover1_summ$rsq,keep.rownames = T))
+        write.csv(coxph_recover1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.csv")),row.names=TRUE)
+        write.csv(coxph_recover1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_recover1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_recover1_plot <- survminer::ggforest(coxph_recover1,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
     })
     
     message("\nGenerating Model 2 (time to recovery, AKI patients only)...")
@@ -926,17 +930,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
         recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
         message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
-        coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
-        coxph_recover_summ <- summary(coxph_recover) 
-        print(coxph_recover_summ)
-        coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
-        coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
-        coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
-        write.csv(coxph_recover_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.csv")),row.names=TRUE)
-        write.csv(coxph_recover_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_recover_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.png")),plot=print(coxph_recover_plot),width=20,height=20,units="cm")
+        coxph_recover2 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
+        coxph_recover2_summ <- summary(coxph_recover2) 
+        print(coxph_recover2_summ)
+        coxph_recover2_hr <- cbind(coxph_recover2_summ$coefficients,coxph_recover2_summ$conf.int)[,-c(6,7)]
+        coxph_recover2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover2_summ$logtest,coxph_recover2_summ$sctest,coxph_recover2_summ$waldtest))
+        coxph_recover2_stats2 <- rbind(data.table::as.data.table(coxph_recover2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover2_summ$rsq,keep.rownames = T))
+        write.csv(coxph_recover2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.csv")),row.names=TRUE)
+        write.csv(coxph_recover2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_recover2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_recover2_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
     })
     
     message("\nGenerating Model 3 (time to recovery, AKI patients only)...")
@@ -945,17 +949,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
         recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
         message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-        coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
-        coxph_recover_summ <- summary(coxph_recover) 
-        print(coxph_recover_summ)
-        coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
-        coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
-        coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
-        write.csv(coxph_recover_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.csv")),row.names=TRUE)
-        write.csv(coxph_recover_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_recover_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.png")),plot=print(coxph_recover_plot),width=20,height=20,units="cm")
+        coxph_recover3 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
+        coxph_recover3_summ <- summary(coxph_recover3) 
+        print(coxph_recover3_summ)
+        coxph_recover3_hr <- cbind(coxph_recover3_summ$coefficients,coxph_recover3_summ$conf.int)[,-c(6,7)]
+        coxph_recover3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover3_summ$logtest,coxph_recover3_summ$sctest,coxph_recover3_summ$waldtest))
+        coxph_recover3_stats2 <- rbind(data.table::as.data.table(coxph_recover3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover3_summ$rsq,keep.rownames = T))
+        write.csv(coxph_recover3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.csv")),row.names=TRUE)
+        write.csv(coxph_recover3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_recover3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_recover3_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
     })
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
@@ -989,8 +993,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
             x <- summary(x)
             return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
         })
-        univ_results <- do.call("rbind",univ_results)
-        write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
+        univ_results_death_akionly <- do.call("rbind",univ_results)
+        write.csv(univ_results_death_akionly,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     
     message("Generating Model 1 (Time to death, AKI patients only)...")
@@ -999,17 +1003,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_aki_only_model1 <- death_aki_only_model1[death_aki_only_model1 %in% model1]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
         message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
-        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
-        coxph_death_summ <- summary(coxph_death)
-        print(coxph_death_summ)
-        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
-        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
-        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
-        write.csv(coxph_death_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.csv")),row.names=TRUE)
-        write.csv(coxph_death_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_death_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        coxph_death_akionly1 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
+        coxph_death_akionly1_summ <- summary(coxph_death_akionly1)
+        print(coxph_death_akionly1_summ)
+        coxph_death_akionly1_hr <- cbind(coxph_death_akionly1_summ$coefficients,coxph_death_akionly1_summ$conf.int)[,-c(6,7)]
+        coxph_death_akionly1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly1_summ$logtest,coxph_death_akionly1_summ$sctest,coxph_death_akionly1_summ$waldtest))
+        coxph_death_akionly1_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly1_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_akionly1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.csv")),row.names=TRUE)
+        write.csv(coxph_death_akionly1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_akionly1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_akionly1_plot <- survminer::ggforest(coxph_death_akionly1,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.png")),plot=print(coxph_death_akionly1_plot),width=20,height=20,units="cm")
     })
     
     message("Generating Model 2 (Time to death, AKI patients only)...")
@@ -1018,17 +1022,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_aki_only_model2 <- death_aki_only_model2[death_aki_only_model2 %in% model2]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
         message("Formula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
-        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
-        coxph_death_summ <- summary(coxph_death) 
-        print(coxph_death_summ)
-        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
-        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
-        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
-        write.csv(coxph_death_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.csv")),row.names=TRUE)
-        write.csv(coxph_death_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_death_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        coxph_death_akionly2 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
+        coxph_death_akionly2_summ <- summary(coxph_death_akionly2) 
+        print(coxph_death_akionly2_summ)
+        coxph_death_akionly2_hr <- cbind(coxph_death_akionly2_summ$coefficients,coxph_death_akionly2_summ$conf.int)[,-c(6,7)]
+        coxph_death_akionly2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly2_summ$logtest,coxph_death_akionly2_summ$sctest,coxph_death_akionly2_summ$waldtest))
+        coxph_death_akionly2_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly2_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_akionly2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.csv")),row.names=TRUE)
+        write.csv(coxph_death_akionly2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_akionly2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_akionly2_plot <- survminer::ggforest(coxph_death_akionly2,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.png")),plot=print(coxph_death_akionly2_plot),width=20,height=20,units="cm")
     })
     
     message("Generating Model 3 (Time to death, AKI patients only)...")
@@ -1037,17 +1041,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_aki_only_model3 <- death_aki_only_model1[death_aki_only_model3 %in% model3]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
-        coxph_death_summ <- summary(coxph_death) 
-        print(coxph_death_summ)
-        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
-        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
-        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
-        write.csv(coxph_death_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.csv")),row.names=TRUE)
-        write.csv(coxph_death_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_death_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        coxph_death_akionly3_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
+        coxph_death_akionly3_summ <- summary(coxph_death_akionly3_akionly3) 
+        print(coxph_death_akionly3_summ)
+        coxph_death_akionly3_hr <- cbind(coxph_death_akionly3_summ$coefficients,coxph_death_akionly3_summ$conf.int)[,-c(6,7)]
+        coxph_death_akionly3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly3_summ$logtest,coxph_death_akionly3_summ$sctest,coxph_death_akionly3_summ$waldtest))
+        coxph_death_akionly3_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly3_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_akionly3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.csv")),row.names=TRUE)
+        write.csv(coxph_death_akionly3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_akionly3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_akionly3_plot <- survminer::ggforest(coxph_death_akionly3_akionly3,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_akionly3_plot),width=20,height=20,units="cm")
     })
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
@@ -1161,7 +1165,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         med_death_list <- med_death_list[med_death_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,sep = " "))
     }
-    readr::write_lines(paste("Final Death variable list: ",c(demog_death_list,comorbid_death_list,med_death_list),collapse=" "),file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+    variable_list_death <- paste("Final Death variable list: ",c(demog_death_list,comorbid_death_list,med_death_list),collapse=" ")
+    readr::write_lines(variable_list_death,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
     
     # 4) Run analysis
     message("Now proceeding with time-to-event analysis...")
@@ -1196,8 +1201,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
             x <- summary(x)
             return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
         })
-        univ_results <- do.call("rbind",univ_results)
-        write.csv(univ_results,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
+        univ_results_death_all <- do.call("rbind",univ_results)
+        write.csv(univ_results_death_all,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     
     message("Generating Model 1 (Time to death, AKI patients only)...")
@@ -1206,17 +1211,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_model1 <- death_model1[death_model1 %in% model1]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
         message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
-        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
-        coxph_death_summ <- summary(coxph_death)
-        print(coxph_death_summ)
-        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
-        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
-        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
-        write.csv(coxph_death_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.csv")),row.names=TRUE)
-        write.csv(coxph_death_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_death_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        coxph_death_all1 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
+        coxph_death_all1_summ <- summary(coxph_death_all1)
+        print(coxph_death_all1_summ)
+        coxph_death_all1_hr <- cbind(coxph_death_all1_summ$coefficients,coxph_death_all1_summ$conf.int)[,-c(6,7)]
+        coxph_death_all1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all1_summ$logtest,coxph_death_all1_summ$sctest,coxph_death_all1_summ$waldtest))
+        coxph_death_all1_stats2 <- rbind(data.table::as.data.table(coxph_death_all1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all1_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_all1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.csv")),row.names=TRUE)
+        write.csv(coxph_death_all1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_all1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_all1_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1_plot),width=20,height=20,units="cm")
     })
     
     message("Generating Model 2 (Time to death, AKI patients only)...")
@@ -1225,17 +1230,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_model2 <- death_model2[death_model2 %in% model2]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model2,collapse="+")))
         message("Formula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model2,collapse="+")))
-        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
-        coxph_death_summ <- summary(coxph_death) 
-        print(coxph_death_summ)
-        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
-        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
-        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
-        write.csv(coxph_death_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.csv")),row.names=TRUE)
-        write.csv(coxph_death_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_death_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        coxph_death_all2 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
+        coxph_death_all2_summ <- summary(coxph_death_all2) 
+        print(coxph_death_all2_summ)
+        coxph_death_all2_hr <- cbind(coxph_death_all2_summ$coefficients,coxph_death_all2_summ$conf.int)[,-c(6,7)]
+        coxph_death_all2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all2_summ$logtest,coxph_death_all2_summ$sctest,coxph_death_all2_summ$waldtest))
+        coxph_death_all2_stats2 <- rbind(data.table::as.data.table(coxph_death_all2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all2_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_all2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.csv")),row.names=TRUE)
+        write.csv(coxph_death_all2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_all2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_all2_plot <- survminer::ggforest(coxph_death_all2,data=aki_index_death)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_all2_plot),width=20,height=20,units="cm")
     })
     
     message("Generating Model 3 (Time to death, AKI patients only)...")
@@ -1244,17 +1249,17 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_model3 <- death_model1[death_model3 %in% model3]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
-        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
-        coxph_death_summ <- summary(coxph_death) 
-        print(coxph_death_summ)
-        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
-        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
-        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
-        write.csv(coxph_death_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.csv")),row.names=TRUE)
-        write.csv(coxph_death_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-        write.csv(coxph_death_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        coxph_death_all3 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
+        coxph_death_all3_summ <- summary(coxph_death_all3) 
+        print(coxph_death_all3_summ)
+        coxph_death_all3_hr <- cbind(coxph_death_all3_summ$coefficients,coxph_death_all3_summ$conf.int)[,-c(6,7)]
+        coxph_death_all3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all3_summ$logtest,coxph_death_all3_summ$sctest,coxph_death_all3_summ$waldtest))
+        coxph_death_all3_stats2 <- rbind(data.table::as.data.table(coxph_death_all3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all3_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_all3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.csv")),row.names=TRUE)
+        write.csv(coxph_death_all3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_all3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_all3_plot <- survminer::ggforest(coxph_death_all3,data=aki_index_death)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_all3_plot),width=20,height=20,units="cm")
     })
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
