@@ -6,6 +6,21 @@ To install this package in R:
 ```
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
 ```
+## Issues with 4CE Docker Image v2.0
+
+The latest Docker image as of this writing uses Microsoft R 4.0.2 which uses an older CRAN snapshot in July 2020. THis distribution installs survminer 0.4.7 and broom 0.7.0 by default.
+When using survminer 0.4.7 and broom 0.7.0, the package may fail to generate forest plots with the following error:
+```
+Error in `[.data.frame`(cbind(allTermsDF, coef[inds, ]), , c("var", "level",  :
+   undefined columns selected
+```
+A workaround is to force the Docker installation of Microsoft R to install a newer version of these packages with the following commands:
+```
+install.packages("survminer", repos = "http://mran.revolutionanalytics.com")
+install.packages("broom", repos = "http://mran.revolutionanalytics.com")
+```
+These commands should be run **AFTER** installing the package, to prevent Microsoft R from overwriting these newer packages with older versions of survminer and broom.
+
 ## Running Analysis
 Please ensure that all input files are stored in /4ceData/Input before running the package!
 This code assumes that it is running within the Docker environment and all file paths are made with reference to the Docker environment.
