@@ -6,6 +6,12 @@ To install this package in R:
 ```
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
 ```
+If you are using the 4CE Docker image v2.0, please also run these commands **AFTER** installing the AKI R package, to update the survminer and broom packages:
+```
+install.packages("survminer", repos = "http://mran.revolutionanalytics.com")
+install.packages("broom", repos = "http://mran.revolutionanalytics.com")
+```
+
 ## Running Analysis
 Please ensure that all input files are stored in /4ceData/Input before running the package!
 This code assumes that it is running within the Docker environment and all file paths are made with reference to the Docker environment.
