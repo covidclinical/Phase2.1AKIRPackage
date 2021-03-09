@@ -467,7 +467,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     demog_time_to_event <- demog_summ[,c("patient_id",demog_list)] %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()
     
     # Deals with the special case where there is a sex category of others (e.g. KUMC)
-    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyrr::ungroup()
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyr::ungroup()
     
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
