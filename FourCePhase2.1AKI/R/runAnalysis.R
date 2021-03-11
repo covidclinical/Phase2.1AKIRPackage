@@ -1043,8 +1043,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         death_aki_only_model3 <- death_aki_only_model1[death_aki_only_model3 %in% model3]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-        coxph_death_akionly3_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
-        coxph_death_akionly3_summ <- summary(coxph_death_akionly3_akionly3) 
+        coxph_death_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
+        coxph_death_akionly3_summ <- summary(coxph_death_akionly3) 
         print(coxph_death_akionly3_summ)
         coxph_death_akionly3_hr <- cbind(coxph_death_akionly3_summ$coefficients,coxph_death_akionly3_summ$conf.int)[,-c(6,7)]
         coxph_death_akionly3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly3_summ$logtest,coxph_death_akionly3_summ$sctest,coxph_death_akionly3_summ$waldtest))
@@ -1052,7 +1052,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         write.csv(coxph_death_akionly3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.csv")),row.names=TRUE)
         write.csv(coxph_death_akionly3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_akionly3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_akionly3_plot <- survminer::ggforest(coxph_death_akionly3_akionly3,data=aki_index_recovery)
+        coxph_death_akionly3_plot <- survminer::ggforest(coxph_death_akionly3,data=aki_index_recovery)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_akionly3_plot),width=20,height=20,units="cm")
     })
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
@@ -1223,7 +1223,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         write.csv(coxph_death_all1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.csv")),row.names=TRUE)
         write.csv(coxph_death_all1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
-        coxph_death_all1_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
+        coxph_death_all1_plot <- survminer::ggforest(coxph_death_all1,data=aki_index_death)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1_plot),width=20,height=20,units="cm")
     })
     
