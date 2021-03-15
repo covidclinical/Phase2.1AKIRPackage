@@ -1040,7 +1040,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     message("Generating Model 3 (Time to death, AKI patients only)...")
     try({
         death_aki_only_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
-        death_aki_only_model3 <- death_aki_only_model1[death_aki_only_model3 %in% model3]
+        death_aki_only_model3 <- death_aki_only_model3[death_aki_only_model3 %in% model3]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
         coxph_death_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
