@@ -1249,7 +1249,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     message("Generating Model 3 (Time to death, all patients)...")
     try({
         death_model3 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
-        death_model3 <- death_model1[death_model3 %in% model3]
+        death_model3 <- death_model3[death_model3 %in% model3]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
         message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
         coxph_death_all3 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
