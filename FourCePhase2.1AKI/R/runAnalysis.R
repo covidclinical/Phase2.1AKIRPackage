@@ -1208,7 +1208,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         write.csv(univ_results_death_all,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
     })
     
-    message("Generating Model 1 (Time to death, AKI patients only)...")
+    message("Generating Model 1 (Time to death, all patients)...")
     try({
         death_model1 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model1 <- death_model1[death_model1 %in% model1]
@@ -1227,7 +1227,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1_plot),width=20,height=20,units="cm")
     })
     
-    message("Generating Model 2 (Time to death, AKI patients only)...")
+    message("Generating Model 2 (Time to death, all patients)...")
     try({
         death_model2 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model2 <- death_model2[death_model2 %in% model2]
@@ -1246,7 +1246,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_all2_plot),width=20,height=20,units="cm")
     })
     
-    message("Generating Model 3 (Time to death, AKI patients only)...")
+    message("Generating Model 3 (Time to death, all patients)...")
     try({
         death_model3 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model3 <- death_model1[death_model3 %in% model3]
