@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5,restrict_models = FALSE) {
+runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
 
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -20,6 +20,8 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
 
     ## To Do: implement analytic workflow, saving results to a site-specific 
     ## file to be sent to the coordinating site later via submitAnalysis()
+    obfuscation_value = FourCePhase2.1Data::getObfuscation(currSiteId)
+    factor_cutoff = 5
 
     ## ========================================
     ## PART 1: Read in Data Tables
@@ -182,10 +184,12 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     
     # Generate separate demographics table for patients who do not have any sCr values fulfilling 
     # the above (e.g. all the labs are before t= -90days or patient has no sCr value)
-    message("Removing patients who do not have any serum creatinine values...")
-    pts_valid_cr <- unique(labs_cr_aki$patient_id)
+    message("Removing patients who do not have any serum creatinine values during admission...")
+    pts_valid_cr <- labs_cr_aki %>% dplyr::filter(days_since_admission >= 0)
+    pts_valid_cr <- unique(pts_valid_cr$patient_id)
     demog_no_cr <- demographics_filt[!(demographics_filt$patient_id %in% pts_valid_cr),]
     demographics_filt <- demographics_filt[demographics_filt$patient_id %in% pts_valid_cr,]
+    labs_cr_aki <- labs_cr_aki[labs_cr_aki$patient_id %in% pts_valid_cr,]
     # There are two possible scenarios which we have to consider when detecting each AKI event:
     # (1) AKI occurs after admission
     #   - easy to detect with the formal KDIGO definition as we only need to use older data points
@@ -280,30 +284,31 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     labs_cr_aki_delta_maxima <- labs_cr_aki_delta_maxima %>% dplyr::rename(delta_maxima = delta_cr) %>% dplyr::select(patient_id,days_since_admission,delta_maxima,delta_is_max)
     labs_cr_aki_tmp4 <- merge(labs_cr_aki_tmp4,labs_cr_aki_delta_maxima,by=c("patient_id","days_since_admission"),all.x=TRUE)
     
-    # Generate a separate table (for reference) of all creatinine peaks not fulfilling KDIGO AKI criteria
-    message("Now generating a separate table for serum Cr peaks which do not reach AKI definitions")
-    labs_cr_nonaki <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$aki_kdigo_final == 0,]
-    labs_cr_nonaki[is.na(labs_cr_nonaki)] <- 0
-    labs_cr_nonaki <- labs_cr_nonaki[labs_cr_nonaki$delta_is_max > 0,]
-    labs_cr_nonaki <- labs_cr_nonaki %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_90d,min_cr_48h,min_cr_retro_7day,min_cr_48h_retro,min_cr_7d_final,cr_7d,cr_90d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_7d,akd_90d)
-    
-    # Filter for KDIGO grades > 0
+        # Filter for KDIGO grades > 0
     message("Now generating tables of all AKI events")
-    labs_cr_aki_tmp4 <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$aki_kdigo_final > 0,]
-    labs_cr_aki_tmp4[is.na(labs_cr_aki_tmp4)] <- 0
+    labs_cr_aki_tmp5 <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$aki_kdigo_final > 0,]
+    labs_cr_aki_tmp5[is.na(labs_cr_aki_tmp5)] <- 0
     # Filter for maxima of delta_cr (which should give us the peaks)
-    labs_cr_aki_tmp4 <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$delta_is_max > 0,]
+    labs_cr_aki_tmp5 <- labs_cr_aki_tmp5[labs_cr_aki_tmp5$delta_is_max > 0,]
     
     # Filter and reorder columns to generate our final table of all AKI events
-    labs_aki_summ <- labs_cr_aki_tmp4 %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_90d,min_cr_48h,min_cr_retro_7day,min_cr_48h_retro,min_cr_7d_final,cr_7d,cr_90d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_7d,akd_90d)
+    labs_aki_summ <- labs_cr_aki_tmp5 %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_90d,min_cr_48h,min_cr_retro_7day,min_cr_48h_retro,min_cr_7d_final,cr_7d,cr_90d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_7d,akd_90d)
     
     labs_aki_summ <- labs_aki_summ %>% dplyr::distinct(patient_id,days_since_admission,.keep_all=TRUE)
+    labs_aki_summ <- labs_aki_summ %>% dplyr::filter(days_since_admission >= 0)
     
     # Final headers for labs_aki_summ:
     # patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_90d,min_cr_48h,min_cr_retro_7day,min_cr_48h_retro,min_cr_7d_final,cr_7d,cr_90d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_7d,akd_90d
     # days_since_admission - time at which peak Cr is achieved
     # day_min - time at which Cr begins to rise
     
+    # Generate a separate table (for reference) of all creatinine peaks not fulfilling KDIGO AKI criteria
+    message("Now generating a separate table for serum Cr peaks which do not reach AKI definitions")
+    labs_cr_nonaki <- labs_cr_aki_tmp4[!(labs_cr_aki_tmp4$patient_id %in% labs_aki_summ$patient_id),]
+    labs_cr_nonaki[is.na(labs_cr_nonaki)] <- 0
+    labs_cr_nonaki <- labs_cr_nonaki[labs_cr_nonaki$delta_is_max > 0,]
+    labs_cr_nonaki <- labs_cr_nonaki %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_90d,min_cr_48h,min_cr_retro_7day,min_cr_48h_retro,min_cr_7d_final,cr_7d,cr_90d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_7d,akd_90d)
+    labs_cr_nonaki <- labs_cr_nonaki %>% dplyr::filter(days_since_admission >= 0)
     # Generate the highest Cr peak for non-AKI peaks detected
     labs_nonaki_summ <- labs_cr_nonaki %>% dplyr::group_by(patient_id) %>% dplyr::slice(which.max(delta_cr))
     
@@ -444,7 +449,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     # Demographics Table
     # =====================
     message("Now generating the demographics table...")
-    demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death)
+    demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% distinct(patient_id,.keep_all=TRUE)
     demog_summ <- merge(demog_summ,comorbid,by="patient_id",all.x=TRUE)
     demog_summ[is.na(demog_summ)] <- 0
     demog_summ$aki <- 0
@@ -491,7 +496,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     message("Now generating tables for use for plotting normalised serum Cr values against time")
     message("First creating table for AKI patients only...")
     # First, dplyr::filter the labs_aki_severe table to show only the index AKI episodes
-    aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
+    aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     # patient_id	site_id	days_since_admission	value	day_min	day_min_retro	min_cr_90d	min_cr_48h	min_cr_retro_7day	min_cr_48h_retro	min_cr_7d_final	cr_7d	cr_90d	delta_cr	aki_kdigo	aki_kdigo_retro	aki_kdigo_final	akd_7d	akd_90d	severe  time_to_severe	severe_to_aki	severe_before_aki
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
@@ -512,7 +517,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     
     message("Creating table for non-AKI patients...")
     # Create a non-AKI equivalent for aki_only_index - except that this takes the largest delta_cr (and the earliest occurence of such a delta_cr)
-    no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
+    no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     no_aki_index <- no_aki_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(severe == 1,3,1))
     colnames(no_aki_index)[2] <- "peak_cr_time"
@@ -576,7 +581,7 @@ runAnalysis <- function(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5
     # =======================================================================================
     
     # First create a plot of the creatinine trends of AKI vs non-AKI patients from the day of the first AKI peak (or the highest Cr peak for non-AKI patients)
-    peak_aki_vs_non_aki <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio)
+    peak_aki_vs_non_aki <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% distinct(patient_id,time_from_peak,.keep_all=TRUE)
     colnames(peak_aki_vs_non_aki) <- c("patient_id","aki","time_from_peak","ratio")
     peak_aki_vs_non_aki <- peak_aki_vs_non_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = ifelse((aki == 2 | aki == 4 | aki == 5),1,0))
     peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki %>% dplyr::group_by(aki,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
