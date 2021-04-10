@@ -459,15 +459,19 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
     
     # Obfuscation requirements by certain sites
-    comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
-    for(i in 1:length(comorbid_list)) {
-        demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
-        demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
-        if(min(demog_summ_tmp2$n) >= obfuscation_value) {
-            comorbid_demog_summ_tmp[i] <- comorbid_list[i]
+    if(is_obfuscated == TRUE) {
+        comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
+        for(i in 1:length(comorbid_list)) {
+            demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
+            demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
+            if(min(demog_summ_tmp2$n) >= obfuscation_value) {
+                comorbid_demog_summ_tmp[i] <- comorbid_list[i]
+            }
         }
+        comorbid_demog_summ <- unlist(comorbid_demog_summ_tmp[lengths(comorbid_demog_summ_tmp) > 0L])
+    } else {
+        comorbid_demog_summ <- comorbid_list
     }
-    comorbid_demog_summ <- unlist(comorbid_demog_summ_tmp[lengths(comorbid_demog_summ_tmp) > 0L])
     
     table_one_vars <- c("sex","age_group","race","severe","deceased",comorbid_demog_summ)
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
@@ -476,26 +480,26 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     
     # Create obfuscated table one for sites which require it
-    obfuscated_table <- data.frame(export_table_one)
-    var_names <- rownames(obfuscated_table)
-    obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
-    obfuscated_table <- within(obfuscated_table,AKI <- data.frame(do.call('rbind',strsplit(as.character(AKI),' (',fixed=T))))
-    obfuscated_table <- as.data.frame(gsub("[),]","",as.matrix(obfuscated_table)))
-    obfuscated_table[c(2:6)] <- lapply(obfuscated_table[c(2:6)],as.numeric)
-    obfuscated_table <- obfuscated_table[,-7]
-    colnames(obfuscated_table) <- c("level","NoAKI_n","NoAKI_perc","AKI_n","AKI_perc","p")
-    obfuscated_table$names <- var_names
-    obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
-    obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
-    obfuscated_table <- as.data.frame(obfuscated_table)
-    obfuscated_table <- obfuscated_table %>% select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
-    obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
-    obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
-    obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,fixed("...."))
-    obfuscated_table <- obfuscated_table[,-8]
-    
-    write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")))
-    
+    if(is_obfuscated == TRUE) {
+        obfuscated_table <- data.frame(export_table_one)
+        var_names <- rownames(obfuscated_table)
+        obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
+        obfuscated_table <- within(obfuscated_table,AKI <- data.frame(do.call('rbind',strsplit(as.character(AKI),' (',fixed=T))))
+        obfuscated_table <- as.data.frame(gsub("[),]","",as.matrix(obfuscated_table)))
+        obfuscated_table[c(2:6)] <- lapply(obfuscated_table[c(2:6)],as.numeric)
+        obfuscated_table <- obfuscated_table[,-7]
+        colnames(obfuscated_table) <- c("level","NoAKI_n","NoAKI_perc","AKI_n","AKI_perc","p")
+        obfuscated_table$names <- var_names
+        obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
+        obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
+        obfuscated_table <- as.data.frame(obfuscated_table)
+        obfuscated_table <- obfuscated_table %>% select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
+        obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
+        obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
+        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,fixed("...."))
+        obfuscated_table <- obfuscated_table[,-8]
+        write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")))
+    }
     message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
     
     demog_time_to_event_tmp <- demog_summ[,c("sex","age_group","race")] 
