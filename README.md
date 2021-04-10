@@ -6,11 +6,7 @@ To install this package in R:
 ```
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
 ```
-If you are using the 4CE Docker image v2.0, please also run these commands **AFTER** installing the AKI R package, to update the survminer and broom packages:
-```
-install.packages("survminer", repos = "http://mran.revolutionanalytics.com")
-install.packages("broom", repos = "http://mran.revolutionanalytics.com")
-```
+Please ensure you are using 4CE Docker image v2.1.0 to avoid issues with generating Kaplan-Meier plots.
 
 ## Running Analysis
 Please ensure that all input files are stored in /4ceData/Input before running the package!
@@ -19,13 +15,14 @@ To run the package, run the following command:
 
 ```
 setwd("/4ceData")
-FourCePhase2.1AKI::runAnalysis(is_obfuscated=TRUE,obfuscation_value=3,factor_cutoff = 5,restrict_models = FALSE)
+FourCePhase2.1AKI::runAnalysis()
 ```
 ## Arguments:
-- is_obfuscated - Specify if obfuscation is applicable to your institution. Default = TRUE
-- obfuscation_value - If obfuscation is implemented in your institution, specify the cutoff for obfuscation here. Default = 3
+By default, the analysis should not require any additional arguments.
+These arguments are only needed if your site is experiencing issues with generating results:
+- is_obfuscated - Allows you to toggle obfuscation on and off. Default = TRUE
 - factor_cutoff - For Cox proportional hazard modeling, specify the minimum number of events for each factor level. Default = 5
-- restrict_models - **(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. 
+- restrict_models - **(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. Default = FALSE
 
 ## Specifying Custom Variables for Cox Models
 **(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. 
@@ -48,8 +45,9 @@ FourCePhase2.1AKI::submitAnalysis()
 If you want to submit your output files in this manner, please ensure you have been granted read/write access to the data repositories. You may contact Byorn Tan (@byorntan) for details.
 
 ## Known Issues with 4CE Docker Image v2.0
+**NOTE:** This issue has been resolved with the newest 4CE Docker image **v2.1.0**. Please ensure you are running the latest Docker image to avoid the following issue. This section has been retained here for legacy purposes.
 
-The latest Docker image as of this writing uses Microsoft R 4.0.2 which uses an older CRAN snapshot in July 2020. This distribution installs survminer 0.4.7 and broom 0.7.0 by default.
+Version 2.0 of the 4CE Docker image uses Microsoft R 4.0.2 which uses an older CRAN snapshot in July 2020. This distribution installs survminer 0.4.7 and broom 0.7.0 by default.
 When using survminer 0.4.7 and broom 0.7.0, the package may fail to generate forest plots with the following error:
 ```
 Error in `[.data.frame`(cbind(allTermsDF, coef[inds, ]), , c("var", "level",  :
