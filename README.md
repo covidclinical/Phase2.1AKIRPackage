@@ -6,7 +6,7 @@ To install this package in R:
 ```
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
 ```
-Please ensure you are using 4CE Docker image v2.1.0 to avoid issues with generating Kaplan-Meier plots.
+Please ensure you are using 4CE Docker image v2.1.0 to avoid issues with generating forest plots.
 
 ## Running Analysis
 Please ensure that all input files are stored in /4ceData/Input before running the package!
