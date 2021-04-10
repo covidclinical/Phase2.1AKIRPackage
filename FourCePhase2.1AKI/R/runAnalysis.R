@@ -284,7 +284,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     labs_cr_aki_delta_maxima <- labs_cr_aki_delta_maxima %>% dplyr::rename(delta_maxima = delta_cr) %>% dplyr::select(patient_id,days_since_admission,delta_maxima,delta_is_max)
     labs_cr_aki_tmp4 <- merge(labs_cr_aki_tmp4,labs_cr_aki_delta_maxima,by=c("patient_id","days_since_admission"),all.x=TRUE)
     
-        # Filter for KDIGO grades > 0
+    # Filter for KDIGO grades > 0
     message("Now generating tables of all AKI events")
     labs_cr_aki_tmp5 <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$aki_kdigo_final > 0,]
     labs_cr_aki_tmp5[is.na(labs_cr_aki_tmp5)] <- 0
@@ -458,6 +458,9 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
     demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
     demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
+    
+    
+    
     table_one_vars <- c("sex","age_group","race","severe","deceased","time_to_severe","time_to_death",comorbid_list)
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
     export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
@@ -571,7 +574,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
     }
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% dplyr::ungroup()
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% dplyr::ungroup() %>% dplyr::distinct()
     #peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the dplyr::selected AKI peak
@@ -621,7 +624,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     adm_to_aki_cr <- labs_cr_all
     # adm_to_aki_cr$peak_cr_time[is.na(adm_to_aki_cr$peak_cr_time)] <- 0
     #adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(dplyr::between(days_since_admission,0,peak_cr_time+30)) %>% dplyr::ungroup()
-    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(peak_cr_time == min(peak_cr_time)) %>% dplyr::distinct() %>% dplyr::filter(days_since_admission >= 0 & days_since_admission <= peak_cr_time+30) %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(peak_cr_time == min(peak_cr_time)) %>% dplyr::distinct() %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr[order(adm_to_aki_cr$patient_id,adm_to_aki_cr$days_since_admission),]
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
@@ -632,7 +635,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
         adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
     write.csv(adm_to_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.csv")),row.names=FALSE)
-    adm_to_aki_timeplot <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
+    adm_to_aki_timeplot <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30 & adm_to_aki_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
     print(adm_to_aki_timeplot)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.png")),plot=adm_to_aki_timeplot,width=12,height=9,units="cm")
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from first day of admission, should have been generated.")
@@ -643,7 +646,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     # Uncomment the following line to restrict analysis to AKI patients only
     #aki_30d_cr <- aki_30d_cr[aki_30d_cr$severe %in% c(2,4,5),]
     aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_start = days_since_admission - aki_start) %>% dplyr::ungroup()
-    aki_30d_cr <- aki_30d_cr[order(aki_30d_cr$patient_id,aki_30d_cr$days_since_admission),]
+    aki_30d_cr <- aki_30d_cr[order(aki_30d_cr$patient_id,aki_30d_cr$days_since_admission),] %>% dplyr::distinct()
     aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
     aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
@@ -813,7 +816,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     aki_index_recovery[is.na(aki_index_recovery)] <- 0
     aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list,med_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list,med_recovery_list)],factor)
     
-    message("Current factor list for recovery: ",paste(demog_list,comorbid_recovery_list,med_recovery_list,collapse=", "))
+    message("Current factor list for recovery: ",paste(c(demog_list,comorbid_recovery_list,med_recovery_list),collapse=", "))
 
     message("Filtering factor list down further for CoxPH models...")
     # This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
@@ -874,7 +877,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
         med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
     }
-    variable_list_output <- paste("Final Recovery variable list:",c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
+    variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
     readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
     
     message("Now proceeding to time-to-Cr recovery analysis...")
@@ -1101,7 +1104,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
     comorbid_death_tmp <- data.table::as.data.table(comorbid_death_tmp)[,sapply(comorbid_death_tmp,function(col) nlevels(col) > 1),with=FALSE] 
     comorbid_death_list <- colnames(comorbid_death_tmp)
     
-    message("Factor list for Death Analysis before filtering for CoxPH: ",paste(c(demog_list,comorbid_death_list,med_death_list),sep = ","))
+    message("Factor list for Death Analysis before filtering for CoxPH: ",paste(c(demog_list,comorbid_death_list,med_death_list),collapse = " "))
     # 2) Create a new table with the cleaned up comorbids
     aki_index_death <- merge(aki_index_death,comorbid[c("patient_id",comorbid_death_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_death <- merge(aki_index_death,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
@@ -1172,7 +1175,7 @@ runAnalysis <- function(is_obfuscated=TRUE,restrict_models = FALSE) {
         med_death_list <- med_death_list[med_death_list %in% restrict_list]
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,sep = " "))
     }
-    variable_list_death <- paste("Final Death variable list: ",c(demog_death_list,comorbid_death_list,med_death_list),collapse=" ")
+    variable_list_death <- paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list),collapse=" ")
     readr::write_lines(variable_list_death,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
     
     # 4) Run analysis
