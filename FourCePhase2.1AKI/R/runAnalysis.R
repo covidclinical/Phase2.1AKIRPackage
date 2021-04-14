@@ -448,7 +448,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Demographics Table
     # =====================
     message("Now generating the demographics table...")
-    demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% distinct(patient_id,.keep_all=TRUE)
+    demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
     demog_summ <- merge(demog_summ,comorbid,by="patient_id",all.x=TRUE)
     demog_summ[is.na(demog_summ)] <- 0
     demog_summ$aki <- 0
@@ -493,10 +493,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
         obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
         obfuscated_table <- as.data.frame(obfuscated_table)
-        obfuscated_table <- obfuscated_table %>% select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
+        obfuscated_table <- obfuscated_table %>% dplyr::select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
         obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
         obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
-        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,fixed("...."))
+        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
         obfuscated_table <- obfuscated_table[,-8]
         write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")))
     }
@@ -618,7 +618,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # =======================================================================================
     
     # First create a plot of the creatinine trends of AKI vs non-AKI patients from the day of the first AKI peak (or the highest Cr peak for non-AKI patients)
-    peak_aki_vs_non_aki <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% distinct(patient_id,time_from_peak,.keep_all=TRUE)
+    peak_aki_vs_non_aki <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
     colnames(peak_aki_vs_non_aki) <- c("patient_id","aki","time_from_peak","ratio")
     peak_aki_vs_non_aki <- peak_aki_vs_non_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = ifelse((aki == 2 | aki == 4 | aki == 5),1,0))
     peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki %>% dplyr::group_by(aki,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
