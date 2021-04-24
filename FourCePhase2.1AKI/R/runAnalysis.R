@@ -765,7 +765,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     restrict_list <- ""
     model1 <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","hld","ihd","cld")
     model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
-    model3 <- c("COAGA","COAGB","covid_rx")
+    model3 <- c("age_group","sex","severe","COAGA","COAGB","covid_rx")
     
     if(restrict_models == TRUE) {
         message("\nWe notice that you are keen to restrict the models to certain variables.")
@@ -954,8 +954,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
-        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
-        message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
+        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
+        #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
+        message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
         coxph_recover1 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover1_summ <- summary(coxph_recover1) 
         print(coxph_recover1_summ)
@@ -992,7 +993,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
-        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+        if(("covid_rx" %in% recovery_model3) == TRUE) {
+            recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
+            message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
+        } else {
+            recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+            message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+        }
         message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
         coxph_recover3 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover3_summ <- summary(coxph_recover3) 
@@ -1047,8 +1054,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_aki_only_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         death_aki_only_model1 <- death_aki_only_model1[death_aki_only_model1 %in% model1]
-        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
-        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model1,"severe * aki_kdigo_final"),collapse="+")))
+        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model1,"severe * aki_kdigo_final"),collapse="+")))
         coxph_death_akionly1 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
         coxph_death_akionly1_summ <- summary(coxph_death_akionly1)
         print(coxph_death_akionly1_summ)
@@ -1085,8 +1092,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_aki_only_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         death_aki_only_model3 <- death_aki_only_model3[death_aki_only_model3 %in% model3]
-        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-        message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+        if(("covid_rx" %in% death_aki_only_model3) == TRUE) {
+            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),collapse="+")))
+            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),death_aki_only_model3,collapse="+")))
+        } else {
+            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+        }
         coxph_death_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
         coxph_death_akionly3_summ <- summary(coxph_death_akionly3) 
         print(coxph_death_akionly3_summ)
@@ -1256,8 +1268,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_model1 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model1 <- death_model1[death_model1 %in% model1]
-        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
-        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model1,"severe * aki_kdigo_final"),collapse="+")))
+        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model1,"severe * aki_kdigo_final"),collapse="+")))
         coxph_death_all1 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_all1_summ <- summary(coxph_death_all1)
         print(coxph_death_all1_summ)
@@ -1294,8 +1306,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_model3 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model3 <- death_model3[death_model3 %in% model3]
-        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
-        message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+        if(("covid_rx" %in% death_model3) == TRUE) {
+            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model3,"severe:covid_rx"),collapse="+")))
+            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model3,"severe:covid_rx"),collapse="+")))
+        } else {
+            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+        }
         coxph_death_all3 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_all3_summ <- summary(coxph_death_all3) 
         print(coxph_death_all3_summ)
