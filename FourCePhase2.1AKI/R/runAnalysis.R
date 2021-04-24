@@ -534,7 +534,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Now generating tables for use for plotting normalised serum Cr values against time")
     message("First creating table for AKI patients only...")
     # First, dplyr::filter the labs_aki_severe table to show only the index AKI episodes
-    aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
+    aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     # patient_id	site_id	days_since_admission	value	day_min	day_min_retro	min_cr_90d	min_cr_48h	min_cr_retro_7day	min_cr_48h_retro	min_cr_7d_final	cr_7d	cr_90d	delta_cr	aki_kdigo	aki_kdigo_retro	aki_kdigo_final	akd_7d	akd_90d	severe  time_to_severe	severe_to_aki	severe_before_aki
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
@@ -548,7 +548,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Now creating list of non-AKI patients...")
     no_aki_list <- demographics_filt %>% dplyr::select(patient_id,severe)
     no_aki_list <- no_aki_list[!(no_aki_list$patient_id %in% aki_only_index$patient_id),]
-    no_aki_list <- no_aki_list %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = 2 * severe + 1) %>% dplyr::ungroup() # if severe = 0, will be recoded as 1; if severe = 1, will be recoded as 3
+    no_aki_list <- no_aki_list %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1)) %>% dplyr::ungroup() # if severe = 0, will be recoded as 1; if severe = 1, will be recoded as 3
     
     labs_nonaki_summ <- labs_nonaki_summ[labs_nonaki_summ$patient_id %in% no_aki_list$patient_id,]
     labs_nonaki_severe <- labs_nonaki_severe[labs_nonaki_severe$patient_id %in% no_aki_list$patient_id,]
@@ -558,7 +558,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Create a non-AKI equivalent for aki_only_index - except that this takes the largest delta_cr (and the earliest occurence of such a delta_cr)
     no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     no_aki_index <- no_aki_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
-    no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = 2 * severe + 1)
+    no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1))
     colnames(no_aki_index)[2] <- "peak_cr_time"
     colnames(no_aki_index)[4] <- "aki_start"
     #no_aki_index$severe_to_aki <- -999
@@ -637,7 +637,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients should have been generated.")
 
     # Now, derive our first table peak_trend_severe to compare across the different severity groups
-    peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio)
+    peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
     # Headers: patient_id  severe  time_from_peak  ratio
     # peak_trend_severe <- peak_trend_severe %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     
