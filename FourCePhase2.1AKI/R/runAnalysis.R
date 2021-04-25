@@ -465,6 +465,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         for(i in 1:length(comorbid_list)) {
             demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
             demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
+            message(paste0(c("Performing demographics table comorbid filtering for: ",comorbid_list[i]," - with lowest count ",min(demog_summ_tmp2$n))))
             if(min(demog_summ_tmp2$n) >= obfuscation_value) {
                 comorbid_demog_summ_tmp[i] <- comorbid_list[i]
             }
@@ -766,6 +767,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     model1 <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","hld","ihd","cld")
     model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
     model3 <- c("age_group","sex","severe","COAGA","COAGB","covid_rx")
+    model4 <- c("age_group","sex","severe","aki_kdigo_final","ckd")
     
     if(restrict_models == TRUE) {
         message("\nWe notice that you are keen to restrict the models to certain variables.")
@@ -954,8 +956,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
-        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
-        #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
+        #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
+        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
         message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
         coxph_recover1 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover1_summ <- summary(coxph_recover1) 
@@ -993,13 +995,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
-        if(("covid_rx" %in% recovery_model3) == TRUE) {
-            recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
-            message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
-        } else {
-            recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-            message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-        }
+        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+        message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+        # if(("covid_rx" %in% recovery_model3) == TRUE) {
+        #     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
+        #     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
+        # } else {
+        #     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+        #     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+        # }
         message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
         coxph_recover3 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
         coxph_recover3_summ <- summary(coxph_recover3) 
@@ -1013,6 +1017,26 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         coxph_recover3_plot <- survminer::ggforest(coxph_recover3,data=aki_index_recovery)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
     })
+    
+    try({
+        recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
+        recovery_model4 <- recovery_model1[recovery_model4 %in% model4]
+        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model4,"severe * aki_kdigo_final"),collapse="+")))
+        #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model4,collapse="+")))
+        message(paste("Formula for Model 4: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model4,"severe * aki_kdigo_final"),collapse="+")))
+        coxph_recover4 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
+        coxph_recover4_summ <- summary(coxph_recover4) 
+        print(coxph_recover4_summ)
+        coxph_recover4_hr <- cbind(coxph_recover4_summ$coefficients,coxph_recover4_summ$conf.int)[,-c(6,7)]
+        coxph_recover4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover4_summ$logtest,coxph_recover4_summ$sctest,coxph_recover4_summ$waldtest))
+        coxph_recover4_stats2 <- rbind(data.table::as.data.table(coxph_recover4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover4_summ$rsq,keep.rownames = T))
+        write.csv(coxph_recover4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4.csv")),row.names=TRUE)
+        write.csv(coxph_recover4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_recover4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_recover4_plot <- survminer::ggforest(coxph_recover4,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
+    })
+    
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
     message("Now proceeding to time-to-death analysis for AKI patients only...")
@@ -1054,8 +1078,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_aki_only_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         death_aki_only_model1 <- death_aki_only_model1[death_aki_only_model1 %in% model1]
-        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model1,"severe * aki_kdigo_final"),collapse="+")))
-        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model1,"severe * aki_kdigo_final"),collapse="+")))
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
+        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
+        # deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model1,"severe * aki_kdigo_final"),collapse="+")))
+        # message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model1,"severe * aki_kdigo_final"),collapse="+")))
         coxph_death_akionly1 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
         coxph_death_akionly1_summ <- summary(coxph_death_akionly1)
         print(coxph_death_akionly1_summ)
@@ -1092,13 +1118,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_aki_only_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
         death_aki_only_model3 <- death_aki_only_model3[death_aki_only_model3 %in% model3]
-        if(("covid_rx" %in% death_aki_only_model3) == TRUE) {
-            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),collapse="+")))
-            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),death_aki_only_model3,collapse="+")))
-        } else {
-            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-        }
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+        message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+        # if(("covid_rx" %in% death_aki_only_model3) == TRUE) {
+        #     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),collapse="+")))
+        #     message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),death_aki_only_model3,collapse="+")))
+        # } else {
+        #     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+        #     message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
+        # }
         coxph_death_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
         coxph_death_akionly3_summ <- summary(coxph_death_akionly3) 
         print(coxph_death_akionly3_summ)
@@ -1111,6 +1139,26 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         coxph_death_akionly3_plot <- survminer::ggforest(coxph_death_akionly3,data=aki_index_recovery)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_akionly3_plot),width=20,height=20,units="cm")
     })
+    
+    message("Generating Model 4 (Time to death, AKI patients only)...")
+    try({
+        death_aki_only_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
+        death_aki_only_model4 <- death_aki_only_model1[death_aki_only_model4 %in% model4]
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model4,"severe * aki_kdigo_final"),collapse="+")))
+        message("Formula for Model 4: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model4,"severe * aki_kdigo_final"),collapse="+")))
+        coxph_death_akionly4 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
+        coxph_death_akionly4_summ <- summary(coxph_death_akionly4)
+        print(coxph_death_akionly4_summ)
+        coxph_death_akionly4_hr <- cbind(coxph_death_akionly4_summ$coefficients,coxph_death_akionly4_summ$conf.int)[,-c(6,7)]
+        coxph_death_akionly4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly4_summ$logtest,coxph_death_akionly4_summ$sctest,coxph_death_akionly4_summ$waldtest))
+        coxph_death_akionly4_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly4_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_akionly4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4.csv")),row.names=TRUE)
+        write.csv(coxph_death_akionly4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_akionly4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_akionly4_plot <- survminer::ggforest(coxph_death_akionly4,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4.png")),plot=print(coxph_death_akionly4_plot),width=20,height=20,units="cm")
+    })
+    
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
     # We now do the same to the time to death analyses:
@@ -1268,8 +1316,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_model1 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model1 <- death_model1[death_model1 %in% model1]
-        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model1,"severe * aki_kdigo_final"),collapse="+")))
-        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model1,"severe * aki_kdigo_final"),collapse="+")))
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
+        message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
+        # deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model1,"severe * aki_kdigo_final"),collapse="+")))
+        # message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model1,"severe * aki_kdigo_final"),collapse="+")))
         coxph_death_all1 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_all1_summ <- summary(coxph_death_all1)
         print(coxph_death_all1_summ)
@@ -1306,13 +1356,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     try({
         death_model3 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
         death_model3 <- death_model3[death_model3 %in% model3]
-        if(("covid_rx" %in% death_model3) == TRUE) {
-            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model3,"severe:covid_rx"),collapse="+")))
-            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model3,"severe:covid_rx"),collapse="+")))
-        } else {
-            deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
-            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
-        }
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+        message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+        # if(("covid_rx" %in% death_model3) == TRUE) {
+        #     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model3,"severe:covid_rx"),collapse="+")))
+        #     message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model3,"severe:covid_rx"),collapse="+")))
+        # } else {
+        #     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+        #     message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
+        # }
         coxph_death_all3 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
         coxph_death_all3_summ <- summary(coxph_death_all3) 
         print(coxph_death_all3_summ)
@@ -1325,6 +1377,26 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         coxph_death_all3_plot <- survminer::ggforest(coxph_death_all3,data=aki_index_death)
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_all3_plot),width=20,height=20,units="cm")
     })
+    
+    message("Generating Model 4 (Time to death, all patients)...")
+    try({
+        death_model4 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
+        death_model4 <- death_model4[death_model4 %in% model4]
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model4,"severe * aki_kdigo_final"),collapse="+")))
+        message("Formula for Model 4: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_model4,"severe * aki_kdigo_final"),collapse="+")))
+        coxph_death_all4 <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
+        coxph_death_all4_summ <- summary(coxph_death_all4)
+        print(coxph_death_all4_summ)
+        coxph_death_all4_hr <- cbind(coxph_death_all4_summ$coefficients,coxph_death_all4_summ$conf.int)[,-c(6,7)]
+        coxph_death_all4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all4_summ$logtest,coxph_death_all4_summ$sctest,coxph_death_all4_summ$waldtest))
+        coxph_death_all4_stats2 <- rbind(data.table::as.data.table(coxph_death_all4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all4_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_all4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.csv")),row.names=TRUE)
+        write.csv(coxph_death_all4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_all4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_all4_plot <- survminer::ggforest(coxph_death_all4,data=aki_index_death)
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.png")),plot=print(coxph_death_all4_plot),width=20,height=20,units="cm")
+    })
+    
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
     
     # # ================================================
