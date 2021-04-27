@@ -506,7 +506,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Creating final table of peak Cr for all patients...")
     aki_index <- dplyr::bind_rows(aki_only_index,no_aki_index)
     
-    if(covid19antiviral_present == TRUE) {
+    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
         message("Adding on temporal information for experimental COVID-19 antivirals...")
         aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
         aki_index$covid_rx[is.na(aki_index$covid_rx)] <- 0
@@ -549,7 +549,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     first_baseline <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak == 0) %>% dplyr::select(patient_id,baseline_cr) %>% dplyr::distinct()
     colnames(first_baseline)[2] <- "first_baseline_cr"
     peak_trend <- merge(peak_trend,first_baseline,by="patient_id",all.x=TRUE)
-    if(covid19antiviral_present == TRUE) {
+    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
