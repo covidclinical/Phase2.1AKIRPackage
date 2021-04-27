@@ -560,8 +560,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     
     baseline_shift <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
-    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_7d = cr_7d/baseline_cr,ratio_90d = cr_90d/baseline_cr) %>% dplyr::select(patient_id,severe,ratio_7d,ratio_90d)
-    baseline_shift <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=n(),n_shift_7d = sum(ratio_7d >= 1.25),n_shift_90d = sum(ratio_90d >= 1.25)) %>% dplyr::ungroup()
+    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_7d = cr_7d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_7d,ratio_90d)
+    baseline_shift <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_7d = sum(ratio_7d >= 1.25),n_shift_90d = sum(ratio_90d >= 1.25)) %>% dplyr::ungroup()
     if(is_obfuscated == TRUE & !is.null(obfuscation_value)) {
         baseline_shift$n_all[baseline_shift$n_all < obfuscation_value] <- NA
         baseline_shift$n_shift_7d[baseline_shift$n_shift_7d < obfuscation_value] <- NA
