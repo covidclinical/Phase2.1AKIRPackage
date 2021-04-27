@@ -543,6 +543,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # severe - 2 = never severe, 4 = severe, AKI
     #aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(!is.na(time_to_severe),4,2)) %>% dplyr::ungroup()
     aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = 2 * severe + 2) %>% dplyr::ungroup() # if severe = 0 initially, will be recoded as 2; if severe = 1 initially, will be recoded as 4
+    
+    # create the change in baseline index table
+    aki_only_index_baseline_shift <- aki_only_index %>% dplyr::select(patient_id,severe,cr_7d,cr_90d)
+    
     aki_only_index <- aki_only_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     colnames(aki_only_index)[2] <- "peak_cr_time"
     colnames(aki_only_index)[4] <- "aki_start"
@@ -559,13 +563,18 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Creating table for non-AKI patients...")
     # Create a non-AKI equivalent for aki_only_index - except that this takes the largest delta_cr (and the earliest occurence of such a delta_cr)
     no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
-    no_aki_index <- no_aki_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1))
+    # create the change in baseline index table
+    no_aki_index_baseline_shift <- no_aki_index %>% dplyr::select(patient_id,severe,cr_7d,cr_90d)
+    
+    no_aki_index <- no_aki_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     colnames(no_aki_index)[2] <- "peak_cr_time"
     colnames(no_aki_index)[4] <- "aki_start"
+    
     #no_aki_index$severe_to_aki <- -999
     message("Creating final table of peak Cr for all patients...")
     aki_index <- dplyr::bind_rows(aki_only_index,no_aki_index)
+    
     if(covid19antiviral_present == TRUE) {
         message("Adding on temporal information for experimental COVID-19 antivirals...")
         aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
@@ -578,6 +587,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Headers of aki_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki  covidrx_grp
     aki_index <- aki_index %>% dplyr::arrange(patient_id,peak_cr_time,desc(severe))%>% dplyr::distinct(patient_id,peak_cr_time,.keep_all = TRUE)
     message("Final table aki_index created.")
+    
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
     # aki_index <- aki_index[!(aki_index$patient_id %in% rrt_new),]
     message("Now generating table of normalised serum Cr...")
@@ -616,6 +626,17 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     #peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the dplyr::selected AKI peak
+    
+    baseline_shift <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
+    baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
+    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_7d = cr_7d/baseline_cr,ratio_90d = cr_90d/baseline_cr) %>% dplyr::select(patient_id,severe,ratio_7d,ratio_90d)
+    baseline_shift <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=n(),n_shift_7d = sum(ratio_7d >= 1.25),n_shift_90d = sum(ratio_90d >= 1.25)) %>% dplyr::ungroup()
+    if(is_obfuscated == TRUE & !is.null(obfuscation_value)) {
+        baseline_shift$n_all[baseline_shift$n_all < obfuscation_value] <- NA
+        baseline_shift$n_shift_7d[baseline_shift$n_shift_7d < obfuscation_value] <- NA
+        baseline_shift$n_shift_90d[baseline_shift$n_shift_90d < obfuscation_value] <- NA
+    }
+    write.csv(baseline_shift,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts.csv")),row.names=FALSE)
     
     # =======================================================================================
     # Figure 1(a): Cr trends from start of AKI / after peak Cr for severe vs non-severe groups
@@ -800,8 +821,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     #aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_ratio1.25 = dplyr::if_else(recover_1.25x == 0,as.integer(time_to_death_km),as.integer(time_to_ratio1.25)))
     aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_ratio1.25 = dplyr::if_else(recover_1.25x == 0,as.integer(time_to_death_km)-as.integer(peak_cr_time),as.integer(time_to_ratio1.25)))
     aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
-    
-    
     
     message("\nDoing initial filter for medications with more than one factor level.")
     med_recovery_list <- c("COAGA","COAGB","covid_rx")
