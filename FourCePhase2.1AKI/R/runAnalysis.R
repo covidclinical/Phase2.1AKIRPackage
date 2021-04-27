@@ -445,75 +445,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     }
     
-    # =====================
-    # Demographics Table
-    # =====================
-    message("Now generating the demographics table...")
-    demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
-    demog_summ <- merge(demog_summ,comorbid,by="patient_id",all.x=TRUE)
-    demog_summ[is.na(demog_summ)] <- 0
-    demog_summ$aki <- 0
-    demog_summ$aki[demog_summ$patient_id %in% labs_aki_summ$patient_id] <- 1
-    demog_summ$severe <- factor(demog_summ$severe,levels=c(0,1),labels=c("Non-severe","Severe"))
-    demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
-    demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
-    demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
-    
-    message(paste0(c("Obfuscation cutoff: ",obfuscation_value)))
-    # Obfuscation requirements by certain sites
-    if(is_obfuscated == TRUE && !is.null(obfuscation_value)) {
-        comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
-        for(i in 1:length(comorbid_list)) {
-            demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
-            demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
-            message(paste0(c("Performing demographics table comorbid filtering for: ",comorbid_list[i]," with lowest count ",min(demog_summ_tmp2$n)," and obfuscation cutoff ",obfuscation_value)))
-            if(min(demog_summ_tmp2$n) >= obfuscation_value) {
-                comorbid_demog_summ_tmp[i] <- comorbid_list[i]
-            }
-        }
-        comorbid_demog_summ <- unlist(comorbid_demog_summ_tmp[lengths(comorbid_demog_summ_tmp) > 0L])
-    } else {
-        comorbid_demog_summ <- comorbid_list
-    }
-    
-    table_one_vars <- c("sex","age_group","race","severe","deceased",comorbid_demog_summ)
-    table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
-    export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
-    write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
-    capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
-    
-    # Create obfuscated table one for sites which require it
-    if(is_obfuscated == TRUE) {
-        obfuscated_table <- data.frame(export_table_one)
-        var_names <- rownames(obfuscated_table)
-        obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
-        obfuscated_table <- within(obfuscated_table,AKI <- data.frame(do.call('rbind',strsplit(as.character(AKI),' (',fixed=T))))
-        obfuscated_table <- as.data.frame(gsub("[),]","",as.matrix(obfuscated_table)))
-        obfuscated_table[c(2:6)] <- lapply(obfuscated_table[c(2:6)],as.numeric)
-        obfuscated_table <- obfuscated_table[,-7]
-        colnames(obfuscated_table) <- c("level","NoAKI_n","NoAKI_perc","AKI_n","AKI_perc","p")
-        obfuscated_table$names <- var_names
-        obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
-        obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
-        obfuscated_table <- as.data.frame(obfuscated_table)
-        obfuscated_table <- obfuscated_table %>% dplyr::select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
-        obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
-        obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
-        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
-        obfuscated_table <- obfuscated_table[,-8]
-        write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F)
-    }
-    message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
-    
-    demog_time_to_event_tmp <- demog_summ[,c("sex","age_group","race")] 
-    demog_time_to_event_tmp <- data.table::as.data.table(lapply(demog_time_to_event_tmp,factor))
-    demog_time_to_event_tmp <- data.table::as.data.table(demog_time_to_event_tmp)[,sapply(demog_time_to_event_tmp,function(col) nlevels(col) > 1),with=FALSE] 
-    demog_list <- colnames(demog_time_to_event_tmp)
-    demog_time_to_event <- demog_summ[,c("patient_id",demog_list)] %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()
-    
-    # Deals with the special case where there is a sex category of others (e.g. KUMC)
-    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyr::ungroup()
-    
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
     ## ==================================================================================
@@ -659,6 +590,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI.png")),plot=peak_aki_vs_non_aki_timeplot,width=12,height=9,units="cm")
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients should have been generated.")
 
+    
+    # Create KDIGO Stage table for demographics table
+    kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(ratio < 1.5,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3)))) %>% dplyr::ungroup()
+    kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
+    
+    
+    
     # Now, derive our first table peak_trend_severe to compare across the different severity groups
     peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
     # Headers: patient_id  severe  time_from_peak  ratio
@@ -719,6 +657,77 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     print(aki_30d_cr_timeplot)
     ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.png")),plot=aki_30d_cr_timeplot,width=12,height=9,units="cm")
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
+    
+    # =====================
+    # Demographics Table
+    # =====================
+    message("Now generating the demographics table...")
+    demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
+    demog_summ <- merge(demog_summ,comorbid,by="patient_id",all.x=TRUE)
+    demog_summ <- merge(demog_summ,kdigo_grade,by="patient_id",all.x=TRUE)
+    demog_summ[is.na(demog_summ)] <- 0
+    demog_summ$aki <- 0
+    demog_summ$aki[demog_summ$patient_id %in% labs_aki_summ$patient_id] <- 1
+    demog_summ$severe <- factor(demog_summ$severe,levels=c(0,1),labels=c("Non-severe","Severe"))
+    demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
+    demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
+    demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
+    
+    message(paste0(c("Obfuscation cutoff: ",obfuscation_value)))
+    # Obfuscation requirements by certain sites
+    if(is_obfuscated == TRUE && !is.null(obfuscation_value)) {
+        comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
+        for(i in 1:length(comorbid_list)) {
+            demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
+            demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
+            message(paste0(c("Performing demographics table comorbid filtering for: ",comorbid_list[i]," with lowest count ",min(demog_summ_tmp2$n)," and obfuscation cutoff ",obfuscation_value)))
+            if(min(demog_summ_tmp2$n) >= obfuscation_value) {
+                comorbid_demog_summ_tmp[i] <- comorbid_list[i]
+            }
+        }
+        comorbid_demog_summ <- unlist(comorbid_demog_summ_tmp[lengths(comorbid_demog_summ_tmp) > 0L])
+    } else {
+        comorbid_demog_summ <- comorbid_list
+    }
+    
+    table_one_vars <- c("sex","age_group","race","severe","deceased","aki_kdigo_grade",comorbid_demog_summ)
+    table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
+    export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
+    write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
+    capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
+    
+    # Create obfuscated table one for sites which require it
+    if(is_obfuscated == TRUE) {
+        obfuscated_table <- data.frame(export_table_one)
+        var_names <- rownames(obfuscated_table)
+        obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
+        obfuscated_table <- within(obfuscated_table,AKI <- data.frame(do.call('rbind',strsplit(as.character(AKI),' (',fixed=T))))
+        obfuscated_table <- as.data.frame(gsub("[),]","",as.matrix(obfuscated_table)))
+        obfuscated_table[c(2:6)] <- lapply(obfuscated_table[c(2:6)],as.numeric)
+        obfuscated_table <- obfuscated_table[,-7]
+        colnames(obfuscated_table) <- c("level","NoAKI_n","NoAKI_perc","AKI_n","AKI_perc","p")
+        obfuscated_table$names <- var_names
+        obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
+        obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
+        obfuscated_table <- as.data.frame(obfuscated_table)
+        obfuscated_table <- obfuscated_table %>% dplyr::select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
+        obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
+        obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
+        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
+        obfuscated_table <- obfuscated_table[,-8]
+        write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F)
+    }
+    message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
+    
+    demog_time_to_event_tmp <- demog_summ[,c("sex","age_group","race")] 
+    demog_time_to_event_tmp <- data.table::as.data.table(lapply(demog_time_to_event_tmp,factor))
+    demog_time_to_event_tmp <- data.table::as.data.table(demog_time_to_event_tmp)[,sapply(demog_time_to_event_tmp,function(col) nlevels(col) > 1),with=FALSE] 
+    demog_list <- colnames(demog_time_to_event_tmp)
+    demog_time_to_event <- demog_summ[,c("patient_id",demog_list)] %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()
+    
+    # Deals with the special case where there is a sex category of others (e.g. KUMC)
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyr::ungroup()
+    
     
     # ================================================================================================================================
     # Figure 1(b) Comparing serum creatinine trends of severe and non-severe patients, with or without remdesivir/lopinavir+ritonavir
