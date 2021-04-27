@@ -459,13 +459,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
     demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
     
+    message(paste0(c("Obfuscation cutoff: ",obfuscation_value)))
     # Obfuscation requirements by certain sites
-    if(is_obfuscated == TRUE) {
+    if(is_obfuscated == TRUE && !is.null(obfuscation_value)) {
         comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
         for(i in 1:length(comorbid_list)) {
             demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
             demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
-            message(paste0(c("Performing demographics table comorbid filtering for: ",comorbid_list[i]," - with lowest count ",min(demog_summ_tmp2$n))))
+            message(paste0(c("Performing demographics table comorbid filtering for: ",comorbid_list[i]," with lowest count ",min(demog_summ_tmp2$n)," and obfuscation cutoff ",obfuscation_value)))
             if(min(demog_summ_tmp2$n) >= obfuscation_value) {
                 comorbid_demog_summ_tmp[i] <- comorbid_list[i]
             }
@@ -1272,7 +1273,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,sep = " "))
     }
     variable_list_death <- paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list),collapse=" ")
-    readr::write_lines(variable_list_death,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+    # readr::write_lines(variable_list_death,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
     
     # 4) Run analysis
     message("Now proceeding with time-to-event analysis...")
@@ -1285,9 +1286,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
     plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
     plot_death_summ_table <- plot_death$data.survtable
-    write.csv(fit_death$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_PlotSummStats.csv")),row.names=TRUE)
+    #write.csv(fit_death$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_PlotSummStats.csv")),row.names=TRUE)
     write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
-    write.csv(plot_death_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Table.csv")),row.names=FALSE)
+    #write.csv(plot_death_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Table.csv")),row.names=FALSE)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death),width=12,height=12,units="cm")
     # coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
     # coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
@@ -1310,6 +1311,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         })
         univ_results_death_all <- do.call("rbind",univ_results)
         write.csv(univ_results_death_all,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
+        # save(univ_results_death_all,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.rdata")))
     })
     
     message("Generating Model 1 (Time to death, all patients)...")
@@ -1330,6 +1332,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_death_all1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_death_all1_plot <- survminer::ggforest(coxph_death_all1,data=aki_index_death)
+        # save(death_model1,coxph_death_all1_summ,coxph_death_all1_hr,coxph_death_all1_stats1, coxph_death_all1_stats2,coxph_death_all1_plot,file =file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.rdata")))
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1_plot),width=20,height=20,units="cm")
     })
     
@@ -1349,6 +1352,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_death_all2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_death_all2_plot <- survminer::ggforest(coxph_death_all2,data=aki_index_death)
+        # save(death_model2,coxph_death_all2_summ,coxph_death_all2_hr,coxph_death_all2_stats1, coxph_death_all2_stats2,coxph_death_all2_plot,file =file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.rdata")))
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_all2_plot),width=20,height=20,units="cm")
     })
     
@@ -1375,6 +1379,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_death_all3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_death_all3_plot <- survminer::ggforest(coxph_death_all3,data=aki_index_death)
+        # save(death_model3,coxph_death_all3_summ,coxph_death_all3_hr,coxph_death_all3_stats1, coxph_death_all3_stats2,coxph_death_all3_plot,file =file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.rdata")))
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_all3_plot),width=20,height=20,units="cm")
     })
     
@@ -1394,6 +1399,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_death_all4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_death_all4_plot <- survminer::ggforest(coxph_death_all4,data=aki_index_death)
+        #save(death_model4,coxph_death_all4_summ,coxph_death_all4_hr,coxph_death_all4_stats1, coxph_death_all4_stats2,coxph_death_all4_plot,file =file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.rdata")))
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.png")),plot=print(coxph_death_all4_plot),width=20,height=20,units="cm")
     })
     
