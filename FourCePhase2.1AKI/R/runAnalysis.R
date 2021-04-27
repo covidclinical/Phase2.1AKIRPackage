@@ -417,7 +417,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
     remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
     if(covid19antiviral_present == TRUE && remdesivir_present == TRUE){
-        message("Generating table for experimental COVID-19 treatment...")
+        message("Generating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL),REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
         #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
@@ -426,7 +426,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     } else if(covid19antiviral_present == TRUE){
-        message("Generating table for experimental COVID-19 treatment...")
+        message("Generating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
         #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
@@ -435,7 +435,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     } else if(remdesivir_present == TRUE){
-        message("Generating table for experimental COVID-19 treatment...")
+        message("Generating table for experimental COVID-19 treatment... (REMDESIVIR only)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
         #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
@@ -510,7 +510,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("Adding on temporal information for experimental COVID-19 antivirals...")
         aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
         aki_index$covid_rx[is.na(aki_index$covid_rx)] <- 0
-        aki_index <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidrx_grp = ifelse(severe <= 2, ifelse(covid_rx == 0,1,2),ifelse(covid_rx == 0,3,4))) %>% dplyr::ungroup()
+        aki_index <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidrx_grp = dplyr::if_else(severe <= 2, dplyr::if_else(covid_rx == 0,1,2),dplyr::if_else(covid_rx == 0,3,4))) %>% dplyr::ungroup()
+        message(paste0(c("Column names for aki_index",colnames(aki_index))))
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki,covidrx_grp)
     } else {
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki)
