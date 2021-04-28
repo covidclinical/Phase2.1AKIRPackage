@@ -11,7 +11,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
 
     ## get the site identifier associated with the files stored in the /4ceData/Input directory that 
     ## is mounted to the container
-    currSiteId = FourCePhase2.1Data::getSiteId()
+    currSiteId = toupper(FourCePhase2.1Data::getSiteId())
 
     ## run the quality control
     FourCePhase2.1Data::runQC(currSiteId)
