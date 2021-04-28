@@ -416,7 +416,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Generate simplified table for determining who were started on novel antivirals
     covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
     remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
-    if(covid19antiviral_present == TRUE && remdesivir_present == TRUE){
+    if(isTRUE(covid19antiviral_present) && isTRUE(remdesivir_present)){
         message("Generating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL),REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
@@ -425,7 +425,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         med_covid19_new_date <- med_covid19_new
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
-    } else if(covid19antiviral_present == TRUE){
+    } else if(isTRUE(covid19antiviral_present)){
         message("Generating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
@@ -434,7 +434,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         med_covid19_new_date <- med_covid19_new
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
-    } else if(remdesivir_present == TRUE){
+    } else if(isTRUE(remdesivir_present)){
         message("Generating table for experimental COVID-19 treatment... (REMDESIVIR only)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
@@ -506,7 +506,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Creating final table of peak Cr for all patients...")
     aki_index <- dplyr::bind_rows(aki_only_index,no_aki_index)
     
-    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
+    if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         message("Adding on temporal information for experimental COVID-19 antivirals...")
         aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
         aki_index$covid_rx[is.na(aki_index$covid_rx)] <- 0
@@ -531,7 +531,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     
     # Now, generate a table containing lab values with timepoints calculated from time of peak cr
     peak_trend <- labs_cr_all
-    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
+    if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day)
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day)
@@ -549,7 +549,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     first_baseline <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak == 0) %>% dplyr::select(patient_id,baseline_cr) %>% dplyr::distinct()
     colnames(first_baseline)[2] <- "first_baseline_cr"
     peak_trend <- merge(peak_trend,first_baseline,by="patient_id",all.x=TRUE)
-    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
+    if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
@@ -563,7 +563,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
     baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_7d = cr_7d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_7d,ratio_90d)
     baseline_shift <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_7d = sum(ratio_7d >= 1.25),n_shift_90d = sum(ratio_90d >= 1.25)) %>% dplyr::ungroup()
-    if(is_obfuscated == TRUE & !is.null(obfuscation_value)) {
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift$n_all[baseline_shift$n_all < obfuscation_value] <- NA
         baseline_shift$n_shift_7d[baseline_shift$n_shift_7d < obfuscation_value] <- NA
         baseline_shift$n_shift_90d[baseline_shift$n_shift_90d < obfuscation_value] <- NA
@@ -650,7 +650,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     #aki_30d_cr <- aki_30d_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     aki_30d_cr_summ <- aki_30d_cr %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
     aki_30d_cr_summ <- merge(aki_30d_cr_summ,severe_label,by="severe",all.x=TRUE)
-    if(is_obfuscated==TRUE) {
+    if(isTRUE(is_obfuscated)) {
         aki_30d_cr_summ <- aki_30d_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
     write.csv(aki_30d_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.csv")),row.names=FALSE)
@@ -677,7 +677,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     
     message(paste0(c("Obfuscation cutoff: ",obfuscation_value)))
     # Obfuscation requirements by certain sites
-    if(is_obfuscated == TRUE && !is.null(obfuscation_value)) {
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
         for(i in 1:length(comorbid_list)) {
             demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
@@ -699,7 +699,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     
     # Create obfuscated table one for sites which require it
-    if(is_obfuscated == TRUE & !is.null(obfuscation_value)) {
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         obfuscated_table <- data.frame(export_table_one)
         var_names <- rownames(obfuscated_table)
         obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
