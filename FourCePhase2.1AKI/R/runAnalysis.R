@@ -697,7 +697,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     table_one_vars <- c("sex","age_group","race","severe","deceased","aki_kdigo_stage",comorbid_demog_summ)
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
     export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
-    write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
+    
     #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     
     # Create obfuscated table one for sites which require it
@@ -722,6 +722,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
         # obfuscated_table <- obfuscated_table[,-8]
         write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F)
+    } else {
+        write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
     }
     message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
     
