@@ -575,7 +575,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # =======================================================================================
     
     # First create a plot of the creatinine trends of AKI vs non-AKI patients from the day of the first AKI peak (or the highest Cr peak for non-AKI patients)
-    peak_aki_vs_non_aki <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::arrange(patient_id,time_from_peak,ratio)
+    peak_aki_vs_non_aki <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::arrange(patient_id,severe,time_from_peak,ratio)
     peak_aki_vs_non_aki <- peak_aki_vs_non_aki %>% dplyr::group_by(patient_id,time_from_peak) %>% tidyr::fill(ratio,severe) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
     colnames(peak_aki_vs_non_aki) <- c("patient_id","aki","time_from_peak","ratio")
     peak_aki_vs_non_aki <- peak_aki_vs_non_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = ifelse((aki == 2 | aki == 4),1,0))
@@ -583,8 +583,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     aki_label <- data.table::data.table(c(0,1),c("Non-AKI","AKI"))
     colnames(aki_label) <- c("aki","aki_label")
     peak_aki_vs_non_aki_summ <- merge(peak_aki_vs_non_aki_summ,aki_label,by="aki",all.x=TRUE)
-    if(is_obfuscated==TRUE) {
-        peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::group_by(aki,time_from_peak) %>% dplyr::filter(n >= obfuscation_value)
+    if(isTRUE(is_obfuscated)) {
+        peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::group_by(aki,time_from_peak) %>% dplyr::filter(n >= obfuscation_value) %>% dplyr::ungroup() %>% dplyr::arrange(aki,time_from_peak)
     }
     write.csv(peak_aki_vs_non_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromPeak_AKI_vs_NonAKI.csv")),row.names=FALSE)
     peak_aki_vs_non_aki_timeplot <- ggplot2::ggplot(peak_aki_vs_non_aki_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=aki_label))+ggplot2::geom_line(ggplot2::aes(color = factor(aki_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(aki_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio, color=factor(aki_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "AKI Group") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("AKI"="#bc3c29","Non-AKI"="#0072b5")) + ggplot2::theme_minimal()
@@ -594,7 +594,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
 
     
     # Create KDIGO Stage table for demographics table
-    kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(ratio < 1.5,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3)))) %>% dplyr::ungroup()
+    kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 1.5,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3))))) %>% dplyr::ungroup()
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
     
     
@@ -609,7 +609,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     severe_label <- data.table::data.table(c(1,2,3,4),c("Non-severe, no AKI","Non-severe, AKI","Severe, no AKI","Severe, AKI"))
     colnames(severe_label) <- c("severe","severe_label")
     peak_cr_summ <- merge(peak_cr_summ,severe_label,by="severe",all.x=TRUE)
-    if(is_obfuscated==TRUE) {
+    if(isTRUE(is_obfuscated)) {
         peak_cr_summ <- peak_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
     write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromPeak_Severe_AKI.csv")),row.names=FALSE)
@@ -630,7 +630,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     #adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     adm_to_aki_summ <- adm_to_aki_cr %>% dplyr::group_by(severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
     adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
-    if(is_obfuscated==TRUE) {
+    if(isTRUE(is_obfuscated)) {
         adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
     }
     write.csv(adm_to_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.csv")),row.names=FALSE)
@@ -737,7 +737,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # ================================================================================================================================
     # Figure 1(b) Comparing serum creatinine trends of severe and non-severe patients, with or without remdesivir/lopinavir+ritonavir
     # ================================================================================================================================
-    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
+    if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         message("Now preparing plots for serum Cr trends in experimental COVID-19 treatment...")
         # Plotting from peak
         peak_trend_covidviral <- peak_trend %>% dplyr::select(patient_id,covidrx_grp,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
@@ -745,7 +745,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         covidrx_grp_label <- data.table::data.table(c(1:4),c("Non-severe, no novel COVID-19 treatment","Non-severe, with novel COVID-19 treatment","Severe, no novel COVID-19 treatment","Severe, with novel COVID-19 treatment"))
         colnames(covidrx_grp_label) <- c("covidrx_grp","covidrx_label")
         peak_cr_covidviral_summ <- merge(peak_cr_covidviral_summ,covidrx_grp_label,by="covidrx_grp",all.x=TRUE)
-        if(is_obfuscated==TRUE) {
+        if(isTRUE(is_obfuscated)) {
             peak_cr_covidviral_summ  <- peak_cr_covidviral_summ  %>% dplyr::group_by(covidrx_grp) %>% dplyr::filter(n >= obfuscation_value)
         }
         write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.csv")),row.names=FALSE)
@@ -775,7 +775,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         covidrx_severe_label <- data.table::data.table(c(0,1),c("Non-severe","Severe"))
         colnames(covidrx_severe_label) <- c("severe","severe_label")
         cr_from_covidrx_summ <- merge(cr_from_covidrx_summ,covidrx_severe_label,by="severe",all.x=TRUE)
-        if(is_obfuscated==TRUE) {
+        if(isTRUE(is_obfuscated)) {
             cr_from_covidrx_summ  <- cr_from_covidrx_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
         }
         
@@ -843,15 +843,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # First create a temporary table where we filter out the medications with only one factor level
 
     med_recovery_tmp <- aki_index_recovery
-    if(coaga_present == TRUE) {
+    if(isTRUE(coaga_present)) {
         med_recovery_tmp <- merge(med_recovery_tmp,med_coaga_new,by="patient_id",all.x=TRUE)
         med_recovery_tmp <- med_recovery_tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COAGA = dplyr::if_else(is.na(COAGA),0,COAGA)) %>% dplyr::ungroup()
     }
-    if(coagb_present == TRUE) {
+    if(isTRUE(coagb_present)) {
         med_recovery_tmp <- merge(med_recovery_tmp,med_coagb_new,by="patient_id",all.x=TRUE)
         med_recovery_tmp <- med_recovery_tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COAGB=dplyr::if_else(is.na(COAGB),0,COAGB)) %>% dplyr::ungroup()
     }
-    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
+    if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         med_recovery_tmp <- merge(med_recovery_tmp,med_covid19_new,by="patient_id",all.x=TRUE)
         med_recovery_tmp <- med_recovery_tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = dplyr::if_else(is.na(covid_rx),0,covid_rx)) %>% dplyr::ungroup()
     }
@@ -876,13 +876,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Then run the actual merging
     aki_index_recovery <- merge(aki_index_recovery,comorbid[c("patient_id",comorbid_recovery_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     aki_index_recovery <- merge(aki_index_recovery,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
-    if(coaga_present == TRUE) {
+    if(isTRUE(coaga_present)) {
         aki_index_recovery <- merge(aki_index_recovery,med_coaga_new,by="patient_id",all.x=TRUE)
     }
-    if(coagb_present == TRUE) {
+    if(isTRUE(coagb_present)) {
         aki_index_recovery <- merge(aki_index_recovery,med_coagb_new,by="patient_id",all.x=TRUE)
     }
-    if(covid19antiviral_present == TRUE | remdesivir_present == TRUE) {
+    if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         aki_index_recovery <- merge(aki_index_recovery,med_covid19_new,by="patient_id",all.x=TRUE)
     }
     aki_index_recovery[is.na(aki_index_recovery)] <- 0
