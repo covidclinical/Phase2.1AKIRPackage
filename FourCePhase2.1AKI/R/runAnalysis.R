@@ -719,7 +719,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         obfuscated_table$AKI_n[obfuscated_table$AKI_n < obfuscation_value] <- NA
         # obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
         # obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
-        # obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
+        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
         # obfuscated_table <- obfuscated_table[,-8]
         write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F)
     }
