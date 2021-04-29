@@ -554,7 +554,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
     }
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% tidyr::fill(severe) %>% dplyr::ungroup() %>% dplyr::distinct()
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% dplyr::ungroup() %>% dplyr::distinct()
     #peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the dplyr::selected AKI peak
@@ -584,8 +584,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     colnames(aki_label) <- c("aki","aki_label")
     peak_aki_vs_non_aki_summ <- merge(peak_aki_vs_non_aki_summ,aki_label,by="aki",all.x=TRUE)
     if(isTRUE(is_obfuscated)) {
-        # peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::group_by(aki,time_from_peak) %>% dplyr::filter(n >= obfuscation_value) %>% dplyr::ungroup() %>% dplyr::arrange(aki,time_from_peak)
-        peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::filter(n >= obfuscation_value) %>% dplyr::arrange(aki,time_from_peak)
+        # peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::filter(n >= obfuscation_value) %>% dplyr::arrange(aki,time_from_peak)
+        peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ[peak_aki_vs_non_aki_summ$n >= obfuscation_value,]
     }
     write.csv(peak_aki_vs_non_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromPeak_AKI_vs_NonAKI.csv")),row.names=FALSE)
     peak_aki_vs_non_aki_timeplot <- ggplot2::ggplot(peak_aki_vs_non_aki_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=aki_label))+ggplot2::geom_line(ggplot2::aes(color = factor(aki_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(aki_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio, color=factor(aki_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "AKI Group") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("AKI"="#bc3c29","Non-AKI"="#0072b5")) + ggplot2::theme_minimal()
@@ -593,12 +593,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI.png")),plot=peak_aki_vs_non_aki_timeplot,width=12,height=9,units="cm")
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients should have been generated.")
 
-    
     # Create KDIGO Stage table for demographics table
     kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 1.5,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3))))) %>% dplyr::ungroup()
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
-    
-    
     
     # Now, derive our first table peak_trend_severe to compare across the different severity groups
     peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
@@ -611,7 +608,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     colnames(severe_label) <- c("severe","severe_label")
     peak_cr_summ <- merge(peak_cr_summ,severe_label,by="severe",all.x=TRUE)
     if(isTRUE(is_obfuscated)) {
-        peak_cr_summ <- peak_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
+        # peak_cr_summ <- peak_cr_summ %>% dplyr::filter(n >= obfuscation_value)
+        peak_cr_summ <- peak_cr_summ[peak_cr_summ$n >= obfuscation_value,]
     }
     write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromPeak_Severe_AKI.csv")),row.names=FALSE)
     # Plot the graphs
@@ -632,7 +630,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     adm_to_aki_summ <- adm_to_aki_cr %>% dplyr::group_by(severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
     adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
     if(isTRUE(is_obfuscated)) {
-        adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
+        # adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::filter(n >= obfuscation_value)
+        adm_to_aki_summ <- adm_to_aki_summ[adm_to_aki_summ$n >= obfuscation_value,]
     }
     write.csv(adm_to_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.csv")),row.names=FALSE)
     adm_to_aki_timeplot <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30 & adm_to_aki_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
@@ -653,7 +652,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     aki_30d_cr_summ <- aki_30d_cr %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
     aki_30d_cr_summ <- merge(aki_30d_cr_summ,severe_label,by="severe",all.x=TRUE)
     if(isTRUE(is_obfuscated)) {
-        aki_30d_cr_summ <- aki_30d_cr_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
+        # aki_30d_cr_summ <- aki_30d_cr_summ %>% dplyr::filter(n >= obfuscation_value)
+        aki_30d_cr_summ <- aki_30d_cr_summ[aki_30d_cr_summ$n >= obfuscation_value,]
     }
     write.csv(aki_30d_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.csv")),row.names=FALSE)
     aki_30d_cr_timeplot <- ggplot2::ggplot(aki_30d_cr_summ,ggplot2::aes(x=time_from_start,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
