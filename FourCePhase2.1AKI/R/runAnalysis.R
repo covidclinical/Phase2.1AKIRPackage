@@ -594,7 +594,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients should have been generated.")
 
     # Create KDIGO Stage table for demographics table
-    kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 1.5,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3))))) %>% dplyr::ungroup()
+    kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3)))) %>% dplyr::ungroup()
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
     
     # Now, derive our first table peak_trend_severe to compare across the different severity groups
