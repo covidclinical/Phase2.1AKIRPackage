@@ -21,6 +21,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ## To Do: implement analytic workflow, saving results to a site-specific 
     ## file to be sent to the coordinating site later via submitAnalysis()
     obfuscation_value = FourCePhase2.1Data::getObfuscation(currSiteId)
+    if(is.null(obfuscation_value)) {
+        obfuscation_value = 0
+    }
 
     ## ========================================
     ## PART 1: Read in Data Tables
