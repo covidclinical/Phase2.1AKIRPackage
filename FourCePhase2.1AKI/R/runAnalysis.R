@@ -554,7 +554,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_90d,min_cr_retro_7day,time_from_peak,baseline_cr,first_baseline_cr)
     }
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% dplyr::ungroup() %>% dplyr::distinct()
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr) %>% dplyr::ungroup() %>% dplyr::distinct()
     #peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the dplyr::selected AKI peak
@@ -598,7 +598,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
     
     # Now, derive our first table peak_trend_severe to compare across the different severity groups
-    peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
+    peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio) %>% dplyr::arrange(patient_id,severe,time_from_peak,ratio)
+    peak_trend_severe <- peak_trend_severe %>% dplyr::group_by(patient_id,time_from_peak) %>% tidyr::fill(ratio,severe) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
     # Headers: patient_id  severe  time_from_peak  ratio
     # peak_trend_severe <- peak_trend_severe %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
     
