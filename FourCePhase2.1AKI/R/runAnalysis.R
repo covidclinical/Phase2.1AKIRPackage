@@ -1061,7 +1061,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     
     try({
         recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
-        recovery_model4 <- recovery_model1[recovery_model4 %in% model4]
+        recovery_model4 <- recovery_model4[recovery_model4 %in% model4]
         recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model4,"severe * aki_kdigo_final"),collapse="+")))
         #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model4,collapse="+")))
         message(paste("Formula for Model 4: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model4,"severe * aki_kdigo_final"),collapse="+")))
@@ -1184,7 +1184,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Generating Model 4 (Time to death, AKI patients only)...")
     try({
         death_aki_only_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
-        death_aki_only_model4 <- death_aki_only_model1[death_aki_only_model4 %in% model4]
+        death_aki_only_model4 <- death_aki_only_model4[death_aki_only_model4 %in% model4]
         deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model4,"severe * aki_kdigo_final"),collapse="+")))
         message("Formula for Model 4: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model4,"severe * aki_kdigo_final"),collapse="+")))
         coxph_death_akionly4 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
