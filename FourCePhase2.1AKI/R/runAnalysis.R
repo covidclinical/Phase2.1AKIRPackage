@@ -21,9 +21,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ## To Do: implement analytic workflow, saving results to a site-specific 
     ## file to be sent to the coordinating site later via submitAnalysis()
     obfuscation_value = FourCePhase2.1Data::getObfuscation(currSiteId)
-    if(is.null(obfuscation_value)) {
-        obfuscation_value = 0
-    }
 
     ## ========================================
     ## PART 1: Read in Data Tables
@@ -699,34 +696,60 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     }
     
     table_one_vars <- c("sex","age_group","race","severe","deceased","aki_kdigo_stage",comorbid_demog_summ)
-    table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
-    export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
-    
     #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     
     # Create obfuscated table one for sites which require it
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
-        obfuscated_table <- data.frame(export_table_one)
-        var_names <- rownames(obfuscated_table)
-        obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
-        obfuscated_table <- within(obfuscated_table,AKI <- data.frame(do.call('rbind',strsplit(as.character(AKI),' (',fixed=T))))
-        obfuscated_table <- as.data.frame(gsub("[),]","",as.matrix(obfuscated_table)))
-        obfuscated_table[c(2:6)] <- lapply(obfuscated_table[c(2:6)],as.numeric)
-        obfuscated_table <- obfuscated_table[,-7]
-        colnames(obfuscated_table) <- c("level","NoAKI_n","NoAKI_perc","AKI_n","AKI_perc","p")
-        obfuscated_table$names <- var_names
-        obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
-        obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
-        obfuscated_table <- as.data.frame(obfuscated_table)
-        obfuscated_table <- obfuscated_table %>% dplyr::select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
-        obfuscated_table$NoAKI_n[obfuscated_table$NoAKI_n < obfuscation_value] <- NA
-        obfuscated_table$AKI_n[obfuscated_table$AKI_n < obfuscation_value] <- NA
-        # obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
-        # obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
-        obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
-        # obfuscated_table <- obfuscated_table[,-8]
-        write.csv(obfuscated_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F)
+        # obfuscated_table <- data.frame(export_table_one)
+        # var_names <- rownames(obfuscated_table)
+        # obfuscated_table <- within(obfuscated_table,No.AKI <- data.frame(do.call('rbind',strsplit(as.character(No.AKI),' (',fixed=T))))
+        # obfuscated_table <- within(obfuscated_table,AKI <- data.frame(do.call('rbind',strsplit(as.character(AKI),' (',fixed=T))))
+        # obfuscated_table <- as.data.frame(gsub("[),]","",as.matrix(obfuscated_table)))
+        # obfuscated_table[c(2:6)] <- lapply(obfuscated_table[c(2:6)],as.numeric)
+        # obfuscated_table <- obfuscated_table[,-7]
+        # colnames(obfuscated_table) <- c("level","NoAKI_n","NoAKI_perc","AKI_n","AKI_perc","p")
+        # obfuscated_table$names <- var_names
+        # obfuscated_table <- lapply(obfuscated_table,function(x) { replace(x,grep("[X]",x),NA)})
+        # obfuscated_table$names <- zoo::na.locf(obfuscated_table$names)
+        # obfuscated_table <- as.data.frame(obfuscated_table)
+        # obfuscated_table <- obfuscated_table %>% dplyr::select(names,level,NoAKI_n,NoAKI_perc,AKI_n,AKI_perc,p)
+        # obfuscated_table$NoAKI_n[obfuscated_table$NoAKI_n < obfuscation_value] <- NA
+        # obfuscated_table$AKI_n[obfuscated_table$AKI_n < obfuscation_value] <- NA
+        # # obfuscated_table <- obfuscated_table %>% dplyr::mutate(remove = ifelse(NoAKI_n < obfuscation_value | AKI_n < obfuscation_value,1,0))
+        # # obfuscated_table <- obfuscated_table %>% dplyr::filter(remove == 0)
+        # obfuscated_table$names <- stringr::str_remove(obfuscated_table$names,stringr::fixed("...."))
+        # # obfuscated_table <- obfuscated_table[,-8]
+        
+        demog_obf <- demog_summ %>% dplyr::group_by(aki) %>% dplyr::count() %>% tidyr::pivot_wider(names_from = "aki",values_from = "n")
+        demog_obf$category <- "n"
+        demog_obf <- demog_obf[,c(3,1,2)]
+        demog_obf$p_val <- NA
+        colnames(demog_obf) <- c("category","No_AKI","AKI","p_val")
+        for(i in 1:length(table_one_vars)) {
+            try({
+                tmp <- demog_summ %>% dplyr::group_by(aki) %>% dplyr::count(get(table_one_vars[i])) %>% tidyr::pivot_wider(names_from="aki",values_from = "n")
+                tmp[is.na(tmp)] <- 0
+                colnames(tmp) <- c("category","No_AKI","AKI")
+                tmp <- tmp %>% dplyr::mutate(category = paste0(table_one_vars[i],"_",category))
+                p_value <- fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
+                tmp$p_val = p_value
+                colnames(tmp) <- c("category","No_AKI","AKI","p_val")
+                demog_obf <- rbind(demog_obf,tmp)
+                rm(tmp)
+                rm(p_value)
+            })
+        }
+        demog_obf$No_AKI[demog_obf$No_AKI < obfuscation_value] <- NA
+        demog_obf$AKI[demog_obf$AKI < obfuscation_value] <- NA
+        demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(total = No_AKI + AKI) %>% dplyr::ungroup()
+        no_aki_total <- demog_obf$No_AKI[1]
+        aki_total <- demog_obf$AKI[1]
+        total_pop <- demog_obf$total[1]
+        demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop) %>% dplyr::ungroup()
+        write.csv(demog_obf,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F,na="NA")
     } else {
+        table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
+        export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
         write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
     }
     message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
@@ -753,7 +776,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         colnames(covidrx_grp_label) <- c("covidrx_grp","covidrx_label")
         peak_cr_covidviral_summ <- merge(peak_cr_covidviral_summ,covidrx_grp_label,by="covidrx_grp",all.x=TRUE)
         if(isTRUE(is_obfuscated)) {
-            peak_cr_covidviral_summ  <- peak_cr_covidviral_summ  %>% dplyr::group_by(covidrx_grp) %>% dplyr::filter(n >= obfuscation_value)
+            peak_cr_covidviral_summ  <- peak_cr_covidviral_summ[peak_cr_covidviral_summ$n >= obfuscation_value,]
         }
         write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CovidViral.csv")),row.names=FALSE)
         peak_cr_covidviral_timeplot <- ggplot2::ggplot(peak_cr_covidviral_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=covidrx_label))+ggplot2::geom_line(ggplot2::aes(color = factor(covidrx_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(covidrx_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color=factor(covidrx_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity + COVID-19 Treatment") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, no novel COVID-19 treatment"="#bc3c29","Non-severe, with novel COVID-19 treatment"="#0072b5","Severe, no novel COVID-19 treatment" = "#e18727","Severe, with novel COVID-19 treatment"="#20854e")) + ggplot2::theme_minimal()
@@ -783,7 +806,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         colnames(covidrx_severe_label) <- c("severe","severe_label")
         cr_from_covidrx_summ <- merge(cr_from_covidrx_summ,covidrx_severe_label,by="severe",all.x=TRUE)
         if(isTRUE(is_obfuscated)) {
-            cr_from_covidrx_summ  <- cr_from_covidrx_summ %>% dplyr::group_by(severe) %>% dplyr::filter(n >= obfuscation_value)
+            cr_from_covidrx_summ  <- cr_from_covidrx_summ[cr_from_covidrx_summ$n >= obfuscation_value,]
         }
         
         write.csv(peak_cr_covidviral_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.csv")),row.names=FALSE)
