@@ -954,6 +954,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
         # }
         if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+            message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
             comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
         }
     }
@@ -968,6 +969,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
         # }
         if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+            message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
             demog_recovery_list_tmp[i] <- demog_list[i]
         }
     }
@@ -983,6 +985,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
             # }
             if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+                message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
                 med_recovery_list_tmp[i] <- med_recovery_list[i]
             }
         }
@@ -1310,6 +1313,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),deceased)
         death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
         if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+            message(paste0(c("Including ",comorbid_death_list[i]," into the comorbid_death list...")))
             comorbid_death_list_tmp[i] <- comorbid_death_list[i]
         }
     }
@@ -1324,6 +1328,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
         # }
         if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+            message(paste0(c("Including ",demog_list[i]," into the demog_death list...")))
             demog_death_list_tmp[i] <- demog_list[i]
         }
     }
@@ -1339,6 +1344,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
             # }
             if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+                message(paste0(c("Including ",med_death_list[i]," into the med_death list...")))
                 med_death_list_tmp[i] <- med_death_list[i]
             }
         }
