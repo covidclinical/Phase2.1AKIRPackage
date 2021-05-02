@@ -731,7 +731,20 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
                 tmp[is.na(tmp)] <- 0
                 colnames(tmp) <- c("category","No_AKI","AKI")
                 tmp <- tmp %>% dplyr::mutate(category = paste0(table_one_vars[i],"_",category))
-                p_value <- fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
+                
+                # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
+                p_value <- tryCatch({
+                    message(paste0(c("Attempting Fisher's test for ",table_one_vars[i])))
+                    fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
+                }, error = function(e) {
+                    message("Failed running Fisher's exact test for ",table_one_vars[i],", proceeding with Monte Carlo simulation.")
+                    tryCatch({
+                        fisher.test(data.frame(tmp[-1],row.names=tmp$category),simulate.p.value=TRUE)$p.value
+                    },error=function(e){
+                        message("Failed running Fisher's exact test even with Monte Carlo simulation. A default P-value of NA will be printed - please inspect data.")
+                        return(NA)
+                    })
+                })
                 tmp$p_val = p_value
                 colnames(tmp) <- c("category","No_AKI","AKI","p_val")
                 demog_obf <- rbind(demog_obf,tmp)
