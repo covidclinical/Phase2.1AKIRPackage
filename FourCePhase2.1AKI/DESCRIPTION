@@ -1,6 +1,6 @@
 Package: FourCePhase2.1AKI
 Title: 4CE Consortium for COVID-19 - Acute Kidney Injury - Statistical Analysis Package
-Version: 0.1.4.7.5
+Version: 0.1.4.7.5a
 Authors@R: 
     person(given = "Byorn",
            family = "Tan",
