@@ -760,7 +760,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         total_pop <- demog_obf$total[1]
         demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop) %>% dplyr::ungroup()
         write.csv(demog_obf,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F,na="NA")
-    } else {
+    } 
+    if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
         table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
         export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
         write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne.csv")))
