@@ -20,8 +20,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
 
     ## To Do: implement analytic workflow, saving results to a site-specific 
     ## file to be sent to the coordinating site later via submitAnalysis()
-    obfuscation_value = FourCePhase2.1Data::getObfuscation(currSiteId)
-
+    obfuscation_value = as.numeric(FourCePhase2.1Data::getObfuscation(currSiteId))
+    message(paste0(c("Obfuscation level set to ",obfuscation_value)))
     ## ========================================
     ## PART 1: Read in Data Tables
     ## ========================================
@@ -756,8 +756,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
                 rm(p_value)
             })
         }
-        demog_obf$No_AKI[demog_obf$No_AKI < obfuscation_value] <- NA
-        demog_obf$AKI[demog_obf$AKI < obfuscation_value] <- NA
+        demog_obf$No_AKI[demog_obf$No_AKI < obfuscation_value] <- -1
+        demog_obf$AKI[demog_obf$AKI < obfuscation_value] <- -1
         demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(total = No_AKI + AKI) %>% dplyr::ungroup()
         no_aki_total <- demog_obf$No_AKI[1]
         aki_total <- demog_obf$AKI[1]
