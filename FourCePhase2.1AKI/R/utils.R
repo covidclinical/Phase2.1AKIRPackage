@@ -165,6 +165,15 @@ get_day <- function(ratio,time_from_peak,target=1.25) {
   day
 }
 
+#' Generates MELD score
+#' @param bil serum bilirubin in mg/dL
+#' @param inr INR
+#' @param sCr serum creatinine in mg/dL
+#' @noRd
+meld_score <- function(bil,inr,sCr) {
+  return(3.78 * log(bil) + 11.2 * log(inr) + 9.57 * log(bil) + 6.43)
+}
+
 #' Display function to show mean(SD) for continuous variables in the table1 demographics table
 #' @noRd
 my.render.cont <- function(x) {

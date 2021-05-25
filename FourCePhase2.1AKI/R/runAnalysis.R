@@ -445,6 +445,58 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     }
     
+    # ==========
+    # MELD Labs
+    # ==========
+    
+    platelet_loinc <- c("13056-7","26515-7","49497-1","74464-9","777-3","778-1")
+    inr_loinc <- c("34714-6","38875-1","46418-0","6301-6")
+    labs_list <- unique(observations$concept_code[observations$concept_type == "LAB-LOINC"])
+    inr_present <- FALSE
+    if(length(intersect(inr_loinc,labs_list)) > 0) {
+        inr_present <- TRUE
+    }
+    platelet_present <- FALSE
+    if(length(intersect(platelet_loinc,labs_list)) > 0) {
+        platelet_present <- TRUE
+    }
+    
+    if(isTRUE(inr_present)) {
+        labs_inr <- observations[observations$concept_code %in% inr_loinc]
+        labs_bil <- observations[observations$concept_code == '1975-2']
+        labs_cr <- observations[observations$concept_code == '2160-0']
+        labs_ast <- observations[observations$concept_code == '1920-8']
+        labs_alt <- observations[observations$concept_code == '1742-6']
+        labs_alb <- observations[observations$concept_code == '1751-7']
+        
+        labs_inr <- labs_inr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+        labs_bil <- labs_bil %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+        labs_cr <- labs_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+        labs_ast <- labs_ast %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+        labs_alt <- labs_alt %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+        labs_alb <- labs_alb %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+        
+        labs_inr <- labs_inr %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(inr_min = min(value),inr_max = max(value),inr_mean = mean(value),inr_first = dplyr::first(value))
+        labs_bil <- labs_bil %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(bil_min = min(value),bil_max = max(value),bil_mean = mean(value),bil_first = dplyr::first(value))
+        labs_cr <- labs_cr %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(cr_min = min(value),cr_max = max(value),cr_mean = mean(value),cr_first = dplyr::first(value))
+        labs_ast <- labs_ast %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(ast_min = min(value),ast_max = max(value),ast_mean = mean(value),ast_first = dplyr::first(value))
+        labs_alt <- labs_alt %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(alt_min = min(value),alt_max = max(value),alt_mean = mean(value),alt_first = dplyr::first(value))
+        labs_alb <- labs_alb %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(alb_min = min(value),alb_max = max(value),alb_mean = mean(value),alb_first = dplyr::first(value))
+        
+        meld_labs <- merge(labs_inr,labs_bil,by=c("patient_id","day_bin",all=TRUE))
+        meld_labs <- merge(meld_labs,labs_cr,by=c("patient_id","day_bin",all=TRUE))
+        meld_labs <- merge(meld_labs,labs_ast,by=c("patient_id","day_bin",all=TRUE))
+        meld_labs <- merge(meld_labs,labs_alt,by=c("patient_id","day_bin",all=TRUE))
+        meld_labs <- merge(meld_labs,labs_alb,by=c("patient_id","day_bin",all=TRUE))
+        
+        if(isTRUE(platelet_present)) {
+            labs_plt <- observations[observations$concept_code %in% platelet_loinc]
+            labs_plt <- labs_plt %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width = 3,center=1.5))
+            meld_labs <- merge(meld_labs,labs_plt,by=c("patient_id","day_bin",all=TRUE))
+        }
+        meld_labs <- meld_labs %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::mutate(meld_first = meld_score(bil_first,inr_first,cr_first))
+    }
+    
     ## ==================================================================================
     ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
     ## ==================================================================================
