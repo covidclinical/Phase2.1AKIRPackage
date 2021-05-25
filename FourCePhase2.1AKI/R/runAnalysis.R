@@ -488,6 +488,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         meld_labs <- merge(meld_labs,labs_ast,by=c("patient_id","day_bin",all=TRUE))
         meld_labs <- merge(meld_labs,labs_alt,by=c("patient_id","day_bin",all=TRUE))
         meld_labs <- merge(meld_labs,labs_alb,by=c("patient_id","day_bin",all=TRUE))
+        meld_labs <- meld_labs %>% dplyr::distinct()
         
         if(isTRUE(platelet_present)) {
             labs_plt <- observations[observations$concept_code %in% platelet_loinc]
