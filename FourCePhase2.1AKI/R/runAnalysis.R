@@ -413,6 +413,29 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         TRUE
     },error=function(c) FALSE)
     
+    # Generate simplified table for determining who were using ACEI near admission
+    message("Generating table for ACEI use during the admission...")
+    acei_present <- tryCatch({
+        med_acei_new <- med_new %>% dplyr::select(patient_id,ACEI) %>% dplyr::filter(ACEI == min(ACEI)) %>% dplyr::distinct()
+        med_acei_new$ACEI[med_acei_new$ACEI < -15] <- 0
+        med_acei_new$ACEI[med_acei_new$ACEI >= -15] <- 1
+        TRUE
+    },error=function(c) FALSE)
+    arb_present <- tryCatch({
+        med_arb_new <- med_new %>% dplyr::select(patient_id,ARB) %>% dplyr::filter(ARB == min(ARB)) %>% dplyr::distinct()
+        med_arb_new$ARB[med_arb_new$ARB < -15] <- 0
+        med_arb_new$ARB[med_arb_new$ARB >= -15] <- 1
+        TRUE
+    },error=function(c) FALSE)
+    
+    if(isTRUE(acei_present) & isTRUE(arb_present)){
+        med_raas_new <- med_acei_new
+        colnames(med_raas_new)[2] <- "raas_new"
+        tmp <- med_arb_new
+        colnames(tmp)[2] <- "raas_new"
+        med_raas_new <- rbind(med_raas_new,tmp) %>% dplyr::distinct() %>% dplyr::group_by(patient_id) %>% dplyr::filter(raas_new == max(raas_new)) %>% dplyr::ungroup()
+    }
+    
     # Generate simplified table for determining who were started on novel antivirals
     covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
     remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
@@ -676,6 +699,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
     demog_summ <- merge(demog_summ,comorbid,by="patient_id",all.x=TRUE)
     demog_summ <- merge(demog_summ,kdigo_grade,by="patient_id",all.x=TRUE)
+    # Add in COAGA and COAGB information
     if(isTRUE(coaga_present)) {
         demog_summ <- merge(demog_summ,med_coaga_new,by="patient_id",all.x=TRUE) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
         demog_summ[is.na(demog_summ)] <- 0
@@ -686,11 +710,27 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         demog_summ[is.na(demog_summ)] <- 0
         demog_summ$COAGB <- factor(demog_summ$COAGB,levels=c(0,1),labels=c("No Anticoagulation","Anticoagulation"))
     }
+    # Add COVID-19 antiviral information
     if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         demog_summ <- merge(demog_summ,med_covid19_new,by="patient_id",all.x=TRUE) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
         demog_summ[is.na(demog_summ)] <- 0
         demog_summ$covid_rx <- factor(demog_summ$covid_rx,levels=c(0,1),labels=c("No Novel Antiviral","Novel Antiviral"))
     }
+    # Add in RAAS blockade information
+    if(isTRUE(acei_present) & isTRUE(arb_present)) {
+        demog_summ <- merge(demog_summ,med_raas_new,by="patient_id",all.x=TRUE) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
+        demog_summ[is.na(demog_summ)] <- 0
+        demog_summ$raas_new <- factor(demog_summ$raas_new,levels=c(0,1),labels=c("No ACE-i/ARB","ACE-i and/or ARB"))
+    } else if(isTRUE(acei_present)) {
+        demog_summ <- merge(demog_summ,med_acei_new,by="patient_id",all.x=TRUE) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
+        demog_summ[is.na(demog_summ)] <- 0
+        demog_summ$ACEI <- factor(demog_summ$ACEI,levels=c(0,1),labels=c("No ACE-i","ACE-i"))
+    } else if(isTRUE(arb_present)) {
+        demog_summ <- merge(demog_summ,med_arb_new,by="patient_id",all.x=TRUE) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
+        demog_summ[is.na(demog_summ)] <- 0
+        demog_summ$ARB <- factor(demog_summ$ARB,levels=c(0,1),labels=c("No ARB","ARB"))
+    }
+    
     demog_summ[is.na(demog_summ)] <- 0
     demog_summ$aki <- 0
     demog_summ$aki[demog_summ$patient_id %in% labs_aki_summ$patient_id] <- 1
@@ -726,6 +766,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     } else if(isTRUE(coagb_present)) {
         med_summ <- "COAGB"
     }
+    
+    if(isTRUE(acei_present) & isTRUE(arb_present)) {
+        med_summ <- c(med_summ,"raas_new")
+    } else if(isTRUE(acei_present)) {
+        med_summ <- c(med_summ,"ACEI")
+    } else if(isTRUE(arb_present)) {
+        med_summ <- c(med_summ,"ARB")
+    }
+    
     if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         med_summ <- c(med_summ,"covid_rx")
     }
@@ -1621,6 +1670,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 15,1,0)) %>% dplyr::ungroup()
         labs_meld_admission$meld_admit_severe[is.na(labs_meld_admission$meld_admit_severe)] <- 0
     }
+    
     
     
     # # ================================================
