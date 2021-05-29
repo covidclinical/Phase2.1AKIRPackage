@@ -2199,7 +2199,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death2_summ","coxph_cirrhotic_death2_hr","coxph_cirrhotic_death2_stats1","coxph_cirrhotic_death2_stats2","coxph_cirrhotic_death2_plot")
         })
         
-        message("Generating Model 3 (Time to death, AKI patients only)...")
+        message("Generating Model 3 (Time to death, cirrhotic AKI patients only)...")
         try({
             cirrhotic_death_aki_model3 <- c("severe","aki_kdigo_final","meld_admit_severe",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model3 <- cirrhotic_death_aki_model3[cirrhotic_death_aki_model3 %in% model3]
