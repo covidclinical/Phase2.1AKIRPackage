@@ -161,7 +161,11 @@ which.peaks <- function(x,partial=TRUE,decreasing=FALSE) {
 #' @noRd
 get_day <- function(ratio,time_from_peak,target=1.25) {
   index = purrr::detect_index(ratio,function(x) x <= 1.25)
-  day = time_from_peak[index]
+  if(index > 0) {
+    day = time_from_peak[index]
+  } else {
+    day = time_from_peak[length(time_from_peak)]
+  }
   day
 }
 
@@ -170,8 +174,17 @@ get_day <- function(ratio,time_from_peak,target=1.25) {
 #' @param inr INR
 #' @param sCr serum creatinine in mg/dL
 #' @noRd
-meld_score <- function(bil,inr,sCr) {
-  return(3.78 * log(bil) + 11.2 * log(inr) + 9.57 * log(bil) + 6.43)
+meld_score <- function(bil,inr,sCr,Na = 137) {
+  # Unable to implement corrections for sodium at present as not available in the 4CE labs
+  # However, still hard-coded in, in case this changes in future
+  bil_corr <- ifelse((bil < 1 | is.na(bil)),1,bil)
+  inr_corr <- ifelse((inr < 1 | is.na(inr)),1,inr)
+  sCr_corr <- ifelse((sCr < 1 | is.na (sCr)),1,min(4,sCr))
+  na_corr <- ifelse(is.na(Na),137,Na)
+  meld_init <- 3.78 * log(bil_corr) + 11.2 * log(inr_corr) + 9.57 * log(sCr_corr) + 6.43
+  meld_corr <- meld_init + 1.32 * (137 - na_corr) - 0.033 * meld_init * (137 - na_corr)
+  meld_corr <- round(meld_corr)
+  meld_corr
 }
 
 #' Display function to show mean(SD) for continuous variables in the table1 demographics table
@@ -184,4 +197,33 @@ my.render.cont <- function(x) {
 #' @noRd
 my.render.cat <- function(x) {
   c("", sapply(table1::stats.default(x), function(y) with(y, sprintf("%d (%0.0f %%)", FREQ, PCT))))
+}
+
+#' Computes t-test statistics from summary statistics
+#' @param m1 sample 1 mean
+#' @param m2 sample 2 mean
+#' @param s1 sample 1 SD
+#' @param s2 sample 2 SD
+#' @param n1 sample 1 size
+#' @param n2 sample 2 size
+#' @param m0 the null value for the difference in means to be tested for. Default is 0. 
+#' @paramequal.variance whether or not to assume equal variance. Default is FALSE. 
+#' @noRd
+t.test2 <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
+{
+  if( equal.variance==FALSE ) 
+  {
+    se <- sqrt( (s1^2/n1) + (s2^2/n2) )
+    # welch-satterthwaite df
+    df <- ( (s1^2/n1 + s2^2/n2)^2 )/( (s1^2/n1)^2/(n1-1) + (s2^2/n2)^2/(n2-1) )
+  } else
+  {
+    # pooled standard deviation, scaled by the sample sizes
+    se <- sqrt( (1/n1 + 1/n2) * ((n1-1)*s1^2 + (n2-1)*s2^2)/(n1+n2-2) ) 
+    df <- n1+n2-2
+  }      
+  t <- (m1-m2-m0)/se 
+  dat <- c(m1-m2, se, t, 2*pt(-abs(t),df))    
+  names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
+  return(dat) 
 }

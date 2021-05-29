@@ -517,7 +517,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Creating table for non-AKI patients...")
     # Create a non-AKI equivalent for aki_only_index - except that this takes the largest delta_cr (and the earliest occurence of such a delta_cr)
     # no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::desc(delta_cr,.by_group=TRUE) %>% tidyr::fill(severe,delta_cr) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE) %>% dplyr::ungroup()
-    no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::desc(delta_cr,.by_group=TRUE) %>% tidyr::fill(severe,delta_cr) %>% dplyr::ungroup()
+    no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::arrange(dplyr::desc(delta_cr),.by_group=TRUE) %>% tidyr::fill(severe,delta_cr) %>% dplyr::ungroup()
     try({no_aki_index$delta_cr[is.na(no_aki_index$delta_cr)] <- 0})
     no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE) %>% dplyr::ungroup()
     no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1))
@@ -692,6 +692,232 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_Severe_AKI.png")),plot=aki_30d_cr_timeplot,width=12,height=9,units="cm")
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
     
+    ## ===============================================================================
+    ## Initializing analysis for cirrhotic patients + plotting serum creatinine graphs
+    ## ===============================================================================
+    
+    cirrhosis_present <- ("cld" %in% comorbid_list)
+    inr_loinc <- c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1")
+    meld_analysis_valid <- FALSE
+    if(isTRUE(cirrhosis_present)) {
+        cirrhosis_list <- comorbid %>% dplyr::select(patient_id,cld) %>% dplyr::filter(cld == 1)
+        labs_cirrhosis <- observations[observations$patient_id %in% cirrhosis_list$patient_id,] %>% dplyr::filter(concept_type == "LAB-LOINC")
+        labs_list <- unique(labs_cirrhosis$concept_code)
+        inr_present <- FALSE
+        if(length(intersect(inr_loinc,labs_list)) > 0) {
+            inr_present <- TRUE
+        }
+        if(isTRUE(inr_present)) {
+            message("=====================================")
+            message("Found cirrhotic patients and INR values in the Observations table. Will proceed with sub-group analysis for hepatorenal syndrome.")
+            meld_analysis_valid <- TRUE
+            # platelet_loinc <- c("13056-7","26515-7","49497-1","74464-9","777-3","778-1")
+            
+            sodium_loinc <- c("2947-0","32717-1","39792-7","41657-8","39791-9","2951-2","77139-4")
+            # platelet_present <- FALSE
+            # if(length(intersect(platelet_loinc,labs_list)) > 0) {
+            #     platelet_present <- TRUE
+            # }
+            sodium_present <- FALSE
+            if(length(intersect(sodium_loinc,labs_list)) > 0) {
+                sodium_present <- TRUE
+                message("Sodium values present for MELD score correction.")
+            }
+            
+            message("Extracting first discharge dates...")
+            admissions <- read.csv("Input/LocalPatientClinicalCourse.csv")
+            admissions <- admissions %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
+            first_discharge <- admissions %>% dplyr::group_by(patient_id) %>% dplyr::filter(in_hospital == 0) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
+            first_discharge <- first_discharge %>% dplyr::select(patient_id,days_since_admission)
+            colnames(first_discharge)[2] <- "first_discharge_day"
+            
+            message("Restricting labs to first admission only")
+            labs_cirrhosis_firstdischarge <- merge(labs_cirrhosis,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= 0) %>% dplyr::ungroup()
+            message("Extracting and binning INR")
+            try({
+                labs_inr <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1"),]
+                labs_inr <- labs_inr[,-c(4,5)]
+                labs_inr <- labs_inr %>% dplyr::filter(days_since_admission >= 0)
+                labs_inr <- labs_inr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
+            })
+            message("Extracting and binning bilirubin")
+            try({
+                labs_bil <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1975-2',]
+                labs_bil <- labs_bil[,-c(4,5)]
+                labs_bil <- labs_bil %>% dplyr::filter(days_since_admission >= 0)
+                labs_bil <- labs_bil %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
+            })
+            message("Extracting and binning Cr")
+            try({
+                labs_cr <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '2160-0',]
+                labs_cr <- labs_cr[,-c(4,5)]
+                labs_cr <- labs_cr %>% dplyr::filter(days_since_admission >= 0)
+                labs_cr <- labs_cr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
+            })
+            message("Extracting and binning AST")
+            try({
+                labs_ast <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1920-8',]
+                labs_ast <- labs_ast[,-c(4,5)]
+                labs_ast <- labs_ast %>% dplyr::filter(days_since_admission >= 0)
+                labs_ast <- labs_ast %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
+            })
+            message("Extracting and binning ALT")
+            try({
+                labs_alt <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1742-6',]
+                labs_alt <- labs_alt[,-c(4,5)]
+                labs_alt <- labs_alt %>% dplyr::filter(days_since_admission >= 0)
+                labs_alt <- labs_alt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
+            })
+            message("Extracting and binning albumin")
+            try({
+                labs_alb <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1751-7',]
+                labs_alb <- labs_alb[,-c(4,5)]
+                labs_alb <- labs_alb %>% dplyr::filter(days_since_admission >= 0)
+                labs_alb <- labs_alb %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
+            })
+            message("Merging all tables with binned data")
+            labs_meld <- merge(labs_inr,labs_bil,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            labs_meld <- merge(labs_meld,labs_alb,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            labs_meld <- merge(labs_meld,labs_ast,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            labs_meld <- merge(labs_meld,labs_alt,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            labs_meld <- merge(labs_meld,labs_cr,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            
+            if(isTRUE(sodium_present)) {
+                message("Adding in sodium data")
+                labs_na <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% sodium_loinc,]
+                labs_na <- labs_na[,-c(4,5)]
+                labs_na <- labs_na %>% dplyr::filter(days_since_admission >= 0)
+                labs_na <- labs_na %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_na = mean(na.omit(value)),min_na = min(na.omit(value)),max_na = max(na.omit(value)),first_na = dplyr::first(na.omit(value)))
+                labs_meld <- merge(labs_meld,labs_na,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            }
+            
+            # if(isTRUE(platelet_present)) {
+            #     message("Adding in platelet data")
+            #     labs_plt <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% platelet_loinc,]
+            #     labs_plt <- labs_plt[,-c(4,5)]
+            #     labs_plt <- labs_plt %>% dplyr::filter(days_since_admission >= 0)
+            #     labs_plt <- labs_plt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_plt = mean(na.omit(value)),min_plt = min(na.omit(value)),max_plt = max(na.omit(value)),first_plt = dplyr::first(na.omit(value)))
+            #     labs_meld <- merge(labs_meld,labs_plt,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
+            # }
+            
+            message("Imputing empty fields prior to MELD score calculation")
+            labs_meld <- labs_meld %>% dplyr::group_by(patient_id,day_bin) %>% tidyr::fill(dplyr::everything()) %>% dplyr::distinct()
+            message("Calculating MELD score...")
+            if(isTRUE(sodium_present)) {
+                labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr,Na = min_na)) %>% dplyr::ungroup()
+            } else {
+                labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr)) %>% dplyr::ungroup()
+            }
+            message("Extracting admission MELD score...")
+            labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0)) %>% dplyr::ungroup()
+            labs_meld_admission$meld_admit_severe[is.na(labs_meld_admission$meld_admit_severe)] <- 0
+            meld_severe_list <- labs_meld_admission %>% dplyr::select(patient_id,meld,meld_admit_severe) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
+            
+            # Final headers
+            # -------------
+            # labs_meld:
+            # patient_id, day_bin, mean/min/max/first of labs, meld
+            #
+            # labs_meld_admission:
+            # patient_id, day_bin, mean/min/max/first of labs, meld (integer score), meld_admit_severe (0/1)
+            # Possible that some patient_ids may not be inside this if there are no labs in days 0-3 (i.e. no day_bin == "[0,3]")
+            peak_trend_meld <- peak_trend[peak_trend$patient_id %in% cirrhosis_list$patient_id,]
+            peak_trend_meld <- merge(peak_trend_meld,meld_severe_list,by="patient_id",all.x=TRUE)
+            peak_trend_meld$meld_admit_severe[peak_trend_meld$meld_admit_severe] <- 0
+            peak_cr_meld_summ <- peak_trend_meld %>% dplyr::group_by(meld_admit_severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+            meld_label <- data.table::data.table(c(1,2,3,4),c("MELD < 20, no AKI","MELD < 20, AKI","MELD ≥ 20, no AKI","MELD ≥ 20, AKI"))
+            colnames(meld_label) <- c("meld_admit_severe","meld_severe_label")
+            peak_cr_meld_summ <- merge(peak_cr_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
+            if(isTRUE(is_obfuscated)) {
+                message("Obfuscating the MELD AKI graphs...")
+                peak_cr_meld_summ <- peak_cr_meld_summ[peak_cr_meld_summ$n >= obfuscation_value,]
+            }
+            peak_cr_meld_timeplot <- ggplot2::ggplot(peak_cr_meld_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=meld_severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(meld_severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("MELD < 20, AKI"="#bc3c29","MELD < 20, no AKI"="#0072b5","MELD ≥ 20, AKI" = "#e18727","MELD ≥ 20, no AKI"="#20854e")) + ggplot2::theme_minimal()
+            ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_MELD_AKI.png")),plot=peak_cr_meld_timeplot,width=12,height=9,units="cm")
+            
+            peak_trend_severe_cld <- peak_trend_severe[peak_trend_severe$patient_id %in% cirrhosis_list$patient_id,]
+            peak_cr_cld_summ <- peak_trend_severe_cld %>% dplyr::group_by(severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+            peak_cr_cld_summ <- merge(peak_cr_cld_summ,severe_label,by="severe",all.x=TRUE)
+            if(isTRUE(is_obfuscated)) {
+                # peak_cr_summ <- peak_cr_summ %>% dplyr::filter(n >= obfuscation_value)
+                message("Obfuscating the AKI with severity graphs...")
+                peak_cr_cld_summ <- peak_cr_cld_summ[peak_cr_cld_summ$n >= obfuscation_value,]
+            }
+            peak_cr_cld_timeplot <- ggplot2::ggplot(peak_cr_cld_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
+            ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_AKI_CLD_only.png")),plot=peak_cr_timeplot,width=12,height=9,units="cm")
+            message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of cirrhotic patients (with severity) should have been generated.")
+            
+            # Plot from start of admission to 30 days post-peak AKI (if no AKI, then from peak Cr)
+            adm_meld_cr <- labs_cr_all[labs_cr_all$patient_id %in% cirrhosis_list$patient_id,]
+            adm_meld_cr <- adm_meld_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(peak_cr_time == min(peak_cr_time)) %>% dplyr::distinct() %>% dplyr::ungroup()
+            adm_meld_cr <- adm_meld_cr[order(adm_meld_cr$patient_id,adm_meld_cr$days_since_admission),]
+            adm_meld_cr <- merge(adm_meld_cr,meld_severe_list,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+            adm_meld_cr$meld_admit_severe[is.na(adm_meld_cr$meld_admit_severe)] <- 0
+            adm_meld_cr <- adm_meld_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
+            adm_meld_cr <- adm_meld_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+            adm_meld_summ <- adm_meld_cr %>% dplyr::group_by(meld_admit_severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+            adm_meld_summ <- merge(adm_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
+            if(isTRUE(is_obfuscated)) {
+                # adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::filter(n >= obfuscation_value)
+                message("Obfuscating the admission to AKI graphs...")
+                adm_meld_summ <- adm_meld_summ[adm_meld_summ$n >= obfuscation_value,]
+            }
+            adm_meld_timeplot <- ggplot2::ggplot(adm_meld_summ[which(adm_meld_summ$days_since_admission <= 30 & adm_meld_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=meld_severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(meld_severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("MELD < 20, AKI"="#bc3c29","MELD < 20, no AKI"="#0072b5","MELD ≥ 20, AKI" = "#e18727","MELD ≥ 20, no AKI"="#20854e")) + ggplot2::theme_minimal()
+            ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_MELD_AKI.png")),plot=adm_meld_timeplot,width=12,height=9,units="cm")
+            
+            adm_to_aki_cld_summ <- adm_to_aki_cr[adm_to_aki_cr$patient_id %in% cirrhosis_list$patient_id,]
+            adm_to_aki_cld_summ <- adm_to_aki_cld_summ %>% dplyr::group_by(severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+            adm_to_aki_cld_summ <- merge(adm_to_aki_cld_summ,severe_label,by="severe",all.x=TRUE)
+            if(isTRUE(is_obfuscated)) {
+                # adm_to_aki_cld_summ <- adm_to_aki_cld_summ %>% dplyr::filter(n >= obfuscation_value)
+                message("Obfuscating the admission to AKI graphs...")
+                adm_to_aki_cld_summ <- adm_to_aki_cld_summ[adm_to_aki_cld_summ$n >= obfuscation_value,]
+            }
+            adm_to_aki_cld_timeplot <- ggplot2::ggplot(adm_to_aki_cld_summ[which(adm_to_aki_cld_summ$days_since_admission <= 30 & adm_to_aki_cld_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
+            ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_AKI_CLD_only.png")),plot=adm_to_aki_cld_timeplot,width=12,height=9,units="cm")
+            
+            message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of cirrhotic patients, plotted from first day of admission, should have been generated.")
+            
+            # Plot from start of AKI to 30 days later 
+            
+            aki_start_meld <- labs_cr_all[labs_cr_all$patient_id %in% cirrhosis_list$patient_id,]
+            # Uncomment the following line to restrict analysis to AKI patients only
+            #aki_start_meld <- aki_start_meld[aki_start_meld$severe %in% c(2,4,5),]
+            aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_from_start = days_since_admission - aki_start) %>% dplyr::ungroup()
+            aki_start_meld <- aki_start_meld[order(aki_start_meld$patient_id,aki_start_meld$days_since_admission),] %>% dplyr::distinct()
+            aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
+            aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+            #aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
+            aki_start_meld_summ <- aki_start_meld %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+            aki_start_meld_summ <- merge(aki_start_meld_summ,meld_label,by="severe",all.x=TRUE)
+            if(isTRUE(is_obfuscated)) {
+                message("Obfuscating the start of AKI graphs...")
+                # aki_start_meld_summ <- aki_start_meld_summ %>% dplyr::filter(n >= obfuscation_value)
+                aki_start_meld_summ <- aki_start_meld_summ[aki_start_meld_summ$n >= obfuscation_value,]
+            }
+            aki_start_meld_timeplot <- ggplot2::ggplot(aki_start_meld_summ,ggplot2::aes(x=time_from_start,y=mean_ratio,group=meld_severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(meld_severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("MELD < 20, AKI"="#bc3c29","MELD < 20, no AKI"="#0072b5","MELD ≥ 20, AKI" = "#e18727","MELD ≥ 20, no AKI"="#20854e")) + ggplot2::theme_minimal()
+            ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_MELD_AKI.png")),plot=aki_start_meld_timeplot,width=12,height=9,units="cm")
+            
+            aki_start_cld_summ <- aki_30d_cr[aki_30d_cr$patient_id %in% cirrhosis_list$patient_id,]
+            aki_start_cld_summ <- aki_start_cld_summ %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+            aki_start_cld_summ <- merge(aki_start_cld_summ,severe_label,by="severe",all.x=TRUE)
+            if(isTRUE(is_obfuscated)) {
+                message("Obfuscating the start of AKI graphs...")
+                # aki_start_cld_summ <- aki_start_cld_summ %>% dplyr::filter(n >= obfuscation_value)
+                aki_start_cld_summ <- aki_start_cld_summ[aki_start_cld_summ$n >= obfuscation_value,]
+            }
+            aki_start_cld_timeplot <- ggplot2::ggplot(aki_start_cld_summ,ggplot2::aes(x=time_from_start,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
+            ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_AKI_CLD_only.png")),plot=aki_start_cld_timeplot,width=12,height=9,units="cm")
+            message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
+            
+            save(peak_cr_cld_summ,peak_cr_meld_summ,peak_cr_cld_timeplot,peak_cr_meld_timeplot,
+                 adm_to_aki_cld_summ,adm_meld_summ,adm_to_aki_cld_timeplot,adm_meld_timeplot,
+                 aki_start_cld_summ,aki_start_meld_summ,aki_start_cld_timeplot,aki_start_meld_timeplot,
+                 file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_graphs.rda"))
+        }
+    }
+    
+    
     # =====================
     # Demographics Table
     # =====================
@@ -699,6 +925,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     demog_summ <- demographics_filt %>% dplyr::select(patient_id,sex,age_group,race,severe,deceased,time_to_severe,time_to_death) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
     demog_summ <- merge(demog_summ,comorbid,by="patient_id",all.x=TRUE)
     demog_summ <- merge(demog_summ,kdigo_grade,by="patient_id",all.x=TRUE)
+    
+    if(isTRUE(meld_analysis_valid)) {
+        demog_summ <- merge(demog_summ,labs_meld_admission[,-2],by="patient_id",all.x=TRUE)
+        demog_summ$meld_admit_severe[is.na(demog_summ$meld_admit_severe)] <- 0
+        demog_summ$meld_admit_severe <- factor(demog_summ$meld_admit_severe,levels=c(0,1),labels = c("MELD < 20","MELD ≥ 20"))
+    }
+    
     # Add in COAGA and COAGB information
     if(isTRUE(coaga_present)) {
         demog_summ <- merge(demog_summ,med_coaga_new,by="patient_id",all.x=TRUE) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
@@ -780,6 +1013,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     }
     
     table_one_vars <- c("sex","age_group","race","severe","deceased","aki_kdigo_stage",comorbid_demog_summ,med_summ)
+    if(isTRUE(meld_analysis_valid)) {
+        table_one_meld_vars <- c("sex","age_group","race","aki","meld_admit_severe","deceased","aki_kdigo_stage",comorbid_demog_summ,med_summ)
+    }
     #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     
     # Create obfuscated table one for sites which require it
@@ -844,6 +1080,87 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         total_pop <- demog_obf$total[1]
         demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop) %>% dplyr::ungroup()
         write.csv(demog_obf,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated.csv")),row.names=F,na="NA")
+        
+        if(isTRUE(meld_analysis_valid)) {
+            demog_meld_summ <- demog_summ %>% dplyr::filter(cld == 1)
+            demog_meld_obf <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe) %>% dplyr::count() %>% tidyr::pivot_wider(names_from = "meld_admit_severe",values_from = "n")
+            demog_meld_obf$category <- "n"
+            demog_meld_obf <- demog_meld_obf[,c(3,1,2)]
+            demog_meld_obf$p_val <- NA
+            colnames(demog_meld_obf) <- c("category","MELD_less20","MELD_20ormore","p_val")
+            for(i in 1:length(table_one_meld_vars)) {
+                try({
+                    tmp <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe) %>% dplyr::count(get(table_one_meld_vars[i])) %>% tidyr::pivot_wider(names_from="meld_admit_severe",values_from = "n")
+                    tmp[is.na(tmp)] <- 0
+                    colnames(tmp) <- c("category","MELD_less20","MELD_20ormore")
+                    tmp <- tmp %>% dplyr::mutate(category = paste0(table_one_meld_vars[i],"|",category))
+
+                    # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
+                    p_value <- tryCatch({
+                        message(paste0(c("Attempting Fisher's test for ",table_one_meld_vars[i])))
+                        fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
+                    }, error = function(e) {
+                        message("Failed running Fisher's exact test for ",table_one_meld_vars[i],", proceeding with Monte Carlo simulation.")
+                        tryCatch({
+                            fisher.test(data.frame(tmp[-1],row.names=tmp$category),simulate.p.value=TRUE)$p.value
+                        },error=function(e){
+                            message("Failed running Fisher's exact test even with Monte Carlo simulation. A default P-value of NA will be printed - please inspect data.")
+                            return(NA)
+                        })
+                    })
+                    tmp$p_val = p_value
+                    colnames(tmp) <- c("category","MELD_less20","MELD_20ormore","p_val")
+                    demog_meld_obf <- rbind(demog_meld_obf,tmp)
+                    rm(tmp)
+                    rm(p_value)
+                })
+            }
+            
+            #Calculate stats of admission labs
+            lab_meld_list <- c("first_ast","first_alt","first_bil","first_inr","first_alb")
+            lab_meld_stats <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+                mean_admit_ast = mean(first_ast,na.rm=TRUE),
+                mean_admit_alt = mean(first_alt,na.rm=TRUE),
+                mean_admit_bil = mean(first_bil,na.rm=TRUE),
+                mean_admit_inr = mean(first_inr,na.rm=TRUE),
+                mean_admit_alb = mean(first_alb,na.rm=TRUE),
+                sd_admit_ast = sd(first_ast,na.rm=TRUE),
+                sd_admit_alt = sd(first_alt,na.rm=TRUE),
+                sd_admit_bil = sd(first_bil,na.rm=TRUE),
+                sd_admit_inr = sd(first_inr,na.rm=TRUE),
+                sd_admit_alb = sd(first_alb,na.rm=TRUE),
+                n_admit_ast = sum(!is.na(first_ast)),
+                n_admit_alt = sum(!is.na(first_alt)),
+                n_admit_bil = sum(!is.na(first_bil)),
+                n_admit_inr = sum(!is.na(first_inr)),
+                n_admit_alb = sum(!is.na(first_alb))
+                ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            ast_anova <- stats::aov(first_ast ~ meld_admit_severe * aki,data=demog_meld_summ)
+            alt_anova <- stats::aov(first_alt ~ meld_admit_severe * aki,data=demog_meld_summ)
+            bil_anova <- stats::aov(first_bil ~ meld_admit_severe * aki,data=demog_meld_summ)
+            inr_anova <- stats::aov(first_inr ~ meld_admit_severe * aki,data=demog_meld_summ)
+            alb_anova <- stats::aov(first_alb ~ meld_admit_severe * aki,data=demog_meld_summ)
+            
+            demog_meld_obf$MELD_less20[demog_meld_obf$MELD_less20 < obfuscation_value] <- 0
+            demog_meld_obf$MELD_20ormore[demog_meld_obf$MELD_20ormore < obfuscation_value] <- 0
+            demog_meld_obf <- demog_meld_obf %>% dplyr::group_by(category) %>% dplyr::mutate(total = MELD_less20 + MELD_20ormore) %>% dplyr::ungroup()
+            meld_less20_total <- demog_meld_obf$MELD_less20[1]
+            meld_20ormore_total <- demog_meld_obf$MELD_20ormore[1]
+            total_pop <- demog_meld_obf$total[1]
+            demog_meld_obf <- demog_meld_obf %>% dplyr::group_by(category) %>% dplyr::mutate(MELD_less20_perc = MELD_less20 / meld_less20_total * 100, MELD_20ormore_perc = MELD_20ormore/meld_20ormore_total * 100, total_perc = total/total_pop * 100) %>% dplyr::ungroup()
+            
+            if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
+                table_one_meld <- tableone::CreateTableOne(data=demog_meld_summ,vars=table_one_Meld_vars,strata="meld_admit_severe")
+                export_table_one_meld <- print(table_one_meld,showAllLevels=TRUE,formatOptions=list(big.mark=","))
+                if(exists(demog_meld_obf)) {
+                    save(demog_meld_obf,table_one_meld,export_table_one_meld,lab_meld_stats,ast_anova,alt_anova,bil_anova,inr_anova,alb_anova,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_demog_meld_obf_nonobf.rda"))
+                } else {
+                    save(table_one_meld,export_table_one_meld,lab_meld_stats,ast_anova,alt_anova,bil_anova,inr_anova,alb_anova,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_demog_meld_nonobf.rda"))
+                }
+            } else {
+                save(demog_meld_obf,lab_meld_stats,ast_anova,alt_anova,bil_anova,inr_anova,alb_anova,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_demog_meld_obf.rda"))
+            }
+        }
     } 
     if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
         table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
@@ -914,6 +1231,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("If no errors at this point, plots for COVID-19 experimental treatment should be done.")
     }
     
+  
     ## ====================================
     ## PART 4: Time To Event Analysis
     ## ====================================
@@ -1575,101 +1893,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # ================================================
     # Part 3: Hepatorenal Syndrome Analyses
     # ================================================
-    
-    # ==========
-    # MELD Labs
-    # ==========
-    
-    platelet_loinc <- c("13056-7","26515-7","49497-1","74464-9","777-3","778-1")
-    inr_loinc <- c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1")
-    labs_list <- unique(observations$concept_code[observations$concept_type == "LAB-LOINC"])
-    inr_present <- FALSE
-    if(length(intersect(inr_loinc,labs_list)) > 0) {
-        inr_present <- TRUE
-    }
-    platelet_present <- FALSE
-    if(length(intersect(platelet_loinc,labs_list)) > 0) {
-        platelet_present <- TRUE
-    }
-    
-    # Generate the admission cutoffs
-    if(isTRUE(inr_present)) {
-        message("=====================================")
-        message("Found INR values in the Observations table. Will proceed with sub-group analysis for hepatorenal syndrome.")
-        message("Extracting first discharge dates...")
-        admissions <- read.csv("Input/LocalPatientClinicalCourse.csv")
-        admissions <- admissions %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
-        first_discharge <- admissions %>% dplyr::group_by(patient_id) %>% dplyr::filter(in_hospital == 0) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
-        first_discharge <- first_discharge %>% dplyr::select(patient_id,days_since_admission)
-        colnames(first_discharge)[2] <- "first_discharge_day"
-        
-        message("Restricting labs to first admission only")
-        observations_trunc <- merge(observations,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= 0) %>% dplyr::ungroup()
-        message("Extracting and binning INR")
-        try({
-        labs_inr <- observations_trunc[observations_trunc$concept_code %in% c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1"),]
-        labs_inr <- labs_inr[,-c(4,5)]
-        labs_inr <- labs_inr %>% dplyr::filter(days_since_admission >= 0)
-        labs_inr <- labs_inr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
-        })
-        message("Extracting and binning bilirubin")
-        try({
-        labs_bil <- observations_trunc[observations_trunc$concept_code == '1975-2',]
-        labs_bil <- labs_bil[,-c(4,5)]
-        labs_bil <- labs_bil %>% dplyr::filter(days_since_admission >= 0)
-        labs_bil <- labs_bil %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
-        })
-        message("Extracting and binning Cr")
-        try({
-        labs_cr <- observations_trunc[observations_trunc$concept_code == '2160-0',]
-        labs_cr <- labs_cr[,-c(4,5)]
-        labs_cr <- labs_cr %>% dplyr::filter(days_since_admission >= 0)
-        labs_cr <- labs_cr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
-        })
-        message("Extracting and binning AST")
-        try({
-        labs_ast <- observations_trunc[observations_trunc$concept_code == '1920-8',]
-        labs_ast <- labs_ast[,-c(4,5)]
-        labs_ast <- labs_ast %>% dplyr::filter(days_since_admission >= 0)
-        labs_ast <- labs_ast %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
-        })
-        message("Extracting and binning ALT")
-        try({
-        labs_alt <- observations_trunc[observations_trunc$concept_code == '1742-6',]
-        labs_alt <- labs_alt[,-c(4,5)]
-        labs_alt <- labs_alt %>% dplyr::filter(days_since_admission >= 0)
-        labs_alt <- labs_alt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
-        })
-        message("Extracting and binning albumin")
-        try({
-        labs_alb <- observations_trunc[observations_trunc$concept_code == '1751-7',]
-        labs_alb <- labs_alb[,-c(4,5)]
-        labs_alb <- labs_alb %>% dplyr::filter(days_since_admission >= 0)
-        labs_alb <- labs_alb %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
-        })
-        message("Merging all tables with binned data")
-        labs_meld <- merge(labs_inr,labs_bil,by=c("patient_id","day_bin"),all=T)
-        labs_meld <- merge(labs_meld,labs_alb,by=c("patient_id","day_bin"),all=T)
-        labs_meld <- merge(labs_meld,labs_ast,by=c("patient_id","day_bin"),all=T)
-        labs_meld <- merge(labs_meld,labs_alt,by=c("patient_id","day_bin"),all=T)
-        labs_meld <- merge(labs_meld,labs_cr,by=c("patient_id","day_bin"),all=T)
-        
-        if(isTRUE(platelet_present)) {
-            message("Adding in platelet data")
-            labs_plt <- observations_trunc[observations_trunc$concept_code %in% c('777-3','778-1','74464-9','26515-7','49497-1'),]
-            labs_plt <- labs_plt[,-c(4,5)]
-            labs_plt <- labs_plt %>% dplyr::filter(days_since_admission >= 0)
-            labs_plt <- labs_plt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_plt = mean(na.omit(value)),min_plt = min(na.omit(value)),max_plt = max(na.omit(value)),first_plt = dplyr::first(na.omit(value)))
-            labs_meld <- merge(labs_meld,labs_plt,by=c("patient_id","day_bin"),all=T)
-        }
-        message("Imputing empty fields prior to MELD score calculation")
-        labs_meld <- labs_meld %>% dplyr::group_by(patient_id,day_bin) %>% tidyr::fill(dplyr::everything()) %>% dplyr::distinct()
-        message("Calculating MELD score...")
-        labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(max_bil,max_inr,max_cr)) %>% dplyr::ungroup()
-        message("Extracting admission MELD score...")
-        labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 15,1,0)) %>% dplyr::ungroup()
-        labs_meld_admission$meld_admit_severe[is.na(labs_meld_admission$meld_admit_severe)] <- 0
-    }
+
+
     
     
     
