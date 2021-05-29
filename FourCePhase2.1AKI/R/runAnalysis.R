@@ -910,10 +910,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromStart_AKI_CLD_only.png")),plot=aki_start_cld_timeplot,width=12,height=9,units="cm")
             message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
             
-            save(peak_cr_cld_summ,peak_cr_meld_summ,peak_cr_cld_timeplot,peak_cr_meld_timeplot,
-                 adm_to_aki_cld_summ,adm_meld_summ,adm_to_aki_cld_timeplot,adm_meld_timeplot,
-                 aki_start_cld_summ,aki_start_meld_summ,aki_start_cld_timeplot,aki_start_meld_timeplot,
-                 file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_graphs.rda"))
+            save(peak_cr_cld_summ,peak_cr_meld_summ,peak_cr_cld_timeplot,peak_cr_meld_timeplot,adm_to_aki_cld_summ,adm_meld_summ,adm_to_aki_cld_timeplot,adm_meld_timeplot,aki_start_cld_summ,aki_start_meld_summ,aki_start_cld_timeplot,aki_start_meld_timeplot,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_graphs.rda"))
         }
     }
     
