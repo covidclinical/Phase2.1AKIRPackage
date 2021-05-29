@@ -2218,7 +2218,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         })
     }
     if(exists(cirrhotic_files) & !is.null(cirrhotic_files)) {
-        save(cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda"))
+        save(cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda")))
     }
     
     
