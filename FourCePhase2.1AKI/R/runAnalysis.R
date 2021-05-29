@@ -1014,7 +1014,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         table_one_meld_vars <- c("sex","age_group","race","aki","meld_admit_severe","deceased","aki_kdigo_stage",comorbid_demog_summ,med_summ)
     }
     #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
-    
+    demog_meld_files <- NULL
     if(isTRUE(cirrhosis_present)) {
         demog_cld_summ <- demog_summ %>% dplyr::filter(cld == 1)
     }
@@ -1123,7 +1123,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             aki_total <- demog_cld_obf$AKI[1]
             total_pop <- demog_cld_obf$total[1]
             demog_cld_obf <- demog_cld_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop) %>% dplyr::ungroup()
-            
+            demog_meld_files <- "demog_cld_obf"
         }
         if(isTRUE(meld_analysis_valid)) {
             # If possible to split by MELD, then generate the demographics table split by MELD score cutoff 20
@@ -1198,15 +1198,16 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
                 table_one_meld <- tableone::CreateTableOne(data=demog_meld_summ,vars=table_one_Meld_vars,strata="meld_admit_severe")
                 export_table_one_meld <- print(table_one_meld,showAllLevels=TRUE,formatOptions=list(big.mark=","))
                 if(exists(demog_meld_obf)) {
-                    save(demog_meld_obf,table_one_meld,export_table_one_meld,lab_meld_stats,ast_anova,alt_anova,bil_anova,inr_anova,alb_anova,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_demog_meld_obf_nonobf.rda"))
+                    demog_meld_files <- c(demog_meld_files,"demog_meld_obf","table_one_meld","export_table_one_meld","lab_meld_stats","ast_anova","alt_anova",'bil_anova","inr_anova',"alb_anova")
                 } else {
-                    save(table_one_meld,export_table_one_meld,lab_meld_stats,ast_anova,alt_anova,bil_anova,inr_anova,alb_anova,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_demog_meld_nonobf.rda"))
+                    demog_meld_files <- c(demog_meld_files,"table_one_meld","export_table_one_meld","lab_meld_stats","ast_anova","alt_anova",'bil_anova","inr_anova',"alb_anova")
                 }
             } else {
-                save(demog_meld_obf,lab_meld_stats,ast_anova,alt_anova,bil_anova,inr_anova,alb_anova,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_demog_meld_obf.rda"))
+                demog_meld_files <- c(demog_meld_files,"demog_meld_obf","lab_meld_stats","ast_anova","alt_anova",'bil_anova","inr_anova',"alb_anova")
             }
         }
     } 
+
     if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
         table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
         export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
@@ -1218,12 +1219,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     }
     if(isTRUE(cirrhosis_present)) {
         if(exists(export_table_one_cld) & exists(demog_cld_obf)) {
-            save(table_one_cld,export_table_one_cld,demog_cld_obf,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_demog_cirrhosis_obf_nonobf.rda"))
+            demog_meld_files <- c(demog_meld_files,"table_one_cld","export_table_one_cld","demog_cld_obf")
         } else if (exists(export_table_one_cld)) {
-            save(table_one_cld,export_table_one_cld,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_demog_cirrhosis_nonobf.rda"))
-        } else if (exists(demog_cld_obf)) {
-            save(demog_cld_obf,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_demog_cirrhosis_obf.rda"))
+            demog_meld_files <- c(demog_meld_files,"table_one_cld","export_table_one_cld")
+         } else if (exists(demog_cld_obf)) {
+             demog_meld_files <- c(demog_meld_files,"demog_cld_obf")
         }
+    }
+    if(!is.null(demog_meld_files)) {
+        save(demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis.rda")))
     }
     message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
     
