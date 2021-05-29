@@ -2216,6 +2216,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Death_CoxPH_Model3.png")),plot=print(coxph_cirrhotic_death3_plot),width=20,height=20,units="cm")
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death3_summ","coxph_cirrhotic_death3_hr","coxph_cirrhotic_death3_stats1","coxph_cirrhotic_death3_stats2","coxph_cirrhotic_death3_plot")
         })
+    }
+    if(exists(cirrhotic_files) & !is.null(cirrhotic_files)) {
         save(cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda"))
     }
     
