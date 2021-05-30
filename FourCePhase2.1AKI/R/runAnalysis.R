@@ -1217,12 +1217,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             export_table_one_cld <- print(table_one_cld,showAllLevels=TRUE,formatOptions=list(big.mark=","))
         }
     }
+    message("Attempting to save demographics tables for cirrhotic patients.")
     if(isTRUE(cirrhosis_present)) {
-        if(exists(export_table_one_cld) & exists(demog_cld_obf)) {
+        if(obfuscation_value == 0 & isTRUE(is_obfuscated)) {
             demog_meld_files <- c(demog_meld_files,"table_one_cld","export_table_one_cld","demog_cld_obf")
-        } else if (exists(export_table_one_cld)) {
+        } else if (obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
             demog_meld_files <- c(demog_meld_files,"table_one_cld","export_table_one_cld")
-         } else if (exists(demog_cld_obf)) {
+         } else if (isTRUE(is_obfuscated)) {
              demog_meld_files <- c(demog_meld_files,"demog_cld_obf")
         }
     }
