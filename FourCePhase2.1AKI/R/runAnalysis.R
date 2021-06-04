@@ -2255,8 +2255,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death3_summ","coxph_cirrhotic_death3_hr","coxph_cirrhotic_death3_stats1","coxph_cirrhotic_death3_stats2","coxph_cirrhotic_death3_plot")
         })
     }
-    if(isTRUE(exists("cirrhotic_files")) & !is.null(cirrhotic_files)) {
-        save(cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda")))
+    if(isTRUE(exists("cirrhotic_files"))) {
+        if(!is.null(cirrhotic_files)) {
+            save(cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda")))
+        }
     }
     
     
