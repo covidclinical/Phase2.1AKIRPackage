@@ -1256,7 +1256,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         }
     })
     if(!is.null(demog_meld_files)) {
-        save(demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis.rda")))
+        save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis.rda")))
     }
     message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
     
@@ -2257,7 +2257,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     }
     if(isTRUE(exists("cirrhotic_files"))) {
         if(!is.null(cirrhotic_files)) {
-            save(cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda")))
+            save(list=cirrhotic_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda")))
         }
     }
     
