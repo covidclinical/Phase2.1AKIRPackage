@@ -888,7 +888,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
             #aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
             aki_start_meld_summ <- aki_start_meld %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
-            aki_start_meld_summ <- merge(aki_start_meld_summ,meld_label,by="severe",all.x=TRUE)
+            aki_start_meld_summ <- merge(aki_start_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
                 message("Obfuscating the start of AKI graphs...")
                 # aki_start_meld_summ <- aki_start_meld_summ %>% dplyr::filter(n >= obfuscation_value)
