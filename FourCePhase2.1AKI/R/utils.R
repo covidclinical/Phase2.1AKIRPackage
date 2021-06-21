@@ -187,17 +187,6 @@ meld_score <- function(bil,inr,sCr,Na = 137) {
   meld_corr
 }
 
-#' Display function to show mean(SD) for continuous variables in the table1 demographics table
-#' @noRd
-my.render.cont <- function(x) {
-  with(table1::stats.apply.rounding(table1::stats.default(x), digits=2),c("","Mean (SD)"=sprintf("%s (&plusmn; %s)", MEAN, SD)))
-}
-
-#' Display function to show N (%) for continuous variables in the table1 demographics table
-#' @noRd
-my.render.cat <- function(x) {
-  c("", sapply(table1::stats.default(x), function(y) with(y, sprintf("%d (%0.0f %%)", FREQ, PCT))))
-}
 
 #' Computes t-test statistics from summary statistics
 #' @param m1 sample 1 mean
