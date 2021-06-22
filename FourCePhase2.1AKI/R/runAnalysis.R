@@ -9,13 +9,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
 
-    
-    # TODO:
-    # Including ACE-i/ARB in Model 4 (so final model will be just age + sex + COVID-19 severity + AKI KDIGO stage + CKD + ACE-i/ARB use) - done for main plots
+    # TODO
     # Subgroup analyses comparing KDIGO 1 against KDIGO 2/3
-    # Add in raw serum creatinine plots for technical paper - done, output in CSVs and PNGs for now to avoid file size issue
-    # Stratify sCr/bCr plots by KDIGO stage - done, also included faceting by severity, output in CSVs and PNGs for now to avoid file size issue
-    
+ 
     
     ## ========================================
     ## PART 1: Read in Data Tables
@@ -53,13 +49,11 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Transforming the Summary and Observations tables to generate tables for demographics, diagnoses, procedures")
     # first generate a unique ID for each patient
     demographics <- demographics %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
-    course <- course %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
     observations <- observations %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
     
     # From this point on, we will be using our custom-generated patient_id as a unique patient identifier
     # Reorder the columns in each table to bring patient_id to the first column and remove patient_num
     demographics <- demographics %>% dplyr::select(patient_id,siteid,admission_date,days_since_admission,last_discharge_date,still_in_hospital,severe_date,severe,death_date,deceased,sex,age_group,race,race_collected)
-    course <- course %>% dplyr::select(patient_id,days_since_admission,calendar_date,in_hospital)
     observations <- observations %>% dplyr::select(patient_id,siteid,days_since_admission,concept_type,concept_code,value)
     
     # Generate a diagnosis table
@@ -83,8 +77,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # =================================================
     # Additional code added since Manuscript Submission
     # As additional Phase 1.2/2.2 data and/or Phase 2.1 data gets refreshed, will need to filter to the original cohort for analysis
-    course_first_adm <- course %>% dplyr::filter(calendar_date <= as.Date("2020-04-11",format="%Y-%m-%d")) %>% dplyr::filter(days_since_admission == 0) %>% dplyr::select(patient_id,calendar_date) %>% dplyr::filter(calendar_date >= as.Date("2020-01-01",format="%Y-%m-%d"))
-    patient_list_valid <- course_first_adm$patient_id
+    patient_list_valid <- demographics_filt %>% dplyr::filter(as.Date(admission_date) <= as.Date("2020-04-11")) %>% dplyr::filter(as.Date(admission_date) >= as.Date("2020-01-01"))
+    patient_list_valid <- patient_list_valid$patient_id
     demographics_filt <- demographics_filt[demographics_filt$patient_id %in% patient_list_valid,]
     observations <- observations[observations$patient_id %in% patient_list_valid,]
     
@@ -304,7 +298,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     
     # Generate delta_cr
     message("Now identifying maxima points of serum Cr")
-    labs_cr_aki_tmp4 <- labs_cr_aki_tmp4 %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(min_cr_7d_final = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::mutate(delta_cr = value - min_cr_7d_final)
+    labs_cr_aki_tmp4 <- labs_cr_aki_tmp4 %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(min_cr_7d_final = min(min_cr_90d,min_cr_retro_7day,na.rm=TRUE)) %>% dplyr::mutate(delta_cr = value - min_cr_7d_final)
     
     # Use the largest delta_cr to find the peak of each AKI
     labs_cr_aki_delta_maxima <- labs_cr_aki_tmp4 %>% dplyr::group_by(patient_id) %>% dplyr::filter(delta_cr %in% delta_cr[which.peaks(delta_cr,decreasing=FALSE)])
@@ -402,9 +396,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # med_acearb_chronic
     # Headers: patient_id   acei_arb_preexposure
     
-    # For simplicity of initial analysis, we will use the earliest date where each new medication class is
-    # used. However, if we are to incorporate a recurrent neural network model to account for temporal changes
-    # in medications, this approach cannot be used.
+    # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
     message("Generating table for new medications started during the admission...")
     med_new <- med_new[!duplicated(med_new[,c(1,2,4)]),]
     med_new <- med_new[,c(1,4,3)]
@@ -417,7 +409,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     med_new_aki <- merge(med_new,aki_start_time,by="patient_id",all.x=TRUE)
     med_new_aki <- med_new_aki[!is.na(med_new_aki$day_min),]
     med_new_aki <- med_new_aki %>% dplyr::distinct()
-    med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(offset_aki = start_day - day_min) %>% dplyr::filter(offset_aki == min(offset_aki))
+    med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(offset_aki = start_day - day_min) %>% dplyr::filter(offset_aki == min(offset_aki,na.rm=TRUE))
     # Re-code whether medication was given before AKI - 1 = yes, 0 = no
     med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(med_before_aki = ifelse(offset_aki <=0,1,0))
     med_new_aki <- med_new_aki[,c(1,2,6)]
@@ -431,7 +423,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Generate simplified table for determining who were started on COAGA near admission
     message("Generating table for COAGA use during the admission...")
     coaga_present <- tryCatch({
-        med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA) %>% dplyr::filter(COAGA == min(COAGA)) %>% dplyr::distinct()
+        med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
         med_coaga_new$COAGA[med_coaga_new$COAGA < -15] <- 0
         med_coaga_new$COAGA[med_coaga_new$COAGA >= -15] <- 1
         TRUE
@@ -440,35 +432,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Generate simplified table for determining who were started on COAGB near admission
     message("Generating table for COAGB use during the admission...")
     coagb_present <- tryCatch({
-        med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB) %>% dplyr::filter(COAGB == min(COAGB)) %>% dplyr::distinct()
+        med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
         med_coagb_new$COAGB[med_coagb_new$COAGB < -15] <- 0
         med_coagb_new$COAGB[med_coagb_new$COAGB >= -15] <- 1
         TRUE
     },error=function(c) FALSE)
-    # 
-    # # Generate simplified table for determining who were using ACEI near admission
-    # message("Generating table for ACEI use during the admission...")
-    # acei_present <- tryCatch({
-    #     med_acei_new <- med_new %>% dplyr::select(patient_id,ACEI) %>% dplyr::filter(ACEI == min(ACEI)) %>% dplyr::distinct()
-    #     med_acei_new$ACEI[med_acei_new$ACEI < -15] <- 0
-    #     med_acei_new$ACEI[med_acei_new$ACEI >= -15] <- 1
-    #     TRUE
-    # },error=function(c) FALSE)
-    # arb_present <- tryCatch({
-    #     med_arb_new <- med_new %>% dplyr::select(patient_id,ARB) %>% dplyr::filter(ARB == min(ARB)) %>% dplyr::distinct()
-    #     med_arb_new$ARB[med_arb_new$ARB < -15] <- 0
-    #     med_arb_new$ARB[med_arb_new$ARB >= -15] <- 1
-    #     TRUE
-    # },error=function(c) FALSE)
-    # 
-    # if(isTRUE(acei_present) & isTRUE(arb_present)){
-    #     med_raas_new <- med_acei_new
-    #     colnames(med_raas_new)[2] <- "raas_new"
-    #     tmp <- med_arb_new
-    #     colnames(tmp)[2] <- "raas_new"
-    #     med_raas_new <- rbind(med_raas_new,tmp) %>% dplyr::distinct() %>% dplyr::group_by(patient_id) %>% dplyr::filter(raas_new == max(raas_new)) %>% dplyr::ungroup()
-    # }
-    # 
+
     # Generate simplified table for determining who were started on novel antivirals
     covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
     remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
@@ -523,7 +492,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Now generating tables for use for plotting normalised serum Cr values against time")
     message("First creating table for AKI patients only...")
     # First, dplyr::filter the labs_aki_severe table to show only the index AKI episodes
-    aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
+    aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     # patient_id	site_id	days_since_admission	value	day_min	day_min_retro	min_cr_90d	min_cr_48h	min_cr_retro_7day	min_cr_48h_retro	min_cr_7d_final	cr_7d	cr_90d	delta_cr	aki_kdigo	aki_kdigo_retro	aki_kdigo_final	akd_7d	akd_90d	severe  time_to_severe	severe_to_aki	severe_before_aki
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
@@ -636,7 +605,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Create KDIGO Stage table for demographics table
     # kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3)))) %>% dplyr::ungroup()
     # kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
-    kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::ungroup()
+    kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::ungroup()
     colnames(kdigo_grade)[2] <- "aki_kdigo_grade"
     kdigo_grade <- merge(kdigo_grade,demographics_filt[,"patient_id"],by="patient_id",all=TRUE)
     kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0
@@ -680,12 +649,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("Obfuscating the AKI with severity graphs...")
         peak_cr_summ <- peak_cr_summ[peak_cr_summ$n >= obfuscation_value,]
     }
-    write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromPeak_Severe_AKI.csv")),row.names=FALSE)
+    write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromPeak_Severe_AKI.csv")),row.names=FALSE)
     # Plot the graphs
     peak_cr_timeplot <- ggplot2::ggplot(peak_cr_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_Severe_AKI.png")),plot=peak_cr_timeplot,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_Severe_AKI.png")),plot=peak_cr_timeplot,width=12,height=9,units="cm")
     peak_cr_timeplot_raw <- ggplot2::ggplot(peak_cr_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_Severe_AKI_RawCr.png")),plot=peak_cr_timeplot_raw,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_Severe_AKI_RawCr.png")),plot=peak_cr_timeplot_raw,width=12,height=9,units="cm")
     
     # Calculate mean and SD each for each KDIGO stage
     peak_cr_kdigo_summ <- peak_trend_severe %>% dplyr::group_by(aki_kdigo_grade,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),mean_value = mean(value),sem_value = sd(value)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
@@ -697,12 +666,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("Obfuscating the AKI with severity graphs...")
         peak_cr_kdigo_summ <- peak_cr_kdigo_summ[peak_cr_kdigo_summ$n >= obfuscation_value,]
     }
-    write.csv(peak_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromPeak_KDIGOStage_AKI.csv")),row.names=FALSE)
+    write.csv(peak_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromPeak_KDIGOStage_AKI.csv")),row.names=FALSE)
     # Plot the graphs
     peak_cr_kdigo_timeplot <- ggplot2::ggplot(peak_cr_kdigo_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_KDIGOStage_AKI.png")),plot=peak_cr_kdigo_timeplot,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_KDIGOStage_AKI.png")),plot=peak_cr_kdigo_timeplot,width=12,height=9,units="cm")
     peak_cr_kdigo_timeplot_raw <- ggplot2::ggplot(peak_cr_kdigo_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_KDIGOStage_AKI_RawCr.png")),plot=peak_cr_kdigo_timeplot_raw,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_KDIGOStage_AKI_RawCr.png")),plot=peak_cr_kdigo_timeplot_raw,width=12,height=9,units="cm")
     # Stratify by KDIGO stage and COVID-19 severity
     peak_cr_kdigo_and_severe_summ <- peak_trend_severe %>% dplyr::group_by(aki_kdigo_grade,severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),mean_value = mean(value),sem_value = sd(value)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
     peak_cr_kdigo_and_severe_summ <- merge(peak_cr_kdigo_and_severe_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE) %>% dplyr::mutate(severe = ifelse(severe > 2,0,1))
@@ -714,12 +683,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("Obfuscating the AKI with severity graphs...")
         peak_cr_kdigo_and_severe_summ <- peak_cr_kdigo_and_severe_summ[peak_cr_kdigo_and_severe_summ$n >= obfuscation_value,]
     }
-    write.csv(peak_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromPeak_KDIGOStage_CovidSevere_AKI.csv")),row.names=FALSE)
+    write.csv(peak_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromPeak_KDIGOStage_CovidSevere_AKI.csv")),row.names=FALSE)
     # Plot the graphs
     peak_cr_kdigo_and_severe_timeplot <- ggplot2::ggplot(peak_cr_kdigo_and_severe_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_KDIGOStage_CovidSevere_AKI.png")),plot=peak_cr_kdigo_and_severe_timeplot,width=12,height=8,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_KDIGOStage_CovidSevere_AKI.png")),plot=peak_cr_kdigo_and_severe_timeplot,width=12,height=8,units="cm")
     peak_cr_kdigo_and_severe_timeplot_raw <- ggplot2::ggplot(peak_cr_kdigo_and_severe_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromPeak_KDIGOStage_CovidSevere_AKI_RawCr.png")),plot=peak_cr_kdigo_and_severe_timeplot_raw,width=12,height=8,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_KDIGOStage_CovidSevere_AKI_RawCr.png")),plot=peak_cr_kdigo_and_severe_timeplot_raw,width=12,height=8,units="cm")
     
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients (with severity) should have been generated.")
     
@@ -728,9 +697,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     adm_to_aki_cr <- labs_cr_all
     # adm_to_aki_cr$peak_cr_time[is.na(adm_to_aki_cr$peak_cr_time)] <- 0
     #adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(dplyr::between(days_since_admission,0,peak_cr_time+30)) %>% dplyr::ungroup()
-    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(peak_cr_time == min(peak_cr_time)) %>% dplyr::distinct() %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(peak_cr_time == min(peak_cr_time,na.rm=TRUE)) %>% dplyr::distinct() %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr[order(adm_to_aki_cr$patient_id,adm_to_aki_cr$days_since_admission),]
-    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day)) %>% dplyr::ungroup()
+    adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_90d,min_cr_retro_7day,na.rm=TRUE)) %>% dplyr::ungroup()
     adm_to_aki_cr <- adm_to_aki_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
     adm_to_aki_cr <- merge(adm_to_aki_cr,kdigo_grade,by="patient_id",all.x = T)
     
@@ -745,9 +714,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     write.csv(adm_to_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.csv")),row.names=FALSE)
     
     adm_to_aki_timeplot <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30 & adm_to_aki_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI.png")),plot=adm_to_aki_timeplot,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdmToPeak+10D_Severe_AKI.png")),plot=adm_to_aki_timeplot,width=12,height=9,units="cm")
     adm_to_aki_timeplot_raw <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30 & adm_to_aki_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_value,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdmToPeak+10D_Severe_AKI_RawCr.png")),plot=adm_to_aki_timeplot_raw,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdmToPeak+10D_Severe_AKI_RawCr.png")),plot=adm_to_aki_timeplot_raw,width=12,height=9,units="cm")
     message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from first day of admission, should have been generated.")
     
     # Calculate mean and SD each for each KDIGO stage
@@ -758,12 +727,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("Obfuscating the AKI with severity graphs...")
         adm_to_aki_cr_kdigo_summ <- adm_to_aki_cr_kdigo_summ[adm_to_aki_cr_kdigo_summ$n >= obfuscation_value,]
     }
-    write.csv(adm_to_aki_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromAdm_KDIGOStage_AKI.csv")),row.names=FALSE)
+    write.csv(adm_to_aki_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromAdm_KDIGOStage_AKI.csv")),row.names=FALSE)
     # Plot the graphs
     adm_to_aki_cr_kdigo_timeplot <- ggplot2::ggplot(adm_to_aki_cr_kdigo_summ,ggplot2::aes(x=days_since_admission,y=mean_ratio,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days since admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_KDIGOStage_AKI.png")),plot=adm_to_aki_cr_kdigo_timeplot,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdm_KDIGOStage_AKI.png")),plot=adm_to_aki_cr_kdigo_timeplot,width=12,height=9,units="cm")
     adm_to_aki_cr_kdigo_timeplot_raw <- ggplot2::ggplot(adm_to_aki_cr_kdigo_summ,ggplot2::aes(x=days_since_admission,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days since admission",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_KDIGOStage_AKI_RawCr.png")),plot=adm_to_aki_cr_kdigo_timeplot_raw,width=12,height=9,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdm_KDIGOStage_AKI_RawCr.png")),plot=adm_to_aki_cr_kdigo_timeplot_raw,width=12,height=9,units="cm")
     # Stratify by KDIGO stage and COVID-19 severity
     adm_to_aki_cr_kdigo_and_severe_summ <- adm_to_aki_cr %>% dplyr::group_by(aki_kdigo_grade,severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio),sem_ratio = sd(ratio)/sqrt(dplyr::n()),mean_value = mean(value),sem_value = sd(value)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
     adm_to_aki_cr_kdigo_and_severe_summ <- merge(adm_to_aki_cr_kdigo_and_severe_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE) %>% dplyr::mutate(severe = ifelse(severe > 2,0,1))
@@ -773,12 +742,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         message("Obfuscating the AKI with severity graphs...")
         adm_to_aki_cr_kdigo_and_severe_summ <- adm_to_aki_cr_kdigo_and_severe_summ[adm_to_aki_cr_kdigo_and_severe_summ$n >= obfuscation_value,]
     }
-    write.csv(adm_to_aki_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromAdm_KDIGOStage_CovidSevere_AKI.csv")),row.names=FALSE)
+    write.csv(adm_to_aki_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromAdm_KDIGOStage_CovidSevere_AKI.csv")),row.names=FALSE)
     # Plot the graphs
     adm_to_aki_cr_kdigo_and_severe_timeplot <- ggplot2::ggplot(adm_to_aki_cr_kdigo_and_severe_summ,ggplot2::aes(x=days_since_admission,y=mean_ratio,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days since admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_KDIGOStage_CovidSevere_AKI.png")),plot=adm_to_aki_cr_kdigo_and_severe_timeplot,width=12,height=8,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdm_KDIGOStage_CovidSevere_AKI.png")),plot=adm_to_aki_cr_kdigo_and_severe_timeplot,width=12,height=8,units="cm")
     adm_to_aki_cr_kdigo_and_severe_timeplot_raw <- ggplot2::ggplot(adm_to_aki_cr_kdigo_and_severe_summ,ggplot2::aes(x=days_since_admission,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days since admission",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_KDIGOStage_CovidSevere_AKI_RawCr.png")),plot=adm_to_aki_cr_kdigo_and_severe_timeplot_raw,width=12,height=8,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdm_KDIGOStage_CovidSevere_AKI_RawCr.png")),plot=adm_to_aki_cr_kdigo_and_severe_timeplot_raw,width=12,height=8,units="cm")
     
     
     # ----------------------------------------
@@ -1061,7 +1030,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     }
     
     if(isTRUE(meld_analysis_valid)) {
-        save(peak_cr_cld_summ,peak_cr_meld_summ,peak_cr_cld_timeplot,peak_cr_meld_timeplot,adm_to_aki_cld_summ,adm_meld_summ,adm_to_aki_cld_timeplot,adm_meld_timeplot,aki_start_cld_summ,aki_start_meld_summ,aki_start_cld_timeplot,aki_start_meld_timeplot,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_graphs.rda")))
+        save(peak_cr_cld_summ,peak_cr_meld_summ,adm_to_aki_cld_summ,adm_meld_summ,aki_start_cld_summ,aki_start_meld_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_MELD_CLD_graphs.rda")),compress="bzip2")
     }
     
     # =====================
@@ -1108,7 +1077,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     demog_summ$severe <- factor(demog_summ$severe,levels=c(0,1),labels=c("Non-severe","Severe"))
     demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
     demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
-    demog_summ$aki_kdigo_stage <- factor(demog_summ$aki_kdigo_stage,levels=c(0,1,2,3),labels=c("No AKI","Stage 1","Stage 2","Stage 3"))
+    demog_summ$aki_kdigo_grade <- factor(demog_summ$aki_kdigo_grade,levels=c(0,1,2,3),labels=c("No AKI","Stage 1","Stage 2","Stage 3"))
     demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
     demog_summ <- demog_summ %>% dplyr::distinct()
     
@@ -1146,9 +1115,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         med_summ <- c(med_summ,"covid_rx")
     }
     
-    table_one_vars <- c("sex","age_group","race","severe","deceased","aki_kdigo_stage",comorbid_demog_summ,med_summ)
+    table_one_vars <- c("sex","age_group","race","severe","deceased","aki_kdigo_grade",comorbid_demog_summ,med_summ)
     if(isTRUE(meld_analysis_valid)) {
-        table_one_meld_vars <- c("sex","age_group","race","aki","meld_admit_severe","deceased","aki_kdigo_stage",comorbid_demog_summ,med_summ)
+        table_one_meld_vars <- c("sex","age_group","race","aki","meld_admit_severe","deceased","aki_kdigo_grade",comorbid_demog_summ,med_summ)
     }
     #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
     demog_meld_files <- NULL
@@ -2274,7 +2243,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             coxph_cirrhotic_recover1_stats2 <- rbind(data.table::as.data.table(coxph_cirrhotic_recover1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_cirrhotic_recover1_summ$rsq,keep.rownames = T))
             coxph_cirrhotic_recover1_plot <- survminer::ggforest(coxph_cirrhotic_recover1,data=cirrhotic_recovery)
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Recover_CoxPH_Model1.png")),plot=print(coxph_cirrhotic_recover1_plot),width=20,height=20,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover1_summ","coxph_cirrhotic_recover1_hr","coxph_cirrhotic_recover1_stats1","coxph_cirrhotic_recover1_stats2","coxph_cirrhotic_recover1_plot")
+            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover1_summ","coxph_cirrhotic_recover1_hr","coxph_cirrhotic_recover1_stats1","coxph_cirrhotic_recover1_stats2")
         })
         
         message("\nGenerating Model 2 (time to recovery, cirrhotic AKI patients only)...")
@@ -2291,7 +2260,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             coxph_cirrhotic_recover2_stats2 <- rbind(data.table::as.data.table(coxph_cirrhotic_recover2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_cirrhotic_recover2_summ$rsq,keep.rownames = T))
             coxph_cirrhotic_recover2_plot <- survminer::ggforest(coxph_cirrhotic_recover2,data=cirrhotic_recovery)
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Recover_CoxPH_Model2.png")),plot=print(coxph_cirrhotic_recover2_plot),width=20,height=20,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover2_summ","coxph_cirrhotic_recover2_hr","coxph_cirrhotic_recover2_stats1","coxph_cirrhotic_recover2_stats2","coxph_cirrhotic_recover2_plot")
+            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover2_summ","coxph_cirrhotic_recover2_hr","coxph_cirrhotic_recover2_stats1","coxph_cirrhotic_recover2_stats2")
         })
         
         message("\nGenerating Model 3 (time to recovery, cirrhotic AKI patients only)...")
@@ -2309,7 +2278,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             coxph_cirrhotic_recover3_stats2 <- rbind(data.table::as.data.table(coxph_cirrhotic_recover3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_cirrhotic_recover3_summ$rsq,keep.rownames = T))
             coxph_cirrhotic_recover3_plot <- survminer::ggforest(coxph_cirrhotic_recover3,data=cirrhotic_recovery)
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Recover_CoxPH_Model3.png")),plot=print(coxph_cirrhotic_recover3_plot),width=20,height=20,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover3_summ","coxph_cirrhotic_recover3_hr","coxph_cirrhotic_recover3_stats1","coxph_cirrhotic_recover3_stats2","coxph_cirrhotic_recover3_plot")
+            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover3_summ","coxph_cirrhotic_recover3_hr","coxph_cirrhotic_recover3_stats1","coxph_cirrhotic_recover3_stats2")
         })
         
         message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
@@ -2367,7 +2336,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             coxph_cirrhotic_death1_stats2 <- rbind(data.table::as.data.table(coxph_cirrhotic_death1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_cirrhotic_death1_summ$rsq,keep.rownames = T))
             coxph_cirrhotic_death1_plot <- survminer::ggforest(coxph_cirrhotic_death1,data=cirrhotic_recovery)
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Death_CoxPH_Model1.png")),plot=print(coxph_cirrhotic_death1_plot),width=20,height=20,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death1_summ","coxph_cirrhotic_death1_hr","coxph_cirrhotic_death1_stats1","coxph_cirrhotic_death1_stats2","coxph_cirrhotic_death1_plot")
+            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death1_summ","coxph_cirrhotic_death1_hr","coxph_cirrhotic_death1_stats1","coxph_cirrhotic_death1_stats2")
         })
         
         message("Generating Model 2 (Time to death, cirrhotic AKI patients only)...")
@@ -2384,7 +2353,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             coxph_cirrhotic_death2_stats2 <- rbind(data.table::as.data.table(coxph_cirrhotic_death2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_cirrhotic_death2_summ$rsq,keep.rownames = T))
             coxph_cirrhotic_death2_plot <- survminer::ggforest(coxph_cirrhotic_death2,data=cirrhotic_recovery)
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Death_CoxPH_Model2.png")),plot=print(coxph_cirrhotic_death2_plot),width=20,height=20,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death2_summ","coxph_cirrhotic_death2_hr","coxph_cirrhotic_death2_stats1","coxph_cirrhotic_death2_stats2","coxph_cirrhotic_death2_plot")
+            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death2_summ","coxph_cirrhotic_death2_hr","coxph_cirrhotic_death2_stats1","coxph_cirrhotic_death2_stats2")
         })
         
         message("Generating Model 3 (Time to death, cirrhotic AKI patients only)...")
@@ -2401,7 +2370,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
             coxph_cirrhotic_death3_stats2 <- rbind(data.table::as.data.table(coxph_cirrhotic_death3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_cirrhotic_death3_summ$rsq,keep.rownames = T))
             coxph_cirrhotic_death3_plot <- survminer::ggforest(coxph_cirrhotic_death3,data=cirrhotic_recovery)
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Cirrhotic_Death_CoxPH_Model3.png")),plot=print(coxph_cirrhotic_death3_plot),width=20,height=20,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death3_summ","coxph_cirrhotic_death3_hr","coxph_cirrhotic_death3_stats1","coxph_cirrhotic_death3_stats2","coxph_cirrhotic_death3_plot")
+            cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death3_summ","coxph_cirrhotic_death3_hr","coxph_cirrhotic_death3_stats1","coxph_cirrhotic_death3_stats2")
         })
     }
     if(isTRUE(exists("cirrhotic_files"))) {
@@ -2454,3 +2423,4 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # aki_thromb_logit_tidy <- aki_thromb_logit %>% broom::tidy(exponentiate=T,conf.int=T) %>% knitr::kable(align="l")
     # 
 }
+
