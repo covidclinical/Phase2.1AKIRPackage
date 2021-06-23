@@ -391,21 +391,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     med_new <- med_new[!duplicated(med_new[,c(1,2,4)]),]
     med_new <- med_new[,c(1,4,3)]
     colnames(med_new)[3] <- "start_day"
-    # # Compute the new medications as a time difference from the start of AKI
-    # # If the value is < 0 (and presumably > -365) then the medication was initiated before the start of AKI
-    # # Otherwise it means the medication had been started after the peak Cr had been achieved
-    # # This will give insight into which medications may be potentially nephrotoxic
-    # aki_start_time <- labs_aki_summ[,c(1,5)]
-    # med_new_aki <- merge(med_new,aki_start_time,by="patient_id",all.x=TRUE)
-    # med_new_aki <- med_new_aki[!is.na(med_new_aki$day_min),]
-    # med_new_aki <- med_new_aki %>% dplyr::distinct()
-    # med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(offset_aki = start_day - day_min) %>% dplyr::filter(offset_aki == min(offset_aki,na.rm=TRUE))
-    # # Re-code whether medication was given before AKI - 1 = yes, 0 = no
-    # med_new_aki <- med_new_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(med_before_aki = ifelse(offset_aki <=0,1,0))
-    # med_new_aki <- med_new_aki[,c(1,2,6)]
-    # med_new_aki <- med_new_aki %>% tidyr::spread(concept_code,med_before_aki)
-    # #med_new_aki[is.na(med_new_aki)] <- -999
-    
+
     # Generate another table with the start date of the new medications
     med_new <- med_new %>% tidyr::spread(concept_code,start_day)
     #med_new[is.na(med_new)] <- -999
@@ -2176,7 +2162,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_death_all1b_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all1b_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_death_all1b_plot <- survminer::ggforest(coxph_death_all1b,data=aki_index_death)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1b_plot),width=20,height=20,units="cm")
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_death_all1b_plot),width=20,height=20,units="cm")
     })
     
     message("Generating Model 2 (Time to death, all patients)...")
@@ -2195,7 +2181,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_death_all2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_death_all2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_death_all2_plot <- survminer::ggforest(coxph_death_all2,data=aki_index_death)
-        # save(death_model2,coxph_death_all2_summ,coxph_death_all2_hr,coxph_death_all2_stats1, coxph_death_all2_stats2,coxph_death_all2_plot,file =file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.rdata")))
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_all2_plot),width=20,height=20,units="cm")
     })
     
