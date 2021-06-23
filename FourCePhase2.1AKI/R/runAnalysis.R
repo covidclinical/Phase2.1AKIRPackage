@@ -2685,6 +2685,19 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_Plot.csv")),row.names=FALSE)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover),width=12,height=12,units="cm")
     
+    if(isTRUE(ckd_present)) {
+        try({
+            # Kaplan Meier plot for CKD
+            recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.5x) ~ ckd")
+            fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
+            plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+            plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
+            write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD_PlotSummStats.csv")),row.names=TRUE)
+            write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD_Plot.csv")),row.names=FALSE)
+            ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+        })
+    }
+    
     # CoxPH model
     # Generate univariate analyses first
     message("Generating univariate Cox PH models (time to recovery, AKI patients only)...")
