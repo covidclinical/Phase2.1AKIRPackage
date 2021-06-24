@@ -598,9 +598,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
     kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::ungroup()
     colnames(kdigo_grade)[2] <- "aki_kdigo_grade"
-    kdigo_grade <- merge(kdigo_grade,demographics_filt[,"patient_id"],by="patient_id",all=TRUE)
+    kdigo_grade <- merge(kdigo_grade,demographics_filt[,c("patient_id","siteid")],by="patient_id",all=TRUE)
     kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0
-    
+    kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_grade)
     # Create the CKD table
     ckd_list <- NULL
     ckd_present <- ("ckd" %in% comorbid_list)
