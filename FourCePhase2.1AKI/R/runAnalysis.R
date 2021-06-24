@@ -1647,7 +1647,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     
     # Kaplan Meier plot for KDIGO grades - collapsing KDIGO2/3 into one group
     # This also generates the same collapsed table for Model 1B later
-    aki_index_recovery_collapse <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_final = dplyr::if_else(aki_kdigo_final >=2,2,1)) %>% dplyr::ungroup()
+    aki_index_recovery_collapse <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_final = dplyr::if_else(as.numeric(aki_kdigo_final) >=2,2,1)) %>% dplyr::ungroup()
     aki_index_recovery_collapse$aki_kdigo_final <- as.factor(aki_index_recovery_collapse$aki_kdigo_final)
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery_collapse)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery_collapse,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
@@ -2089,7 +2089,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death),width=12,height=12,units="cm")
     
     # Collapse KDIGO2/3 into single group
-    aki_index_death_collapse <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_final = dplyr::if_else(as.numeric(aki_kdigo_final) >=2,2,aki_kdigo_final)) %>% dplyr::ungroup()
+    aki_index_death_collapse <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_final = dplyr::if_else(as.numeric(aki_kdigo_final) >=2,2,as.numeric(aki_kdigo_final))) %>% dplyr::ungroup()
     aki_index_death_collapse$aki_kdigo_final <- as.factor(aki_index_death_collapse$aki_kdigo_final)                                                                           
     fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death_collapse)
     plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death_collapse,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
