@@ -142,7 +142,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     intubation <- intubation[!duplicated(intubation$patient_id),]
     # (2) In some cases intubation may not be coded as a procedure. Hence surrogate way is to determine if 
     #     patient had been diagnosed with ARDS and/or VAP
-    vap_ards_codes <- c("J80","J95.851","518.82","997.31")
+    vap_ards_codes <- c("J80","J95.851","518.82","997.31","518","997","J95")
     vap_ards_diag <- diagnosis[diagnosis$icd_code %in% vap_ards_codes,]
     intubation <- rbind(vap_ards_diag[,c(1,3)],intubation)
     intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
@@ -155,7 +155,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Time to RRT
     # ==================
     message("Creating table for RRT...")
-    rrt_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","3E1.M39Z","549.8","399.5")
+    rrt_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","3E1.M39Z","54.98","39.95")
     #hd_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","399.5")
     #pd_code <- c("3E1.M39Z","549.8")
     rrt <- procedures[procedures$procedure_code %in% rrt_code,-c(2,4)]
@@ -343,8 +343,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     ## Save the generated AKI tables for future reference / debugging (note: these will NOT be uploaded!!)
     #write.csv(labs_aki_summ,"PatientAKIEvents.csv",row.names=FALSE)
     #write.csv(labs_aki_severe,"PatientAKIEvents_Severe.csv",row.names=FALSE)
-    
-    
+       
     # =============
     # Medications
     # =============
