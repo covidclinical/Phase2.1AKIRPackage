@@ -46,6 +46,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # first generate a unique ID for each patient
     demographics <- demographics %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
     observations <- observations %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
+    course <- course %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
     
     # From this point on, we will be using our custom-generated patient_id as a unique patient identifier
     # Reorder the columns in each table to bring patient_id to the first column and remove patient_num
@@ -671,7 +672,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Plot the graphs
     peak_cr_kdigo_timeplot <- ggplot2::ggplot(peak_cr_kdigo_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_KDIGOStage_AKI.png")),plot=peak_cr_kdigo_timeplot,width=12,height=9,units="cm")
-    peak_cr_kdigo_timeplot_raw <- ggplot2::ggplot(peak_cr_kdigo_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
+    peak_cr_kdigo_timeplot_raw <- ggplot2::ggplot(peak_cr_kdigo_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal()
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_KDIGOStage_AKI_RawCr.png")),plot=peak_cr_kdigo_timeplot_raw,width=12,height=9,units="cm")
     
     try({
@@ -846,7 +847,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     inr_loinc <- c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1")
     meld_analysis_valid <- FALSE
     if(isTRUE(cirrhosis_present)) {
-        dir.create(file.path(getProjectOutputDirectory(),"Cirrhosis"))
+        dir.create(file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis")))
         cirrhosis_list <- comorbid %>% dplyr::select(patient_id,cld) %>% dplyr::filter(cld == 1)
         labs_cirrhosis <- observations[observations$patient_id %in% cirrhosis_list$patient_id,] %>% dplyr::filter(concept_type == "LAB-LOINC")
         labs_list <- unique(labs_cirrhosis$concept_code)
@@ -2518,7 +2519,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Time to Recovery but using 150% baseline sCr as the cutoff
     # ===========================================================
     message("\n============================\nPart 1b: Time to Recovery but to 150% baseline sCr\n============================")
-    dir.create(file.path(getProjectOutputDirectory(),"Recovery150"))
+    dir.create(file.path(getProjectOutputDirectory(),paaste0(currSiteId,"_Recovery150")))
     # First generate table where we find the time taken to achieve 1.5x baseline ratio
     time_to_ratio1.5 <- labs_cr_recovery_tmp %>% split(.$patient_id) %>% purrr::map(~get_day(.$ratio,.$time_from_peak,target=1.5)) %>% purrr::map_df(~dplyr::data_frame(.x),.id='patient_id')
     colnames(time_to_ratio1.5)[2] <- "time_to_ratio1.5"
