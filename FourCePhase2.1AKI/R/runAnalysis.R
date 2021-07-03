@@ -2690,7 +2690,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     if(isTRUE(ckd_present)) {
         try({
             # Kaplan Meier plot for CKD
-            recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.5x) ~ ckd")
+            recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.5,event=recover_1.5x) ~ ckd")
             fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
             plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
             plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
