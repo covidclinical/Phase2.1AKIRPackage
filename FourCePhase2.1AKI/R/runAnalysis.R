@@ -2675,7 +2675,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     plot_recover_summ_table <- plot_recover$data.survtable
     write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_Severe_PlotSummStats.csv")),row.names=TRUE)
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_Severe_Plot.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=print(plot_recover),width=12,height=12,units="cm")
     
     # Kaplan Meier plot for KDIGO grades
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.5,event=recover_1.5x) ~ aki_kdigo_final")
@@ -2685,7 +2685,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
     write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_PlotSummStats.csv")),row.names=TRUE)
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_Plot.csv")),row.names=FALSE)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover),width=12,height=12,units="cm")
     
     if(isTRUE(ckd_present)) {
         try({
@@ -2735,7 +2735,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_recover1_stats1,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_recover1_stats2,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_recover1_plot <- survminer::ggforest(coxph_recover1,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
     })
     
     message("\nGenerating Model 1B - collapsing KDIGO 2/3 to single group (time to recovery, AKI patients only)...")
@@ -2753,7 +2753,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_recovery1b_stats1,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_recovery1b_stats2,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_recovery1b_plot <- survminer::ggforest(coxph_recovery1b,data=aki_index_recovery_collapse)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_recovery1b_plot),width=20,height=20,units="cm")
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_recovery1b_plot),width=20,height=20,units="cm")
     })
     
     message("\nGenerating Model 2 (time to recovery, AKI patients only)...")
@@ -2772,7 +2772,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_recover2_stats1,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_recover2_stats2,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_recover2_plot <- survminer::ggforest(coxph_recover2,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
     })
     
     message("\nGenerating Model 3 (time to recovery, AKI patients only)...")
@@ -2799,7 +2799,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_recover3_stats1,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_recover3_stats2,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_recover3_plot <- survminer::ggforest(coxph_recover3,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
     })
     
     try({
@@ -2817,7 +2817,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
         write.csv(coxph_recover4_stats1,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
         write.csv(coxph_recover4_stats2,file=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
         coxph_recover4_plot <- survminer::ggforest(coxph_recover4,data=aki_index_recovery)
-        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),"Recovery150", paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
+        ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Recovery150"), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
     })
     
     message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
