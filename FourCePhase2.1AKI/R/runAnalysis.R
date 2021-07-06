@@ -1317,7 +1317,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
                     inr_anova <- stats::aov(first_inr ~ meld_admit_severe * aki,data=demog_meld_summ)
                     alb_anova <- stats::aov(first_alb ~ meld_admit_severe * aki,data=demog_meld_summ)
                     lab_meld_list <- c("first_ast","first_alt","first_bil","first_inr","first_alb")
-                    lab_anova <- c("ast_anova","alt_anova",'bil_anova","inr_anova',"alb_anova")
+                    lab_anova <- c("ast_anova","alt_anova","bil_anova","inr_anova","alb_anova")
                     lab_meld_stats <- "lab_meld_stats"
                 }, error = function(e) {
                     message("Error in processing labs. Check error messages.")
