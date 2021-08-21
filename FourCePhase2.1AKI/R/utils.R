@@ -4,63 +4,64 @@
 
 aki_kdigo_grade <- function(x) {
   creat = as.numeric(x[4])
-  baseline_90d = as.numeric(x[5])
+  baseline_365d = as.numeric(x[5])
   baseline_48h = as.numeric(x[6])
   grade = 0
-  diff = creat - baseline_48h
-  ratio = round(creat/baseline_90d,2)
+  baseline = min(baseline_48h,baseline_365d)
+  ratio = round(creat/baseline_365d,2)
+  diff = creat - baseline
   if(diff > 0.3 || ratio >= 1.5) {
     grade = 1
   }
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 4 || ratio >= 3) {
+  if(creat > 4 || ratio >= 3) {
     grade = 3
   }
   grade
 }
 
 #' Generates AKI KDIGO grades using future serum creatinine values
-#' @param x data.table contaning serum creatinine values, the baseline in the next 7 days and next 48h
+#' @param x data.table contaning serum creatinine values, the baseline in the next 365 days and next 48h
 #' @noRd
 
 aki_kdigo_grade_retro <- function(x) {
   # Instead of using the pure KDIGO definition, this looks at future Cr values, and 
   # determines whether the current value, in retrospect, represents an episode of AKI
   creat = as.numeric(x[4])
-  baseline_7d = as.numeric(x[7])
+  baseline_365d = as.numeric(x[7])
   baseline_48h = as.numeric(x[8])
   grade = 0
-  diff = creat - baseline_48h
-  ratio = round(creat/baseline_7d,2)
+  baseline = min(baseline_365d,baseline_48h)
+  ratio = round(creat/baseline,2)
+  diff = creat - baseline
   if(diff > 0.3 || ratio >= 1.5) {
     grade = 1
   }
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 4 || ratio >= 3) {
+  if(creat > 4 || ratio >= 3) {
     grade = 3
   }
   grade
 }
 
-#' Generates AKI KDIGO grades but on serum creatinine values 7 days later using previous serum creatinine values
+#' Generates AKI KDIGO grades but on serum creatinine values 180 days later using previous serum creatinine values
 #' @param x data.table contaning serum creatinine values, the baseline in past 90 days and past 48h
 #' @noRd
 
-akd_grade_7d <- function(x) {
+akd_grade_180d <- function(x) {
   creat = as.numeric(x[4])
-  baseline_90d = as.numeric(x[5])
+  baseline_365d = as.numeric(x[5])
   baseline_48h = as.numeric(x[6])
-  baseline_7d_retro = as.numeric(x[7])
+  baseline_365d_retro = as.numeric(x[7])
   baseline_48h_retro = as.numeric(x[8])
-  baseline = min(baseline_90d,baseline_48h,baseline_7d_retro,baseline_48h_retro)
-  cr_7d = as.numeric(x[9])
+  baseline = min(baseline_365d,baseline_48h,baseline_365d_retro,baseline_48h_retro)
+  cr_180d = as.numeric(x[9])
   grade = 0
-  ratio = round(cr_7d/baseline,2)
-  diff = cr_7d - baseline
+  ratio = round(cr_180d/baseline,2)
   # We will code grade B/C as 0.5
   if(ratio > 1.25) {
     grade = 0.5
@@ -71,7 +72,7 @@ akd_grade_7d <- function(x) {
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 4 || ratio >= 3) {
+  if(cr_180d > 4 || ratio >= 3) {
     grade = 3
   }
   grade
@@ -83,15 +84,14 @@ akd_grade_7d <- function(x) {
 
 akd_grade_90d <- function(x) {
   creat = as.numeric(x[4])
-  baseline_90d = as.numeric(x[5])
+  baseline_365d = as.numeric(x[5])
   baseline_48h = as.numeric(x[6])
-  baseline_7d_retro = as.numeric(x[7])
+  baseline_365d_retro = as.numeric(x[7])
   baseline_48h_retro = as.numeric(x[8])
-  baseline = min(baseline_90d,baseline_48h,baseline_7d_retro,baseline_48h_retro)
+  baseline = min(baseline_365d,baseline_48h,baseline_365d_retro,baseline_48h_retro)
   cr_90d = as.numeric(x[10])
   grade = 0
   ratio = round(cr_90d/baseline,2)
-  diff = cr_90d - baseline
   # We will code grade B/C as 0.5
   if(ratio > 1.25) {
     grade = 0.5
@@ -102,7 +102,7 @@ akd_grade_90d <- function(x) {
   if(ratio >= 2 & ratio < 3) {
     grade = 2
   }
-  if(diff > 4 || ratio >= 3) {
+  if(cr_90d > 4 || ratio >= 3) {
     grade = 3
   }
   grade
@@ -112,10 +112,10 @@ akd_grade_90d <- function(x) {
 #' @param cr Vector containing serum creatinine values
 #' @param day Vector containing time points of respective serum creatinine values
 #' @param lag Specified whether to look at retrospective or future data. Default = TRUE
-#' @param gap Specifies rolling window length to use. Default = 7 days
+#' @param gap Specifies rolling window length to use. Default = 365 days
 #' @noRd
 
-pos_min <- function(cr,day,lag=TRUE,gap=7) {
+pos_min <- function(cr,day,lag=TRUE,gap=365) {
   len = length(cr)
   day_pos = day
   for(i in 1:len) {
