@@ -679,7 +679,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # ==============================
     baseline_shift <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
-    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_180d,ratio_90d)
+    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/first_baseline_cr, ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_180d,ratio_90d)
 
     baseline_shift_summ <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
@@ -692,16 +692,33 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     baseline_shift150 <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150 <- merge(baseline_shift150,first_baseline,by="patient_id",all.x=T)
-    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_180d,ratio_90d)
+    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/first_baseline_cr, ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_180d,ratio_90d)
 
-    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift150_summ <- baseline_shift150 %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
-        baseline_shift150$n_all[baseline_shift150$n_all < obfuscation_value] <- NA
-        baseline_shift150$n_shift_180d[baseline_shift150$n_shift_180d < obfuscation_value] <- NA
-        baseline_shift150$n_shift_90d[baseline_shift150$n_shift_90d < obfuscation_value] <- NA
+        baseline_shift150_summ$n_all[baseline_shift150_summ$n_all < obfuscation_value] <- NA
+        baseline_shift150_summ$n_shift_180d[baseline_shift150_summ$n_shift_180d < obfuscation_value] <- NA
+        baseline_shift150_summ$n_shift_90d[baseline_shift150_summ$n_shift_90d < obfuscation_value] <- NA
     }
-    write.csv(baseline_shift150,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts.csv")),row.names=FALSE)
+    write.csv(baseline_shift150_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts.csv")),row.names=FALSE)
     
+    baseline_shift_365d_summ <- baseline_shift[baseline_shift$patient_id %in% patients_with_preadmit_cr,] %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
+        baseline_shift_365d_summ$n_all[baseline_shift_365d_summ$n_all < obfuscation_value] <- NA
+        baseline_shift_365d_summ$n_shift_365d[baseline_shift_365d_summ$n_shift_365d < obfuscation_value] <- NA
+        baseline_shift_365d_summ$n_shift_180d[baseline_shift_365d_summ$n_shift_180d < obfuscation_value] <- NA
+        baseline_shift_365d_summ$n_shift_90d[baseline_shift_365d_summ$n_shift_90d < obfuscation_value] <- NA
+    }
+    write.csv(baseline_shift_365d_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts_PreAdmitCr.csv")),row.names=FALSE)
+    
+    baseline_shift150_365d_summ <- baseline_shift150[baseline_shift150$patient_id %in% patients_with_preadmit_cr,] %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_365d = sum(ratio_365d >= 1.5, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
+        baseline_shift150_365d_summ$n_all[baseline_shift150_365d_summ$n_all < obfuscation_value] <- NA
+        baseline_shift150_365d_summ$n_shift_365d[baseline_shift150_365d_summ$n_shift_365d < obfuscation_value] <- NA
+        baseline_shift150_365d_summ$n_shift_180d[baseline_shift150_365d_summ$n_shift_180d < obfuscation_value] <- NA
+        baseline_shift150_365d_summ$n_shift_90d[baseline_shift150_365d_summ$n_shift_90d < obfuscation_value] <- NA
+    }
+    write.csv(baseline_shift150_365d_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts_PreAdmitCr.csv")),row.names=FALSE)
     
     # =======================================================================================
     # Figure 1(a): Cr trends from start of AKI / after peak Cr for severe vs non-severe groups
