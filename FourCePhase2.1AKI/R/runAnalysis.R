@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "" ) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "" ) {
     
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -71,87 +71,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Final headers for demographics_filt
     # patient_id  siteid sex age_group race  length_stay severe  time_to_severe  deceased  time_to_death
     
-    # =================================================
-    # Additional code added since Manuscript Submission
-    # Implementing additional exclusion criteria
-    # - Not feasible to use ICD-9/10 codes for ESKD/kidney transplant at Phase 1.1/2.1 stage since granularity of diagnoses codes not sufficient
-    # - Therefore have to filter for initial hospital sCr >= 4mg/dL
-    # eskd_list <- observations[observations$concept_code == '2160-0',-c(4,5)] %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::filter(value >= 4)
-    # eskd_list <- unique(eskd_list$patient_id)
-    # demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% eskd_list),]
-    # observations <- observations[!(observations$patient_id %in% eskd_list),]
-    # =================================================
-    
-    # Comorbidities & Prothrombotic Events
-    # ======================================
-    message("Now creating tables for comorbidities and admission diagnoses...")
-    diag_icd9 <- diagnosis[diagnosis$concept_type == "DIAG-ICD9",]
-    diag_icd10 <- diagnosis[diagnosis$concept_type == "DIAG-ICD10",]
-    
-    message("Creating Comorbidities table...")
-    # Filter comorbids from all diagnoses
-    comorbid_icd9 <- diag_icd9[diag_icd9$icd_code %in% comorbid_icd9_ref$icd_code,]
-    comorbid_icd10 <- diag_icd10[diag_icd10$icd_code %in% comorbid_icd10_ref$icd_code,]
-    # Filter comorbids to be restricted to diagnosis codes made -15days
-    comorbid_icd9 <- comorbid_icd9[comorbid_icd9$days_since_admission < -15,-c(2:4)]
-    comorbid_icd10 <- comorbid_icd10[comorbid_icd10$days_since_admission < -15,-c(2:4)]
-    # Map the comorbid codes
-    comorbid_icd9 <- merge(comorbid_icd9,comorbid_icd9_ref,by="icd_code",all.x=TRUE)
-    comorbid_icd10 <- merge(comorbid_icd10,comorbid_icd10_ref,by="icd_code",all.x=TRUE)
-    comorbid <- rbind(comorbid_icd9,comorbid_icd10)
-    comorbid <- comorbid %>% dplyr::select(patient_id,comorbid_type)
-    comorbid$present <- 1
-    comorbid <- comorbid %>% dplyr::distinct()
-    comorbid <- comorbid %>% tidyr::spread(comorbid_type,present)
-    comorbid[is.na(comorbid)] <- 0
-    
-    comorbid_list <- colnames(comorbid)[-1]
-    
-    # 
-    # # Filter prothrombotic events from all diagnoses
-    # thromb_icd9 <- diag_icd9[diag_icd9$icd_code %in% thromb_icd9_ref$icd_code,]
-    # thromb_icd10 <- diag_icd10[diag_icd10$icd_code %in% thromb_icd10_ref$icd_code,]
-    # # Filter prothrombotic diagnoses to be restricted to diagnosis codes made after -15days
-    # thromb_icd9 <- thromb_icd9[thromb_icd9$days_since_admission >= -15,-c(2,4)]
-    # thromb_icd10 <- thromb_icd10[thromb_icd10$days_since_admission >= -15,-c(2,4)]
-    # # Map the prothrombotic codes - store day diagnosed
-    # thromb_icd9 <- merge(thromb_icd9,thromb_icd9_ref,by="icd_code",all.x=TRUE)
-    # thromb_icd10 <- merge(thromb_icd10,thromb_icd10_ref,by="icd_code",all.x=TRUE)
-    # thromb_diag <- rbind(thromb_icd9,thromb_icd10)
-    # thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type) %>% dplyr::mutate(present = 1) %>% dplyr::distinct()
-    # thromb_diag <- thromb_diag %>% tidyr::spread(type,present)
-    # thromb_diag[is.na(thromb_diag)] <- 0
-    
-    # Final headers for comorbid table
-    # Note: order of columns may depend on the overall characteristics of your patient population
-    # patient_id	ihd,htn,dm,asthma,copd,bronchiectasis,ild,ckd,pe,dvt,cancer
-    # Values stored are in binary, 1 = present, 0 = absent
-    
-    # Final headers for thromb_diag table
-    # Note: order of columns may depend on the overall characteristics of your patient population
-    # patient_id	dvt,vt,pe,mi
-    # Values stored are in binary, 1 = present, 0 = absent
-    
-    # Time to Intubation
-    # ====================
-    message("Creating table for intubation...")
-    # (1) Determine intubation from procedure code
-    intubation_code <- c("0BH13EZ","0BH17EZ","0BH18EZ","0B21XEZ","5A09357","5A09358","5A09359","5A0935B","5A0935Z","5A09457","5A09458","5A09459","5A0945B","5A0945Z","5A09557","5A09558","5A09559","5A0955B","5A0955Z","96.7","96.04","96.70","96.71","96.72")
-    intubation <- procedures[procedures$procedure_code %in% intubation_code,-c(2,4)]
-    intubation <- intubation[,c(1,2)]
-    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
-    intubation <- intubation[!duplicated(intubation$patient_id),]
-    # (2) In some cases intubation may not be coded as a procedure. Hence surrogate way is to determine if 
-    #     patient had been diagnosed with ARDS and/or VAP
-    vap_ards_codes <- c("J80","J95.851","518.82","997.31","518","997","J95")
-    vap_ards_diag <- diagnosis[diagnosis$icd_code %in% vap_ards_codes,]
-    intubation <- rbind(vap_ards_diag[,c(1,3)],intubation)
-    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
-    intubation <- intubation[!duplicated(intubation$patient_id),]
-    
-    # Final table headers:
-    # patient_id	days_since_admission
-    # days_since_admission = time to first intubation event
+
     
     # Time to RRT
     # ==================
@@ -178,6 +98,108 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # Final table headers for rrt and rrt_new:
     # patient_id	days_since_admission
     # days_since_admission = time to first RRT event
+    
+    # =============
+    # Medications
+    # =============
+    message("Now generating the medications tables:")
+    medications <- observations[observations$concept_type == "MED-CLASS",]
+    medications <- medications[,-c(4,6)]
+    medications <- medications %>% dplyr::arrange(patient_id,days_since_admission,concept_code)
+    # Use 15 days as the cutoff for chronic medications
+    message("Generating table for chronic medications...")
+    med_chronic <- medications[medications$days_since_admission < -15,]
+    med_new <- medications[medications$days_since_admission >= -15,]
+    
+    # Re-code chronic medications into wide format
+    med_chronic <- med_chronic[!duplicated(med_chronic[,c(1,2,4)]),]
+    med_chronic <- med_chronic[,-c(2,3)]
+    med_chronic$concept_code <- paste("old",med_chronic$concept_code,sep="_")
+    med_chronic$present <- 1
+    med_chronic <- med_chronic %>% tidyr::spread(concept_code,present)
+    med_chronic[is.na(med_chronic)] <- 0
+    
+    # Create subtable for ACE-i/ARB pre-exposure
+    message("Generating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
+    acei_present = ("old_ACEI" %in% colnames(med_chronic))
+    arb_present = ("old_ARB" %in% colnames(med_chronic))
+    if(acei_present == TRUE && arb_present == TRUE) {
+        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0)) %>% dplyr::ungroup()
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
+    } else if (acei_present == TRUE) {
+        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI)
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0)) %>% dplyr::ungroup()
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
+    } else if (arb_present == TRUE) {
+        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ARB)
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0)) %>% dplyr::ungroup()
+        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
+    }
+    
+    # med_acearb_chronic
+    # Headers: patient_id   acei_arb_preexposure
+    
+    # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
+    message("Generating table for new medications started during the admission...")
+    med_new <- med_new[!duplicated(med_new[,c(1,2,4)]),]
+    med_new <- med_new[,c(1,4,3)]
+    colnames(med_new)[3] <- "start_day"
+    
+    # Generate another table with the start date of the new medications
+    med_new <- med_new %>% tidyr::spread(concept_code,start_day)
+    #med_new[is.na(med_new)] <- -999
+    
+    # Generate simplified table for determining who were started on COAGA near admission
+    message("Generating table for COAGA use during the admission...")
+    coaga_present <- tryCatch({
+        med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
+        med_coaga_new$COAGA[med_coaga_new$COAGA < -15] <- 0
+        med_coaga_new$COAGA[med_coaga_new$COAGA >= -15] <- 1
+        TRUE
+    },error= function(c) FALSE)
+    
+    # Generate simplified table for determining who were started on COAGB near admission
+    message("Generating table for COAGB use during the admission...")
+    coagb_present <- tryCatch({
+        med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
+        med_coagb_new$COAGB[med_coagb_new$COAGB < -15] <- 0
+        med_coagb_new$COAGB[med_coagb_new$COAGB >= -15] <- 1
+        TRUE
+    },error=function(c) FALSE)
+    
+    # Generate simplified table for determining who were started on novel antivirals
+    covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
+    remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
+    if(isTRUE(covid19antiviral_present) && isTRUE(remdesivir_present)){
+        message("Generating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL),REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
+        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
+        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
+        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(COVIDVIRAL >= 0 | REMDESIVIR >= 0,1,0)) %>% dplyr::ungroup()
+        med_covid19_new_date <- med_covid19_new
+        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
+        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
+    } else if(isTRUE(covid19antiviral_present)){
+        message("Generating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL)) %>% dplyr::ungroup()
+        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
+        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
+        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(COVIDVIRAL >= 0,1,0)) %>% dplyr::ungroup()
+        med_covid19_new_date <- med_covid19_new
+        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
+        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
+    } else if(isTRUE(remdesivir_present)){
+        message("Generating table for experimental COVID-19 treatment... (REMDESIVIR only)")
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
+        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
+        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
+        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(REMDESIVIR >= 0,1,0)) %>% dplyr::ungroup()
+        med_covid19_new_date <- med_covid19_new
+        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
+        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
+    }
+    
     
     # ====================
     # PART 2: AKI Detection Code
@@ -375,109 +397,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     #write.csv(labs_aki_summ,"PatientAKIEvents.csv",row.names=FALSE)
     #write.csv(labs_aki_severe,"PatientAKIEvents_Severe.csv",row.names=FALSE)
        
-    # =============
-    # Medications
-    # =============
-    message("Now generating the medications tables:")
-    medications <- observations[observations$concept_type == "MED-CLASS",]
-    medications <- medications[,-c(4,6)]
-    medications <- medications %>% dplyr::arrange(patient_id,days_since_admission,concept_code)
-    # Use 15 days as the cutoff for chronic medications
-    message("Generating table for chronic medications...")
-    med_chronic <- medications[medications$days_since_admission < -15,]
-    med_new <- medications[medications$days_since_admission >= -15,]
     
-    # Re-code chronic medications into wide format
-    med_chronic <- med_chronic[!duplicated(med_chronic[,c(1,2,4)]),]
-    med_chronic <- med_chronic[,-c(2,3)]
-    med_chronic$concept_code <- paste("old",med_chronic$concept_code,sep="_")
-    med_chronic$present <- 1
-    med_chronic <- med_chronic %>% tidyr::spread(concept_code,present)
-    med_chronic[is.na(med_chronic)] <- 0
-    
-    # Create subtable for ACE-i/ARB pre-exposure
-    message("Generating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
-    acei_present = ("old_ACEI" %in% colnames(med_chronic))
-    arb_present = ("old_ARB" %in% colnames(med_chronic))
-    if(acei_present == TRUE && arb_present == TRUE) {
-        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI,old_ARB)
-        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0)) %>% dplyr::ungroup()
-        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
-    } else if (acei_present == TRUE) {
-        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ACEI)
-        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0)) %>% dplyr::ungroup()
-        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
-    } else if (arb_present == TRUE) {
-        med_acearb_chronic <- med_chronic %>% dplyr::select(patient_id,old_ARB)
-        med_acearb_chronic <- med_acearb_chronic %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0)) %>% dplyr::ungroup()
-        med_acearb_chronic <- med_acearb_chronic %>% dplyr::select(patient_id,acei_arb_preexposure)
-    }
-    
-    # med_acearb_chronic
-    # Headers: patient_id   acei_arb_preexposure
-    
-    # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
-    message("Generating table for new medications started during the admission...")
-    med_new <- med_new[!duplicated(med_new[,c(1,2,4)]),]
-    med_new <- med_new[,c(1,4,3)]
-    colnames(med_new)[3] <- "start_day"
-
-    # Generate another table with the start date of the new medications
-    med_new <- med_new %>% tidyr::spread(concept_code,start_day)
-    #med_new[is.na(med_new)] <- -999
-    
-    # Generate simplified table for determining who were started on COAGA near admission
-    message("Generating table for COAGA use during the admission...")
-    coaga_present <- tryCatch({
-        med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
-        med_coaga_new$COAGA[med_coaga_new$COAGA < -15] <- 0
-        med_coaga_new$COAGA[med_coaga_new$COAGA >= -15] <- 1
-        TRUE
-    },error= function(c) FALSE)
-    
-    # Generate simplified table for determining who were started on COAGB near admission
-    message("Generating table for COAGB use during the admission...")
-    coagb_present <- tryCatch({
-        med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
-        med_coagb_new$COAGB[med_coagb_new$COAGB < -15] <- 0
-        med_coagb_new$COAGB[med_coagb_new$COAGB >= -15] <- 1
-        TRUE
-    },error=function(c) FALSE)
-
-    # Generate simplified table for determining who were started on novel antivirals
-    covid19antiviral_present = ("COVIDVIRAL" %in% colnames(med_new))
-    remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
-    if(isTRUE(covid19antiviral_present) && isTRUE(remdesivir_present)){
-        message("Generating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
-        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL),REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
-        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
-        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
-        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(COVIDVIRAL >= 0 | REMDESIVIR >= 0,1,0)) %>% dplyr::ungroup()
-        med_covid19_new_date <- med_covid19_new
-        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
-        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
-    } else if(isTRUE(covid19antiviral_present)){
-        message("Generating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
-        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL)) %>% dplyr::ungroup()
-        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
-        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
-        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(COVIDVIRAL >= 0,1,0)) %>% dplyr::ungroup()
-        med_covid19_new_date <- med_covid19_new
-        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
-        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
-    } else if(isTRUE(remdesivir_present)){
-        message("Generating table for experimental COVID-19 treatment... (REMDESIVIR only)")
-        med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
-        # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
-        #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
-        med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(REMDESIVIR >= 0,1,0)) %>% dplyr::ungroup()
-        med_covid19_new_date <- med_covid19_new
-        colnames(med_covid19_new_date)[2] <- "covid_rx_start"
-        med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
-    }
     
     ## ==================================================================================
-    ## PART 3: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
+    ## PART 2: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
     ## ==================================================================================
     
     # Severity indices
@@ -606,6 +529,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     # In the event longitudinal data becomes very long, we will create a column where the very first baseline Cr for the index AKI is generated for each patient
     first_baseline <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak == 0) %>% dplyr::filter(baseline_cr == min(baseline_cr,na.rm=TRUE)) %>% dplyr::select(patient_id,baseline_cr) %>% dplyr::distinct()
     colnames(first_baseline)[2] <- "first_baseline_cr"
+    
+    # Merge the first_baseline table back in
     peak_trend <- merge(peak_trend,first_baseline,by="patient_id",all.x=TRUE)
     if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_365d,min_cr_retro_365d,time_from_peak,baseline_cr,first_baseline_cr)
@@ -617,27 +542,156 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5,restrict_models = F
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the dplyr::selected AKI peak
     
+    # We now need to filter for patients with CKD4/5 using surrogate cutoffs (within the constraints of Phase 2.1)
+    # This is where the ckd_cutoff value comes in useful
+    # Default: 2.25mg/dL
+    esrf_list <- unlist(first_baseline$patient_id[first_baseline$baseline_cr >= ckd_cutoff])
+    
+    # =======================================================================================
+    # Filter the demographics, peak_trend, comorbid, meds tables to remove those with CKD4/5
+    # =======================================================================================
+    demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% esrf_list),]
+    observations <- observations[!(observations$patient_id %in% esrf_list),]
+    course <- course[!(course$patient_id %in% esrf_list),]
+    first_discharge <- first_discharge[!(first_discharge$patient_id %in% esrf_list),]
+    diagnosis <- diagnosis[!(diagnosis$patient_id %in% esrf_list),]
+    procedures <- procedures[!(procedures$patient_id %in% esrf_list),]
+    
+    labs_cr_aki <- labs_cr_aki[!(labs_cr_aki$patient_id %in% esrf_list),]
+    labs_cr_nonaki <- labs_cr_nonaki[!(labs_cr_nonaki$patient_id %in% esrf_list),]
+    labs_aki_summ <- labs_aki_summ[!(labs_aki_summ$patient_id %in% esrf_list),]
+    labs_aki_severe <- labs_aki_severe[!(labs_aki_severe$patient_id %in% esrf_list),]
+    labs_nonaki_summ <- labs_nonaki_summ[!(labs_nonaki_summ$patient_id %in% esrf_list),]
+    labs_nonaki_severe <- labs_nonaki_severe[!(labs_nonaki_severe$patient_id %in% esrf_list),]
+    labs_cr_all <- labs_cr_all[!(labs_cr_all$patient_id %in% esrf_list),]
+    
+    aki_only_index <- aki_only_index[!(aki_only_index$patient_id %in% esrf_list),]
+    no_aki_index <- no_aki_index[!(no_aki_index$patient_id %in% esrf_list),]
+    aki_index <- aki_index[!(aki_index$patient_id %in% esrf_list),]
+    
+    aki_only_index_baseline_shift <- aki_only_index_baseline_shift[!(aki_only_index_baseline_shift$patient_id %in% esrf_list),]
+    no_aki_index_baseline_shift <- no_aki_index_baseline_shift[!(no_aki_index_baseline_shift$patient_id %in% esrf_list),]
+    peak_trend <- peak_trend[!(peak_trend$patient_id %in% esrf_list),]
+    
+    medications <- medications[!(medications$patient_id %in% esrf_list),]
+    med_chronic <- med_chronic[!(med_chronic$patient_id %in% esrf_list),]
+    med_new <- med_new[!(med_new$patient_id %in% esrf_list),]
+    if(isTRUE(coaga_present)) {
+        med_coaga_new <- med_coaga_new[!(med_coaga_new$patient_id %in% esrf_list),]
+    }
+    if(isTRUE(coagb_present)) {
+        med_coagb_new <- med_coagb_new[!(med_coagb_new$patient_id %in% esrf_list),]
+    }
+    if(isTRUE(remdesivir_present) | isTRUE(covid19antiviral_present)) {
+        med_covid19_new <- med_covid19_new[!(med_covid19_new$patient_id %in% esrf_list),]
+    }
+
+    # ============================================
+    # PREPARING OTHER PRE-REQUISITE TABLES
+    # 1) Comorbidities
+    # 2) Intubation (not used in current analyses)
+    # 
+    # NOTE: In versions prior to 0.1.5, this segment was placed before the AKI detection code.
+    # However, in view of implementing filtering for CKD4/5 patients, these segments have been shifted here to facilitate
+    # filtering and avoid having to add additional unnecessary lines of code (and make this more readable)
+    # ============================================
+    
+    # Comorbidities & Prothrombotic Events
+    # ======================================
+    message("Now creating tables for comorbidities and admission diagnoses...")
+    diag_icd9 <- diagnosis[diagnosis$concept_type == "DIAG-ICD9",]
+    diag_icd10 <- diagnosis[diagnosis$concept_type == "DIAG-ICD10",]
+    
+    message("Creating Comorbidities table...")
+    # Filter comorbids from all diagnoses
+    comorbid_icd9 <- diag_icd9[diag_icd9$icd_code %in% comorbid_icd9_ref$icd_code,]
+    comorbid_icd10 <- diag_icd10[diag_icd10$icd_code %in% comorbid_icd10_ref$icd_code,]
+    # Filter comorbids to be restricted to diagnosis codes made -15days
+    comorbid_icd9 <- comorbid_icd9[comorbid_icd9$days_since_admission < -15,-c(2:4)]
+    comorbid_icd10 <- comorbid_icd10[comorbid_icd10$days_since_admission < -15,-c(2:4)]
+    # Map the comorbid codes
+    comorbid_icd9 <- merge(comorbid_icd9,comorbid_icd9_ref,by="icd_code",all.x=TRUE)
+    comorbid_icd10 <- merge(comorbid_icd10,comorbid_icd10_ref,by="icd_code",all.x=TRUE)
+    comorbid <- rbind(comorbid_icd9,comorbid_icd10)
+    comorbid <- comorbid %>% dplyr::select(patient_id,comorbid_type)
+    comorbid$present <- 1
+    comorbid <- comorbid %>% dplyr::distinct()
+    comorbid <- comorbid %>% tidyr::spread(comorbid_type,present)
+    comorbid[is.na(comorbid)] <- 0
+    
+    comorbid_list <- colnames(comorbid)[-1]
+    
+    # 
+    # # Filter prothrombotic events from all diagnoses
+    # thromb_icd9 <- diag_icd9[diag_icd9$icd_code %in% thromb_icd9_ref$icd_code,]
+    # thromb_icd10 <- diag_icd10[diag_icd10$icd_code %in% thromb_icd10_ref$icd_code,]
+    # # Filter prothrombotic diagnoses to be restricted to diagnosis codes made after -15days
+    # thromb_icd9 <- thromb_icd9[thromb_icd9$days_since_admission >= -15,-c(2,4)]
+    # thromb_icd10 <- thromb_icd10[thromb_icd10$days_since_admission >= -15,-c(2,4)]
+    # # Map the prothrombotic codes - store day diagnosed
+    # thromb_icd9 <- merge(thromb_icd9,thromb_icd9_ref,by="icd_code",all.x=TRUE)
+    # thromb_icd10 <- merge(thromb_icd10,thromb_icd10_ref,by="icd_code",all.x=TRUE)
+    # thromb_diag <- rbind(thromb_icd9,thromb_icd10)
+    # thromb_diag <- thromb_diag %>% dplyr::select(patient_id,type) %>% dplyr::mutate(present = 1) %>% dplyr::distinct()
+    # thromb_diag <- thromb_diag %>% tidyr::spread(type,present)
+    # thromb_diag[is.na(thromb_diag)] <- 0
+    
+    # Final headers for comorbid table
+    # Note: order of columns may depend on the overall characteristics of your patient population
+    # patient_id	ihd,htn,dm,asthma,copd,bronchiectasis,ild,ckd,pe,dvt,cancer
+    # Values stored are in binary, 1 = present, 0 = absent
+    
+    # Final headers for thromb_diag table
+    # Note: order of columns may depend on the overall characteristics of your patient population
+    # patient_id	dvt,vt,pe,mi
+    # Values stored are in binary, 1 = present, 0 = absent
+    
+    # Time to Intubation
+    # ====================
+    message("Creating table for intubation...")
+    # (1) Determine intubation from procedure code
+    intubation_code <- c("0BH13EZ","0BH17EZ","0BH18EZ","0B21XEZ","5A09357","5A09358","5A09359","5A0935B","5A0935Z","5A09457","5A09458","5A09459","5A0945B","5A0945Z","5A09557","5A09558","5A09559","5A0955B","5A0955Z","96.7","96.04","96.70","96.71","96.72")
+    intubation <- procedures[procedures$procedure_code %in% intubation_code,-c(2,4)]
+    intubation <- intubation[,c(1,2)]
+    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
+    intubation <- intubation[!duplicated(intubation$patient_id),]
+    # (2) In some cases intubation may not be coded as a procedure. Hence surrogate way is to determine if 
+    #     patient had been diagnosed with ARDS and/or VAP
+    vap_ards_codes <- c("J80","J95.851","518.82","997.31","518","997","J95")
+    vap_ards_diag <- diagnosis[diagnosis$icd_code %in% vap_ards_codes,]
+    intubation <- rbind(vap_ards_diag[,c(1,3)],intubation)
+    intubation <- intubation[order(intubation$patient_id,intubation$days_since_admission),]
+    intubation <- intubation[!duplicated(intubation$patient_id),]
+    
+    # Final table headers:
+    # patient_id	days_since_admission
+    # days_since_admission = time to first intubation event
+    
+ 
     # ==============================
     # Baseline Shift Tables
     # ==============================
     baseline_shift <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
-    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_7d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_7d,ratio_90d)
-    baseline_shift <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_7d = sum(ratio_7d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_180d,ratio_90d)
+
+    baseline_shift <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift$n_all[baseline_shift$n_all < obfuscation_value] <- NA
-        baseline_shift$n_shift_7d[baseline_shift$n_shift_7d < obfuscation_value] <- NA
+        baseline_shift$n_shift_180d[baseline_shift$n_shift_180d < obfuscation_value] <- NA
         baseline_shift$n_shift_90d[baseline_shift$n_shift_90d < obfuscation_value] <- NA
     }
+    
     write.csv(baseline_shift,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts.csv")),row.names=FALSE)
     
     baseline_shift150 <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150 <- merge(baseline_shift150,first_baseline,by="patient_id",all.x=T)
-    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_7d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_7d,ratio_90d)
-    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_7d = sum(ratio_7d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_180d,ratio_90d)
+
+    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift150$n_all[baseline_shift150$n_all < obfuscation_value] <- NA
-        baseline_shift150$n_shift_7d[baseline_shift150$n_shift_7d < obfuscation_value] <- NA
+        baseline_shift150$n_shift_180d[baseline_shift150$n_shift_180d < obfuscation_value] <- NA
         baseline_shift150$n_shift_90d[baseline_shift150$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift150,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts.csv")),row.names=FALSE)
