@@ -75,6 +75,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
     try({med_coagb_new <- med_coagb_new[med_coagb_new$patient_id %in% patients_with_preadmit_cr]})
     try({med_covid19_new <- med_covid19_new[med_covid19_new$patient_id %in% patients_with_preadmit_cr]})
     try({med_acearb_chronic <- med_acearb_chronic[med_acearb_chronic$patient_id %in% patients_with_preadmit_cr]})
+    
+    # Set the ratio used for analysis to the ratio calculated from pre-admission Cr only
+    peak_trend$ratio <- peak_trend$ratio_prioronly
   }
   
   # If user wishes to customize the Cox PH equations used for recovery and death analysis, we will read in
