@@ -196,7 +196,7 @@ meld_score <- function(bil,inr,sCr,Na = 137) {
 #' @param n1 sample 1 size
 #' @param n2 sample 2 size
 #' @param m0 the null value for the difference in means to be tested for. Default is 0. 
-#' @paramequal.variance whether or not to assume equal variance. Default is FALSE. 
+#' @param equal.variance whether or not to assume equal variance. Default is FALSE. 
 #' @noRd
 t.test2 <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
 {
@@ -216,3 +216,4 @@ t.test2 <- function(m1,m2,s1,s2,n1,n2,m0=0,equal.variance=FALSE)
   names(dat) <- c("Difference of means", "Std Error", "t", "p-value")
   return(dat) 
 }
+

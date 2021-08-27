@@ -4,7 +4,15 @@
 \alias{runAnalysis}
 \title{Runs the analytic workflow for the AKI project}
 \usage{
-runAnalysis(is_obfuscated = TRUE, obfuscation_value = 3)
+runAnalysis(
+  is_obfuscated = TRUE,
+  factor_cutoff = 5,
+  ckd_cutoff = 2.25,
+  restrict_models = FALSE,
+  docker = TRUE,
+  input = "/4ceData/Input",
+  siteid_nodocker = ""
+)
 }
 \description{
 Runs the analytic workflow for the AKI project
