@@ -857,5 +857,6 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   })
   
   message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
+  aki_index_recovery
 }
 
