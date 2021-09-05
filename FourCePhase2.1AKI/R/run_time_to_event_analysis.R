@@ -60,7 +60,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
   
-  restrict_models <- restrict_models_corr
+  restrict_models <- restrict_model_corr
   
   file_prefix <- ""
   if(isTRUE(preadmit_only_analysis)) {
@@ -126,7 +126,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   # Correct the death times for peak Cr
   aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = as.integer(time_to_death_km) - as.integer(peak_cr_time),time_adm_to_death = as.integer(time_to_death_km))
   
-  aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE)
+  aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE)
   
   message("\nDoing initial filter for medications with more than one factor level.")
   med_recovery_list <- c("COAGA","COAGB","covid_rx","acei_arb_preexposure")
@@ -580,7 +580,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE) # merge in time_to_death_km
   # Correct death times for peak sCr time
   aki_index_death <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = as.integer(time_to_death_km) - as.integer(peak_cr_time), time_adm_to_death = as.integer(time_to_death_km)) %>% dplyr::ungroup()
-  aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c(1,17)],by="patient_id",all.x=TRUE) # AKI KDIGO grade
+  aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE) # AKI KDIGO grade
   
   message("\nDoing initial filter for medications with more than one factor level.")
   med_death_list <- c("COAGA","COAGB","covid_rx")
@@ -858,3 +858,4 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   
   message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
 }
+
