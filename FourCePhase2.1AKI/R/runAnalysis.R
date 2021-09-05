@@ -1303,7 +1303,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     aki_index_recovery <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,demographics,demog_time_to_event,demog_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,patients_with_preadmit_cr,preadmit_only_analysis = FALSE,is_obfuscated,obfuscation_value,restrict_models)
     aki_index_recovery_prioronly <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,demographics,demog_prioronly_time_to_event,demog_prioronly_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,patients_with_preadmit_cr,preadmit_only_analysis = TRUE,is_obfuscated,obfuscation_value,restrict_models)
     
-    
     # ================================================
     # Part 3: Hepatorenal Syndrome Analyses
     # ================================================
