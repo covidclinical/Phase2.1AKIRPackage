@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "" ) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE) {
     
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -26,7 +26,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         course <- FourCePhase2.1Data::getLocalPatientClinicalCourse(currSiteId)
     } else {
         currSiteId = siteid_nodocker
-        FourCePhase2.1Data::runQC_nodocker(currSiteId,input)
+        if(isFALSE(skip_qc)) {
+            FourCePhase2.1Data::runQC_nodocker(currSiteId,input)
+        }
         demographics <- FourCePhase2.1Data::getLocalPatientSummary_nodocker(currSiteId,input)
         observations <- FourCePhase2.1Data::getLocalPatientObservations_nodocker(currSiteId,input)
         course <- FourCePhase2.1Data::getLocalPatientClinicalCourse_nodocker(currSiteId,input)
@@ -85,11 +87,11 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Generate list of patients already on RRT prior to admission
     # This list can be used to exclude ESRF patients in subsequent analyses
-    rrt_old <- rrt$patient_id[rrt$days_since_admission < 0]
+    rrt_old <- unlist(rrt$patient_id[rrt$days_since_admission < 0])
     
     # Generate list of patients who were only initiated on RRT for the first time ever
     # during admission for COVID-19
-    rrt_new <- rrt[!(rrt$patient_id %in% rrt_old),]
+    rrt_new <- unlist(rrt$patient_id[!(rrt$patient_id %in% rrt_old)])
     
     # For debugging purposes
     message(paste("Number of patients on RRT in total: ",nrow(rrt),"\nRRT previously: ",nrow(rrt_old),"\nRRT during admission: ",nrow(rrt_new)))
@@ -213,10 +215,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # each AKI event and the post-AKI recovery labs
     message("Now proceeding to AKI detection code:")
     
-    message("First removing patients who were previously on RRT (based on procedure codes)...")
-    demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% rrt_old),]
-    observations <- observations[!(observations$patient_id %in% rrt_old)]
-    course <- course[!(course$patient_id %in% rrt_old),]
+    if(!is.null(rrt_old)) {
+        message("First removing patients who were previously on RRT (based on procedure codes)...")
+        demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% rrt_old),]
+        observations <- observations[!(observations$patient_id %in% rrt_old),]
+        course <- course[!(course$patient_id %in% rrt_old),]
+    }
     
     message("Extracting serum creatinine values...")
     # Extract serum Cr levels
