@@ -13,7 +13,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
   kdigo_grade <- kdigo_grade_table
-  ckd_valid <- ckd_present
+  ckd_present <- ckd_valid
   ckd_list <- ckd_table
   labs_cr_all <- labs_cr
   
@@ -107,8 +107,11 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
       peak_cr_ckd_and_severe_summ <- peak_trend_severe %>% dplyr::group_by(ckd,severe,time_from_peak) %>% dplyr::summarise(mean_ratio_prioronly = mean(ratio_prioronly,na.rm=TRUE),sem_ratio_prioronly = sd(ratio_prioronly,na.rm=TRUE)/sqrt(dplyr::n()),mean_value = mean(value,na.rm=TRUE),sem_value = sd(value,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
       ckd_label <- data.table::data.table(c(0,1),c("Non-CKD","CKD"))
       colnames(ckd_label) <- c("ckd","ckd_label")
-      peak_cr_ckd_and_severe_summ <- merge(peak_cr_ckd_and_severe_summ,ckd_label,by="ckd",all.x=TRUE) %>% dplyr::mutate(severe = ifelse(severe > 2,0,1))
-      peak_cr_ckd_and_severe_summ <- merge(peak_cr_ckd_and_severe_summ,severe_simplified_label,by="severe",all.x=TRUE)
+      peak_cr_ckd_and_severe_summ <- merge(peak_cr_ckd_and_severe_summ,ckd_label,by="ckd",all.x=TRUE)
+      peak_cr_ckd_and_severe_summ <- merge(peak_cr_ckd_and_severe_summ,severe_label,by="severe",all.x=TRUE)
+      # peak_cr_ckd_and_severe_summ <- merge(peak_cr_ckd_and_severe_summ,ckd_label,by="ckd",all.x=TRUE) %>% dplyr::mutate(severe = ifelse(severe > 2,0,1))
+      # peak_cr_ckd_and_severe_summ <- merge(peak_cr_ckd_and_severe_summ,severe_simplified_label,by="severe",all.x=TRUE)
+      
       if(isTRUE(is_obfuscated)) {
         # peak_cr_ckd_summ <- peak_cr_ckd_summ %>% dplyr::filter(n >= obfuscation_value)
         message("Obfuscating the AKI with severity graphs...")
@@ -116,10 +119,10 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
       }
       write.csv(peak_cr_ckd_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_PeakCr_CKD_CovidSevere_AKI_PriorCrOnly.csv")),row.names=FALSE)
       # Plot the graphs
-      peak_cr_ckd_and_severe_timeplot <- ggplot2::ggplot(peak_cr_ckd_and_severe_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio_prioronly,group=ckd_label))+ggplot2::geom_line(ggplot2::aes(color = factor(ckd_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(ckd_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio_prioronly-sem_ratio_prioronly,ymax=mean_ratio_prioronly+sem_ratio_prioronly,color = factor(ckd_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","ckd Stage 1"="#0072b5","ckd Stage 2" = "#e18727","ckd Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CKD_CovidSevere_AKI_PriorCrOnly.png")),plot=peak_cr_ckd_and_severe_timeplot,width=12,height=8,units="cm")
-      peak_cr_ckd_and_severe_timeplot_raw <- ggplot2::ggplot(peak_cr_ckd_and_severe_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=ckd_label))+ggplot2::geom_line(ggplot2::aes(color = factor(ckd_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(ckd_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(ckd_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","ckd Stage 1"="#0072b5","ckd Stage 2" = "#e18727","ckd Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromPeak_CKD_CovidSevere_AKI_RawCr_PriorCrOnly.png")),plot=peak_cr_ckd_and_severe_timeplot_raw,width=12,height=8,units="cm")
+      peak_cr_ckd_and_severe_timeplot <- ggplot2::ggplot(peak_cr_ckd_and_severe_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio_prioronly,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio_prioronly-sem_ratio_prioronly,ymax=mean_ratio_prioronly+sem_ratio_prioronly,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,6) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~ckd_label)
+      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_CKD_CovidSevere_AKI_PriorCrOnly.png")),plot=peak_cr_ckd_and_severe_timeplot,width=12,height=8,units="cm")
+      peak_cr_ckd_and_severe_timeplot_raw <- ggplot2::ggplot(peak_cr_ckd_and_severe_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,500) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~ckd_label)
+      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_CKD_CovidSevere_AKI_RawCr_PriorCrOnly.png")),plot=peak_cr_ckd_and_severe_timeplot_raw,width=12,height=8,units="cm")
       
     }
   })

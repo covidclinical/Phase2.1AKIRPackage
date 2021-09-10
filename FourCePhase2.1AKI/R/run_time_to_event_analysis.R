@@ -25,7 +25,7 @@
 #' @param obfuscation is_obfuscated
 #' @param obfuscation_level obfuscation_value
 
-run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
+run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs,
                                        demog_table, demog_toe = NULL, demog_var_list = NULL,
                                        comorbid_table = NULL,comorbid_header = NULL,
                                        kdigo_grade_table = NULL,
@@ -36,11 +36,14 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
                                        med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,
                                        preadmit_cr_list = NULL,preadmit_only_analysis = FALSE,
                                        obfuscation,obfuscation_level,
-                                       restrict_model_corr) {
+                                       restrict_model_corr, factor_threshold = 5) {
   currSiteId <- siteid
   peak_trend <- base_table
   aki_index <- aki_episodes
+  labs_aki_summ <- aki_labs
   demographics <- demog_table
+  demog_time_to_event <- demog_toe
+  demog_list <- demog_var_list
   comorbid <- comorbid_table
   comorbid_list <- comorbid_header
   kdigo_grade <- kdigo_grade_table
@@ -55,6 +58,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   med_coagb_new <- med_coagb
   med_covid19_new <- med_covid19
   med_acearb_chronic <- med_acearb
+  factor_cutoff <- factor_threshold
   
   patients_with_preadmit_cr <- preadmit_cr_list
   is_obfuscated <- obfuscation
@@ -63,21 +67,29 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   restrict_models <- restrict_model_corr
   
   file_prefix <- ""
+  
+  message("\n============================\nSet-up for Time-to-Event Analysis\n============================")
   if(isTRUE(preadmit_only_analysis)) {
-    file_prefix <- "_PreAdmitCrOnly_"
+    file_prefix <- "_PreAdmitCrOnly"
     currSiteId <- paste0(currSiteId,file_prefix)
     peak_trend <- peak_trend[peak_trend$patient_id %in% patients_with_preadmit_cr,]
     aki_index <- aki_index[aki_index$patient_id %in% patients_with_preadmit_cr,]
     demographics <- demographics[demographics$patient_id %in% patients_with_preadmit_cr,]
     try({comorbid <- comorbid[comorbid$patient_id %in% patients_with_preadmit_cr,]})
     try({kdigo_grade <- kdigo_grade[kdigo_grade$patient_id %in% patients_with_preadmit_cr,]})
-    try({med_coaga_new <- med_coaga_new[med_coaga_new$patient_id %in% patients_with_preadmit_cr]})
-    try({med_coagb_new <- med_coagb_new[med_coagb_new$patient_id %in% patients_with_preadmit_cr]})
-    try({med_covid19_new <- med_covid19_new[med_covid19_new$patient_id %in% patients_with_preadmit_cr]})
-    try({med_acearb_chronic <- med_acearb_chronic[med_acearb_chronic$patient_id %in% patients_with_preadmit_cr]})
+    try({med_coaga_new <- med_coaga_new[med_coaga_new$patient_id %in% patients_with_preadmit_cr,]})
+    try({med_coagb_new <- med_coagb_new[med_coagb_new$patient_id %in% patients_with_preadmit_cr,]})
+    try({med_covid19_new <- med_covid19_new[med_covid19_new$patient_id %in% patients_with_preadmit_cr,]})
+    try({med_acearb_chronic <- med_acearb_chronic[med_acearb_chronic$patient_id %in% patients_with_preadmit_cr,]})
     
     # Set the ratio used for analysis to the ratio calculated from pre-admission Cr only
     peak_trend$ratio <- peak_trend$ratio_prioronly
+    
+    message("Performing analysis for patients with pre-admission Cr only.")
+    message("Recovery threshold: 125%")
+  } else {
+    message("Performing analysis for ALL patients.")
+    message("Recovery threshold: 125%")
   }
   
   # If user wishes to customize the Cox PH equations used for recovery and death analysis, we will read in
@@ -130,8 +142,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   
   message("\nDoing initial filter for medications with more than one factor level.")
   med_recovery_list <- c("COAGA","COAGB","covid_rx","acei_arb_preexposure")
-  med_recovery_list <- med_recovery_list[c(coaga_present,coagb_present,dplyr::if_else((covid19antiviral_present == TRUE | remdesivir_present == TRUE),TRUE,FALSE))]
+  med_recovery_list <- med_recovery_list[c(coaga_present,coagb_present,dplyr::if_else((isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)),TRUE,FALSE),dplyr::if_else((isTRUE(acei_present) | isTRUE(arb_present)),TRUE,FALSE))]
   message("\nAvailable medications: ",paste(med_recovery_list,collapse=" "))
+  
   # First create a temporary table where we filter out the medications with only one factor level
   
   med_recovery_tmp <- aki_index_recovery
@@ -151,7 +164,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
     med_recovery_tmp <- merge(med_recovery_tmp,med_acearb_chronic,by="patient_id",all.x=TRUE)
     med_recovery_tmp <- med_recovery_tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = dplyr::if_else(is.na(acei_arb_preexposure),0,acei_arb_preexposure)) %>% dplyr::ungroup()
   }
-  med_recovery_tmp <- med_recovery_tmp[med_recovery_list]
+  med_recovery_tmp <- med_recovery_tmp[,med_recovery_list]
   med_recovery_tmp <- data.table::as.data.table(lapply(med_recovery_tmp,factor))
   med_recovery_tmp <- data.table::as.data.table(med_recovery_tmp)[,sapply(med_recovery_tmp,function(col) nlevels(col) > 1),with=FALSE]
   med_recovery_list <- colnames(med_recovery_tmp)
@@ -266,7 +279,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   plot_recover_summ_table <- plot_recover$data.survtable
   write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
   write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+  plot.new()
+  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=12,height=12,units="cm")
+  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
   
   # Kaplan Meier plot for KDIGO grades
   recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ aki_kdigo_final")
@@ -275,7 +290,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
   write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_PlotSummStats.csv")),row.names=TRUE)
   write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_Plot.csv")),row.names=FALSE)
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+  plot.new()
+  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
+  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
   
   # # Kaplan Meier plot for KDIGO grades - collapsing KDIGO2/3 into one group
   # # This also generates the same collapsed table for Model 1B later
@@ -298,7 +315,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
       plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
       write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD_PlotSummStats.csv")),row.names=TRUE)
       write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD_Plot.csv")),row.names=FALSE)
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+      plot.new()
+      # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=plot_recover,width=12,height=12,units="cm")
+      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
     })
   }
   
@@ -434,6 +453,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_PlotSummStats.csv")),row.names=TRUE)
   write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
   write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
+  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
+  plot.new()
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
   
   deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ aki_kdigo_final")
@@ -442,7 +463,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
   write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_PlotSummStats.csv")),row.names=TRUE)
   write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_Plot.csv")),row.names=FALSE)
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
+  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
+  plot.new()
+  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
   
   if(isTRUE(ckd_present)) {
     try({
@@ -452,7 +475,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
       plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
       write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD_PlotSummStats.csv")),row.names=TRUE)
       write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD_Plot.csv")),row.names=FALSE)
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
+      plot.new()
+      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
       
     })
   }
@@ -575,7 +599,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   # We now do the same to the time to death analyses:
   # 1) Create a temporary comorbid table and obtain the valid comorbids with more than 1 factor level
   
-  message("Part 2: Time to Death analysis...")
+  message("\n============================\nPart 2: Time to Death analysis\n============================")
   aki_index_death <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(is_aki=ifelse(severe %in% c(2,4,5),1,0)) %>% dplyr::mutate(severe=ifelse(severe %in% c(3,4,5),1,0))
   aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE) # merge in time_to_death_km
   # Correct death times for peak sCr time
@@ -583,8 +607,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE) # AKI KDIGO grade
   
   message("\nDoing initial filter for medications with more than one factor level.")
-  med_death_list <- c("COAGA","COAGB","covid_rx")
-  med_death_list <- med_death_list[c(coaga_present,coagb_present,dplyr::if_else((covid19antiviral_present == TRUE | remdesivir_present == TRUE),TRUE,FALSE))]
+  med_death_list <- c("COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  med_death_list <- med_death_list[c(coaga_present,coagb_present,dplyr::if_else((isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)),TRUE,FALSE),dplyr::if_else((isTRUE(acei_present) | isTRUE(arb_present)),TRUE,FALSE))]
   message("\nAvailable medications: ",paste(med_death_list,collapse=" "))
   # First create a temporary table where we filter out the medications with only one factor level
   
@@ -709,7 +733,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
   plot_death_summ_table <- plot_death$data.survtable
   write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death),width=12,height=12,units="cm")
+  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=plot_death,width=12,height=12,units="cm")
+  plot.new()
+  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
   
   # Survival curves stratified by KDIGO stage
   deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ aki_kdigo_final")
@@ -718,7 +744,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
   plot_death_summ_table <- plot_death$data.survtable
   write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO_Plot.csv")),row.names=FALSE)
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death),width=12,height=12,units="cm")
+  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=plot_death,width=12,height=12,units="cm")
+  plot.new()
+  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
   
   # # Collapse KDIGO2/3 into single group
   # aki_index_death_collapse <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_final = dplyr::if_else(as.numeric(aki_kdigo_final) >=2,2,as.numeric(aki_kdigo_final))) %>% dplyr::ungroup()
@@ -739,7 +767,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
       plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
       plot_death_summ_table <- plot_death$data.survtable
       write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD_Plot.csv")),row.names=FALSE)
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD.png")),plot=print(plot_death),width=12,height=12,units="cm")
+      plot.new()
+      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
       
     })
   }
@@ -857,6 +886,6 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,
   })
   
   message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
-  aki_index_recovery
+  return(list("aki_index_recovery" = aki_index_recovery, "med_recovery_list" = med_recovery_list, "comorbid_recovery_list" = comorbid_recovery_list))
 }
 

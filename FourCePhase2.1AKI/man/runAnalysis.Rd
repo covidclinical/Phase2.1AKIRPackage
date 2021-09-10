@@ -11,7 +11,8 @@ runAnalysis(
   restrict_models = FALSE,
   docker = TRUE,
   input = "/4ceData/Input",
-  siteid_nodocker = ""
+  siteid_nodocker = "",
+  skip_qc = FALSE
 )
 }
 \description{

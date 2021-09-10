@@ -9,6 +9,7 @@ run_time_to_event_analysis(
   siteid,
   base_table,
   aki_episodes,
+  aki_labs,
   demog_table,
   demog_toe = NULL,
   demog_var_list = NULL,
@@ -30,7 +31,8 @@ run_time_to_event_analysis(
   preadmit_only_analysis = FALSE,
   obfuscation,
   obfuscation_level,
-  restrict_model_corr
+  restrict_model_corr,
+  factor_threshold = 5
 )
 }
 \arguments{

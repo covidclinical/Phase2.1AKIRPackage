@@ -27,7 +27,7 @@
 #' @param obfuscation_level obfuscation_value
 #' 
 
-generate_demog_files <- function(siteid, demog_table,
+generate_demog_files <- function(siteid, demog_table,aki_labs,
                                  comorbid_table,comorbid_header,
                                  kdigo_grade_table,
                                  meld_valid = FALSE,labs_meld_admit = NULL,
@@ -40,6 +40,7 @@ generate_demog_files <- function(siteid, demog_table,
                                  obfuscation,obfuscation_level) {
   currSiteId <- siteid
   demographics_filt <- demog_table
+  labs_aki_summ <- aki_labs
   comorbid <- comorbid_table
   comorbid_list <- comorbid_header
   kdigo_grade <- kdigo_grade_table
