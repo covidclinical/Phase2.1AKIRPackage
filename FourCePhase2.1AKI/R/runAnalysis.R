@@ -1401,9 +1401,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
         #surv_recover <- survival::Surv(time=cirrhotic_recovery$time_to_ratio1.25,event=cirrhotic_recovery$recover_1.25x)
         fit_km_cirrhotic_recover <- survminer::surv_fit(recoverPlotFormula, data=cirrhotic_recovery)
-        fit_km_cirrhotic_recover_table <- fit_km_recover$table
-        plot_cirrhotic_recover <- survminer::ggsurvplot(fit_km_recover,data=cirrhotic_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
-        plot_cirrhotic_recover_summ <- survminer::surv_summary(fit_km_recover,data=cirrhotic_recovery)
+        fit_km_cirrhotic_recover_table <- fit_km_cirrhotic_recover$table
+        plot_cirrhotic_recover <- survminer::ggsurvplot(fit_km_cirrhotic_recover,data=cirrhotic_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+        plot_cirrhotic_recover_summ <- survminer::surv_summary(fit_km_cirrhotic_recover,data=cirrhotic_recovery)
         plot_cirrhotic_recover_summ_table <- plot_recover$data.survtable
         # write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
         # write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
@@ -1415,8 +1415,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             try({
                 recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ meld_admit_severe")
                 fit_km_meld_recover <- survminer::surv_fit(recoverPlotFormula, data=cirrhotic_recovery)
-                fit_km_meld_recover_table <- fit_km_recover$table
-                plot_meld_recover <- survminer::ggsurvplot(fit_km_recover,data=cirrhotic_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+                fit_km_meld_recover_table <- fit_km_meld_recover$table
+                plot_meld_recover <- survminer::ggsurvplot(fit_km_meld_recover,data=cirrhotic_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
                 plot_meld_recover_summ <- survminer::surv_summary(fit_km_recover,data=cirrhotic_recovery)
                 plot_meld_recover_summ_table <- plot_recover$data.survtable
                 ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_TimeToEvent_MELD_Recover_Severe.png")),plot=print(plot_meld_recover),width=12,height=12,units="cm")
