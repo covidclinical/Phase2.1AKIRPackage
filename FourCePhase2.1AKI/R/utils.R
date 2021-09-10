@@ -187,6 +187,18 @@ meld_score <- function(bil,inr,sCr,Na = 137) {
   meld_corr
 }
 
+#' Function that attempts to detect RRT through indirect means
+#' Current working definition: peak Cr >= 4 mg/dL AND drop of >= 50% in sCr in strictly 24h or less
+#' @param x labs_cr_aki table
+#' @param cr_abs_cutoff Cr cutoff for prior day. Default = 4
+#' @param ratio Ratio threshold. Default = 0.50 (corresponding to 50%)
+#' @noRd
+detect_rrt_drop <- function(x,cr_abs_cutoff = 4,ratio = 0.5) {
+  labs <- x[,c("patient_id","days_since_admission","value")] %>% dplyr::arrange(patient_id,days_since_admission)
+  labs <- labs %>% dplyr::group_by(patient_id) %>% dplyr::mutate(day_lag = dplyr::lag(days_since_admission,1),cr_lag = dplyr::lag(value,1)) %>% dplyr::ungroup()
+  labs <- labs %>% dplyr::group_by(patient_id, days_since_admission) %>% dplyr::mutate(date_diff = days_since_admission - day_lag,proportion_cr_drop = value/cr_lag) %>% dplyr::filter(date_diff == 1) %>% dplyr::filter(proportion_cr_drop <= ratio & cr_lag >= cr_abs_cutoff) %>% dplyr::ungroup()
+  labs
+}
 
 #' Computes t-test statistics from summary statistics
 #' @param m1 sample 1 mean

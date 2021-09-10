@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, use_rrt_surrogate = TRUE) {
     
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -58,6 +58,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Generate a diagnosis table
     diagnosis <- observations[observations$concept_type %in% c("DIAG-ICD9","DIAG-ICD10"),-6]
     colnames(diagnosis) <- c("patient_id","siteid","days_since_admission","concept_type","icd_code")
+    diag_icd9 <- diagnosis[diagnosis$concept_type == "DIAG-ICD9",]
+    diag_icd10 <- diagnosis[diagnosis$concept_type == "DIAG-ICD10",]
     
     # Generate a procedures table
     procedures <- observations[observations$concept_type %in% c("PROC-ICD9", "PROC-ICD10"),-6]
@@ -76,14 +78,22 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Time to RRT
     # ==================
-    message("Creating table for RRT...")
-    rrt_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","3E1.M39Z","54.98","39.95")
+    message("Creating table for RRT/Kidney transplant...")
+    rrt_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","3E1.M39Z","54.98","39.95","55.61","55.69","0TY00Z0","0TY00Z1","0TY00Z2","0TY10Z0","0TY10Z1","0TY10Z2")
+    rrt_diag_icd10_code <- c("T82","Y60","Y61","Y62","Y84","Z49","Z99")
+    rrt_diag_icd9_code <- c("458","792","V45","V56")
     #hd_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","399.5")
     #pd_code <- c("3E1.M39Z","549.8")
+    
     rrt <- procedures[procedures$procedure_code %in% rrt_code,-c(2,4)]
     rrt <- rrt[,c(1,2)]
-    rrt <- rrt[order(rrt$patient_id,rrt$days_since_admission),]
-    rrt <- rrt[!duplicated(rrt$patient_id),]
+    # rrt <- rrt[order(rrt$patient_id,rrt$days_since_admission),]
+    # rrt <- rrt[!duplicated(rrt$patient_id),]
+    
+    rrt_icd9 <- diag_icd9[diag_icd9$icd_code %in% rrt_diag_icd9_code,c("patient_id","days_since_admission")]
+    rrt_icd10 <- diag_icd10[diag_icd10$icd_code %in% rrt_diag_icd9_code,c("patient_id","days_since_admission")]
+    rrt_diag <- dplyr::bind_rows(rrt_icd9,rrt_icd10)
+    rrt <- dplyr::bind_rows(rrt,rrt_diag) %>% dplyr::arrange(patient_id,days_since_admission) %>% dplyr::distinct(patient_id,.keep_all = TRUE)
     
     # Generate list of patients already on RRT prior to admission
     # This list can be used to exclude ESRF patients in subsequent analyses
@@ -540,7 +550,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     ## dplyr::filter this table for Cr values that fall within the 7 day window
     # peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_peak,0,7)) %>% dplyr::ungroup()
     # Normalise to baseline values used for AKI calculation
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d,min_cr_retro_365d)) %>% dplyr::ungroup()
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d)) %>% dplyr::ungroup()
+    # peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d,min_cr_retro_365d)) %>% dplyr::ungroup()
     
     # In the event longitudinal data becomes very long, we will create a column where the very first baseline Cr for the index AKI is generated for each patient
     first_baseline <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak == 0) %>% dplyr::filter(baseline_cr == min(baseline_cr,na.rm=TRUE)) %>% dplyr::select(patient_id,baseline_cr) %>% dplyr::distinct()
@@ -565,6 +576,20 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # This is where the ckd_cutoff value comes in useful
     # Default: 2.25mg/dL
     esrf_list <- unlist(first_baseline$patient_id[first_baseline$first_baseline_cr >= ckd_cutoff])
+    
+    if(isTRUE(use_rrt_surrogate)) {
+        # We will now use the surrogate detection for RRTs
+        # We are using this method as there are lack of RRT procedure codes in some sites and Phase 1.1/2.1 does not define these clearly
+        # We also do not have access to urea values - though this should be extracted (but if this were extracted then why not RRT procedure codes?)
+        # Briefly, if the peak Cr >= 4mg/dL and there is a drop of >= 50% in sCr in 24h or less, this is highly likely to indicate RRT
+        # Preliminary testing on non-COVID-19 patients shows this has a PPV of 57.4% (31/57), sensitivity 11.8% (31/261), specificity 99.7% (2912/2920)
+        rrt_detection <- detect_rrt_drop(labs_cr_aki,cr_abs_cutoff = 4,ratio = 0.5)
+        rrt_detection_prior_list <- unlist(rrt_detection$patient_id[rrt_detection$days_since_admission < 0])
+        esrf_list <- c(esrf_list,rrt_detection_prior_list,rrt_old)
+    } else {
+        esrf_list <- c(esrf_list,rrt_old)
+    }
+    esrf_list <- unique(esrf_list)
     
     # =======================================================================================
     # Filter the demographics, peak_trend, comorbid, meds tables to remove those with CKD4/5
@@ -618,9 +643,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Comorbidities & Prothrombotic Events
     # ======================================
     message("Now creating tables for comorbidities and admission diagnoses...")
-    diag_icd9 <- diagnosis[diagnosis$concept_type == "DIAG-ICD9",]
-    diag_icd10 <- diagnosis[diagnosis$concept_type == "DIAG-ICD10",]
-    
     message("Creating Comorbidities table...")
     # Filter comorbids from all diagnoses
     comorbid_icd9 <- diag_icd9[diag_icd9$icd_code %in% comorbid_icd9_ref$icd_code,]
