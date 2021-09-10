@@ -572,6 +572,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the selected AKI peak
     
+    # ================================
+    # Identifying patients to exclude
+    # ================================
+    
     # We now need to filter for patients with CKD4/5 using surrogate cutoffs (within the constraints of Phase 2.1)
     # This is where the ckd_cutoff value comes in useful
     # Default: 2.25mg/dL
