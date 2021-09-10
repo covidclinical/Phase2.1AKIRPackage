@@ -22,7 +22,12 @@ By default, the analysis should not require any additional arguments.
 These arguments are only needed if your site is experiencing issues with generating results:
 - is_obfuscated - Allows you to toggle obfuscation on and off. Default = TRUE
 - factor_cutoff - For Cox proportional hazard modeling, specify the minimum number of events for each factor level. Default = 5
+- ckd_cutoff - Sets the baseline serum creatinine cutoff (in mg/dL) beyond which patients are excluded from analysis. Default = 2.25
 - restrict_models - **(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. Default = FALSE
+- docker - **(ADVANCED)** Indicates if running in a Docker environment. Set this to FALSE if you are running on native Windows/Linux/macOS. Default = TRUE
+- input - **(ADVANCED)** Specifies the directory where files are stores. **MANDATORY** if docker set to FALSE. Default = '/4ceData/Input'
+- siteid_nodocker - **(ADVANCED)** Specifies the siteid to be used if docker is set to FALSE. Default = ''
+- skip_qc - **(ADVANCED - DO NOT CHANGE UNLESS NECESSARY)** If docker is set to FALSE, allows the QC step to be bypassed. Mainly for debugging purposes - **DO NOT CHANGE**. Default = FALSE
 
 ## Specifying Custom Variables for Cox Models
 **(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. 
@@ -44,18 +49,7 @@ FourCePhase2.1AKI::submitAnalysis()
 ```
 If you want to submit your output files in this manner, please ensure you have been granted read/write access to the data repositories. You may contact Byorn Tan (@byorntan) for details.
 
-## Known Issues with 4CE Docker Image v2.0
-**NOTE:** This issue has been resolved with the newest 4CE Docker image **v2.1.0**. Please ensure you are running the latest Docker image to avoid the following issue. This section has been retained here for legacy purposes.
-
-Version 2.0 of the 4CE Docker image uses Microsoft R 4.0.2 which uses an older CRAN snapshot in July 2020. This distribution installs survminer 0.4.7 and broom 0.7.0 by default.
-When using survminer 0.4.7 and broom 0.7.0, the package may fail to generate forest plots with the following error:
-```
-Error in `[.data.frame`(cbind(allTermsDF, coef[inds, ]), , c("var", "level",  :
-   undefined columns selected
-```
-A workaround is to force the Docker installation of Microsoft R to install a newer version of these packages with the following commands:
-```
-install.packages("survminer", repos = "http://mran.revolutionanalytics.com")
-install.packages("broom", repos = "http://mran.revolutionanalytics.com")
-```
-These commands should be run **AFTER** installing the package, to prevent Microsoft R from overwriting these newer packages with older versions of survminer and broom.
+## Known Issues with R 4.1
+1) If your site is running a non-Docker based environment running on R 4.1.\*, there is a known issue where the Kaplan-Meier plots produced may be blank
+- We are currently in the midst of attempting to fix this
+- As a workaround, try to run the package in the older R 4.0.2 environment instead
