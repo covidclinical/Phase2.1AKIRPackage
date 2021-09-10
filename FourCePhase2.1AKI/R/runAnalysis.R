@@ -1324,6 +1324,20 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Cirrhosis present: ",cirrhosis_present)
     if(isTRUE(cirrhosis_present)) {
         message("Doing time-to-event analyses for cirrhotic patients using MELD scoring")
+        restrict_list <- ""
+        model1 <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld")
+        model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
+        model3 <- c("age_group","sex","severe","COAGA","COAGB","covid_rx")
+        model4 <- c("age_group","sex","severe","aki_kdigo_final","ckd","acei_arb_preexposure")
+        
+        if(restrict_models == TRUE) {
+            message("\nWe notice that you are keen to restrict the models to certain variables.")
+            message("We are now going to read in the file CustomModelVariables.txt...")
+            restrict_list <- scan("Input/CustomModelVariables.txt",what="")
+            message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
+            
+        }
+        
         cirrhotic_recovery <- aki_index_recovery %>% dplyr::filter(cld == 1)
         if(isTRUE(meld_analysis_valid)) {
             cirrhotic_recovery <- merge(cirrhotic_recovery,meld_severe_list[,c(1,3)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
@@ -1513,16 +1527,18 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_TimeToEvent_Death_CirrhoticAKI_Severe.png")),plot=print(plot_death_cirrhotic_aki),width=12,height=12,units="cm")
         cirrhotic_files <- c(cirrhotic_files,"fit_death_cirrhotic_aki_table","plot_death_cirrhotic_aki","plot_death_cirrhotic_aki_summ","plot_death_cirrhotic_aki_summ_table")
         
-        try({
-            deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ meld_admit_severe")
-            fit_death_meld_aki <- survminer::surv_fit(deathPlotFormula, data=cirrhotic_recovery)
-            fit_death_meld_aki_table <- fit_death_meld_aki$table
-            plot_death_meld_aki <- survminer::ggsurvplot(fit_death_meld_aki,data=cirrhotic_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
-            plot_death_meld_aki_summ <- survminer::surv_summary(fit_death_meld_aki,data=cirrhotic_recovery)
-            plot_death_meld_aki_summ_table <- plot_death_meld_aki$data.survtable
-            ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_TimeToEvent_Death_MELD_Severe.png")),plot=print(plot_death_meld_aki),width=12,height=12,units="cm")
-            cirrhotic_files <- c(cirrhotic_files,"fit_death_meld_aki_table","plot_death_meld_aki","plot_death_meld_aki_summ","plot_death_meld_aki_summ_table")
-        })
+        if(isTRUE(meld_analysis_valid)) {
+            try({
+                deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ meld_admit_severe")
+                fit_death_meld_aki <- survminer::surv_fit(deathPlotFormula, data=cirrhotic_recovery)
+                fit_death_meld_aki_table <- fit_death_meld_aki$table
+                plot_death_meld_aki <- survminer::ggsurvplot(fit_death_meld_aki,data=cirrhotic_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
+                plot_death_meld_aki_summ <- survminer::surv_summary(fit_death_meld_aki,data=cirrhotic_recovery)
+                plot_death_meld_aki_summ_table <- plot_death_meld_aki$data.survtable
+                ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_TimeToEvent_Death_MELD_Severe.png")),plot=print(plot_death_meld_aki),width=12,height=12,units="cm")
+                cirrhotic_files <- c(cirrhotic_files,"fit_death_meld_aki_table","plot_death_meld_aki","plot_death_meld_aki_summ","plot_death_meld_aki_summ_table")
+            })
+        }
         
         message("Generating univariate Cox PH models (Time to death, Cirrhotic AKI patients only)...")
         
