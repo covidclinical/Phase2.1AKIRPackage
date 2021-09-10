@@ -67,10 +67,10 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     demographics_filt <- demographics_filt[demographics_filt$patient_id %in% patients_with_preadmit_cr,]
     try({comorbid <- comorbid[comorbid$patient_id %in% patients_with_preadmit_cr,]})
     try({kdigo_grade <- kdigo_grade[kdigo_grade$patient_id %in% patients_with_preadmit_cr,]})
-    try({med_coaga_new <- med_coaga_new[med_coaga_new$patient_id %in% patients_with_preadmit_cr]})
-    try({med_coagb_new <- med_coagb_new[med_coagb_new$patient_id %in% patients_with_preadmit_cr]})
-    try({med_covid19_new <- med_covid19_new[med_covid19_new$patient_id %in% patients_with_preadmit_cr]})
-    try({med_acearb_chronic <- med_acearb_chronic[med_acearb_chronic$patient_id %in% patients_with_preadmit_cr]})
+    try({med_coaga_new <- med_coaga_new[med_coaga_new$patient_id %in% patients_with_preadmit_cr,]})
+    try({med_coagb_new <- med_coagb_new[med_coagb_new$patient_id %in% patients_with_preadmit_cr,]})
+    try({med_covid19_new <- med_covid19_new[med_covid19_new$patient_id %in% patients_with_preadmit_cr,]})
+    try({med_acearb_chronic <- med_acearb_chronic[med_acearb_chronic$patient_id %in% patients_with_preadmit_cr,]})
     try({labs_meld_admission <- labs_meld_admission[labs_meld_admission$patient_id %in% patients_with_preadmit_cr,]})
   }
   
