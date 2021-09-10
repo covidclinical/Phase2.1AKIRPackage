@@ -23,14 +23,14 @@ These arguments are only needed if your site is experiencing issues with generat
 - is_obfuscated - Allows you to toggle obfuscation on and off. Default = TRUE
 - factor_cutoff - For Cox proportional hazard modeling, specify the minimum number of events for each factor level. Default = 5
 - ckd_cutoff - Sets the baseline serum creatinine cutoff (in mg/dL) beyond which patients are excluded from analysis. Default = 2.25
-- restrict_models - **(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. Default = FALSE
+- restrict_models - **(ADVANCED)** If set to TRUE, you must also include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. Default = FALSE
 - docker - **(ADVANCED)** Indicates if running in a Docker environment. Set this to FALSE if you are running on native Windows/Linux/macOS. Default = TRUE
 - input - **(ADVANCED)** Specifies the directory where files are stores. **MANDATORY** if docker set to FALSE. Default = '/4ceData/Input'
 - siteid_nodocker - **(ADVANCED)** Specifies the siteid to be used if docker is set to FALSE. Default = ''
 - skip_qc - **(ADVANCED - DO NOT CHANGE UNLESS NECESSARY)** If docker is set to FALSE, allows the QC step to be bypassed. Mainly for debugging purposes - **DO NOT CHANGE**. Default = FALSE
 
 ## Specifying Custom Variables for Cox Models
-**(ADVANCED)** This is a new feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. 
+**(ADVANCED)** This is a feature implemented to address problems that each site may have with Cox proportional hazard model generation despite the semi-automated methods of generating the models. 
 If using this feature, you must include a text file CustomModelVariables.txt which contain the variable names, separated by spaces and all in a single line, to restrict modelling to. 
 
 An example of CustomModelVariables.txt is as follows:
