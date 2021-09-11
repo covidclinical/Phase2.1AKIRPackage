@@ -120,7 +120,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
   demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
   demog_summ$aki_kdigo_grade <- factor(demog_summ$aki_kdigo_grade,levels=c(0,1,2,3),labels=c("No AKI","Stage 1","Stage 2","Stage 3"))
-  demog_summ$preadmit_cr <- factor(demog_summ$preadmit_cr,levels=c(0,1),labels=c("Pre-admission sCr Present","No Pre-admission sCr"))
+  demog_summ$preadmit_cr <- factor(demog_summ$preadmit_cr,levels=c(0,1),labels=c("No Pre-admission sCr","Pre-admission sCr Present"))
   demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
   demog_summ <- demog_summ %>% dplyr::distinct()
   
