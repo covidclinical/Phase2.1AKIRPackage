@@ -37,7 +37,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
                                  med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,
                                  cirrhosis_valid,
                                  preadmit_cr_list = NULL,preadmit_only_analysis = FALSE,
-                                 obfuscation,obfuscation_level) {
+                                 obfuscation,obfuscation_level,aki_first_visit_list) {
   currSiteId <- siteid
   demographics_filt <- demog_table
   labs_aki_summ <- aki_labs
@@ -60,6 +60,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   patients_with_preadmit_cr <- preadmit_cr_list
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
+  aki_list_first_admit <- aki_first_visit_list
   
   file_suffix <- ".csv"
   if(isTRUE(preadmit_only_analysis)) {
@@ -110,7 +111,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   
   demog_summ[is.na(demog_summ)] <- 0
   demog_summ$aki <- 0
-  demog_summ$aki[demog_summ$patient_id %in% labs_aki_summ$patient_id] <- 1
+  demog_summ$aki[demog_summ$patient_id %in% aki_list_first_admit] <- 1
   
   demog_summ$preadmit_cr <- 0
   demog_summ$preadmit_cr[demog_summ$patient_id %in% patients_with_preadmit_cr] <- 1
@@ -388,7 +389,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     if(isTRUE(preadmit_only_analysis)) {
       file_rda_suffix <- "_preadmit_cr_only.rdata"
     }
-    save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")
+    try({save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")})
   }
   message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
   
