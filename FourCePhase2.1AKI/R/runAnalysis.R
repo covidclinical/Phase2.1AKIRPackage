@@ -332,7 +332,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Generating KDIGO severity grades for each serum Cr value")
     labs_cr_aki$aki_kdigo <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade)
     labs_cr_aki$aki_kdigo_retro <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade_retro)
-    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo,aki_kdigo_retro))
+    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo))
+    # labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo,aki_kdigo_retro))
     
     # Generate two columns grading AKD severity at 7d and 90d (grade 0B/C is coded as 0.5)
     labs_cr_aki$akd_180d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_180d)
@@ -797,7 +798,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3)))) %>% dplyr::ungroup()
     # kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
     message("Extracting KDIGO stages for index AKI episodes...")
-    kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::ungroup()
+    kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final,na.rm=TRUE)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::distinct(patient_id,.keep_all = TRUE) %>% dplyr::ungroup()
     colnames(kdigo_grade)[2] <- "aki_kdigo_grade"
     kdigo_grade <- merge(kdigo_grade,demographics_filt[,c("patient_id","siteid")],by="patient_id",all=TRUE)
     kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0
