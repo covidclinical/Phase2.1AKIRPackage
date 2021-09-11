@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, use_rrt_surrogate = TRUE) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE) {
     
     ## make sure this instance has the latest version of the quality control and data wrangling code available
     devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -579,15 +579,31 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # We now need to filter for patients with CKD4/5 using surrogate cutoffs (within the constraints of Phase 2.1)
     # This is where the ckd_cutoff value comes in useful
     # Default: 2.25mg/dL
+    message("Excluding patients with baseline Cr >= ",ckd_cutoff,"mg/dL...\n")
     esrf_list <- unlist(first_baseline$patient_id[first_baseline$first_baseline_cr >= ckd_cutoff])
     
+    # We will now use the surrogate detection for RRTs
+    # We are using this method as there are lack of RRT procedure codes in some sites and Phase 1.1/2.1 does not define these clearly
+    # We also do not have access to urea values - though this should be extracted (but if this were extracted then why not RRT procedure codes?)
+    # Briefly, if the peak Cr >= 3mg/dL and there is a drop of >= 25% in sCr in 24h or less, this is highly likely to indicate RRT
+    if(isTRUE(print_rrt_surrogate) | isTRUE(use_rrt_surrogate)) {
+        message("\n==========================\nRRT Surrogate Detection\n==========================\n")
+        message("Performing RRT Surrogate detection with Cr cutoff = 3 and ratio = 0.75...")
+        rrt_detection <- detect_rrt_drop(labs_cr_aki,cr_abs_cutoff = 3,ratio = 0.75)
+        if(isTRUE(print_rrt_surrogate)) {
+            message("Printing RRT Surrogate Detection Tables. Ensure this is NOT uploaded as it contains patient-level data!")
+            message("Look in ~/FourCePhase2.1AKI for the following files:")
+            message("a) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv")
+            message("b) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv")
+            message("These files contain patient_id and days corresponding to suspected RRT episodes. Use these for manual chart review.")
+            write.csv(rrt_detection,file=file.path(getProjectOutputDirectory(), "DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv"),row.names=FALSE)
+            write.csv(rrt_detection[!(rrt_detection$patient_id %in% esrf_list),],file=file.path(getProjectOutputDirectory(), "DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv"),row.names=FALSE)
+        }
+        
+    }
+
     if(isTRUE(use_rrt_surrogate)) {
-        # We will now use the surrogate detection for RRTs
-        # We are using this method as there are lack of RRT procedure codes in some sites and Phase 1.1/2.1 does not define these clearly
-        # We also do not have access to urea values - though this should be extracted (but if this were extracted then why not RRT procedure codes?)
-        # Briefly, if the peak Cr >= 4mg/dL and there is a drop of >= 50% in sCr in 24h or less, this is highly likely to indicate RRT
-        # Preliminary testing on non-COVID-19 patients shows this has a PPV of 57.4% (31/57), sensitivity 11.8% (31/261), specificity 99.7% (2912/2920)
-        rrt_detection <- detect_rrt_drop(labs_cr_aki,cr_abs_cutoff = 4,ratio = 0.5)
+        message("You have opted to use the RRT surrogate results as exclusion criteria as well. Excluding these patients.")
         rrt_detection_prior_list <- unlist(rrt_detection$patient_id[rrt_detection$days_since_admission < 0])
         esrf_list <- c(esrf_list,rrt_detection_prior_list,rrt_old)
     } else {
@@ -598,6 +614,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # =======================================================================================
     # Filter the demographics, peak_trend, comorbid, meds tables to remove those with CKD4/5
     # =======================================================================================
+    message("Filtering to exclude patients with CKD4/5 and/or RRT/kidney transplant procedure/diagnoses codes.")
     demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% esrf_list),]
     observations <- observations[!(observations$patient_id %in% esrf_list),]
     course <- course[!(course$patient_id %in% esrf_list),]
@@ -1681,5 +1698,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # writeLines(capture.output(summary(aki_thromb_logit)),con=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_ThrombGLMSummary.txt"))
     # aki_thromb_logit_tidy <- aki_thromb_logit %>% broom::tidy(exponentiate=T,conf.int=T) %>% knitr::kable(align="l")
     # 
+    message("\n========================================\nAnalysis complete.")
+    if(isTRUE(print_rrt_surrogate)) {
+        message("Final reminder:\nYou have opted to print patient-level data files for the purposes of manual chart review for RRT procedures.")
+        message("The files are located at ",getProjectOutputDirectory(), " and are named as:")
+        message("a) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv")
+        message("b) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv")
+        message("\nEnsure that these files are removed before uploading to GitHub!")
+    }
+    
 }
 
