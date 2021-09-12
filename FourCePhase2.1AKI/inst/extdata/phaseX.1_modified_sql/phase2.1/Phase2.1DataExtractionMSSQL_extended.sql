@@ -262,7 +262,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 			-- Hemodialysis
 			f.concept_cd = x.code_prefix_icd9proc+'39.95'
 			-- Peritoneal dialysis
-            or f.concept_cd = x.code_prefix_icd9proc+'54.98' 
+            		or f.concept_cd = x.code_prefix_icd9proc+'54.98' 
 			-- Kidney transplant
 			or f.concept_cd = x.code_prefix_icd9proc+'55.61' 
 			or f.concept_cd = x.code_prefix_icd9proc+'55.69'
@@ -287,7 +287,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 			or f.concept_cd = x.code_prefix_icd10pcs+'5A1D80Z'
 			or f.concept_cd = x.code_prefix_icd10pcs+'5A1D90Z'
 			-- Peritoneal dialysis
-            or f.concept_cd = x.code_prefix_icd10pcs+'3E1M39Z' 
+            		or f.concept_cd = x.code_prefix_icd10pcs+'3E1M39Z' 
 			-- Kidney transplant
 			or f.concept_cd = x.code_prefix_icd10pcs+'0TY00Z0'
 			or f.concept_cd = x.code_prefix_icd10pcs+'0TY00Z1'
