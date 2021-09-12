@@ -309,7 +309,6 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 			-- Peritoneal dialysis
             		or f.concept_cd = x.code_prefix_icd9proc||'54.98' 
 			-- Kidney transplant
-			or f.concept_cd = x.code_prefix_icd9proc||'55.61' 
 			or f.concept_cd = x.code_prefix_icd9proc||'55.69' 
 		);
 commit;
