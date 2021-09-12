@@ -90,8 +90,8 @@ If `print_rrt_surrogate` is set to TRUE, please ensure that these files have bee
 
 ## Known Issues with R 4.1
 1) If your site is running a non-Docker based environment running on R 4.1.\*, there is a known issue where the Kaplan-Meier plots produced may be blank
-- We are currently in the midst of attempting to fix this
-- As a workaround, try to run the package in the older R 4.0.2 environment instead
+   - We are currently in the midst of attempting to fix this
+   - As a workaround, try to run the package in the older R 4.0.2 environment instead
 
 ## Work in Progress
 1) Debugging v0.1.5.0 for any issues after extending baseline serum creatinine definitions to prior 365 days only
