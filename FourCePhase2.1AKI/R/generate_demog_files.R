@@ -397,10 +397,13 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   demog_time_to_event_tmp <- data.table::as.data.table(lapply(demog_time_to_event_tmp,factor))
   demog_time_to_event_tmp <- data.table::as.data.table(demog_time_to_event_tmp)[,sapply(demog_time_to_event_tmp,function(col) nlevels(col) > 1),with=FALSE] 
   demog_list <- colnames(demog_time_to_event_tmp)
-  demog_time_to_event <- demog_summ[,c("patient_id",demog_list)] %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()
+  demog_time_to_event <- demog_summ[,c("patient_id",demog_list)]
+  try({demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()})
+  #in case there is only one age_group level
   
   # Deals with the special case where there is a sex category of others (e.g. KUMC)
-  demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyr::ungroup()
+  try({demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(sex = dplyr::if_else(sex == "male","male","female")) %>% dplyr::ungroup()})
+  # in case there is only one sex level
   demog_output <- list("demog_toe" = demog_time_to_event, "demog_var_list" = demog_list)
   return(demog_output)
 }

@@ -209,52 +209,58 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # This does NOT require the aki_index_recovery table to be modified
   recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",demog_list,comorbid_recovery_list,med_recovery_list)] %>% as.data.frame()
   
-  comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
-  for(i in 1:length(comorbid_recovery_list)) {
-    recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.25x")]
-    recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(comorbid_recovery_list[i]),recover_1.25x)
-    recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
-    # if(min(recovery_tmp3$n) >= factor_cutoff) {
-    #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
-    # }
-    if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-      message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
-      comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
-    }
-  }
-  comorbid_recovery_list <- unlist(comorbid_recovery_list_tmp[lengths(comorbid_recovery_list_tmp) > 0L])
-  
-  demog_recovery_list_tmp <- vector(mode="list",length=length(demog_list))
-  for(i in 1:length(demog_list)) {
-    recovery_tmp1 <- recovery_tmp[,c("patient_id",demog_list[i],"recover_1.25x")]
-    recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(demog_list[i]),recover_1.25x)
-    recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
-    # if(min(recovery_tmp3$n) >= factor_cutoff) {
-    #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
-    # }
-    if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-      message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
-      demog_recovery_list_tmp[i] <- demog_list[i]
-    }
-  }
-  demog_recovery_list <- unlist(demog_recovery_list_tmp[lengths(demog_recovery_list_tmp) > 0L])
-  
-  med_recovery_list_tmp <- vector(mode="list",length=length(med_recovery_list))
-  if(length(med_recovery_list)>0) {
-    for(i in 1:length(med_recovery_list)) {
-      recovery_tmp1 <- recovery_tmp[,c("patient_id",med_recovery_list[i],"recover_1.25x")]
-      recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(med_recovery_list[i]),recover_1.25x)
+  if(length(comorbid_recovery_list) > 0) {
+    comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
+    for(i in 1:length(comorbid_recovery_list)) {
+      recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.25x")]
+      recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(comorbid_recovery_list[i]),recover_1.25x)
       recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
       # if(min(recovery_tmp3$n) >= factor_cutoff) {
       #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       # }
       if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-        message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
-        med_recovery_list_tmp[i] <- med_recovery_list[i]
+        message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
+        comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       }
     }
+    comorbid_recovery_list <- unlist(comorbid_recovery_list_tmp[lengths(comorbid_recovery_list_tmp) > 0L])
   }
-  med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
+  
+  if(length(demog_list) > 0) {
+    demog_recovery_list_tmp <- vector(mode="list",length=length(demog_list))
+    for(i in 1:length(demog_list)) {
+      recovery_tmp1 <- recovery_tmp[,c("patient_id",demog_list[i],"recover_1.25x")]
+      recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(demog_list[i]),recover_1.25x)
+      recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+      # if(min(recovery_tmp3$n) >= factor_cutoff) {
+      #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+      # }
+      if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+        message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
+        demog_recovery_list_tmp[i] <- demog_list[i]
+      }
+    }
+    demog_recovery_list <- unlist(demog_recovery_list_tmp[lengths(demog_recovery_list_tmp) > 0L])
+  }
+  
+  if(length(med_recovery_list) > 0) {
+    med_recovery_list_tmp <- vector(mode="list",length=length(med_recovery_list))
+    if(length(med_recovery_list)>0) {
+      for(i in 1:length(med_recovery_list)) {
+        recovery_tmp1 <- recovery_tmp[,c("patient_id",med_recovery_list[i],"recover_1.25x")]
+        recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(med_recovery_list[i]),recover_1.25x)
+        recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+        # if(min(recovery_tmp3$n) >= factor_cutoff) {
+        #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+        # }
+        if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+          message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
+          med_recovery_list_tmp[i] <- med_recovery_list[i]
+        }
+      }
+    }
+    med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
+  }
   
   message("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
   
@@ -272,27 +278,31 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   # Kaplan Meier plot for COVID-19 severity
   message("Generating Kaplan-Meier plots...")
-  recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
-  fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-  plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
-  plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-  plot_recover_summ_table <- plot_recover$data.survtable
-  write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
-  write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
-  plot.new()
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=12,height=12,units="cm")
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
-  
+  try({
+    recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
+    fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
+    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+    plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
+    plot_recover_summ_table <- plot_recover$data.survtable
+    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
+    plot.new()
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
+  })
+    
   # Kaplan Meier plot for KDIGO grades
-  recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ aki_kdigo_final")
-  fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-  plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
-  plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-  write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_PlotSummStats.csv")),row.names=TRUE)
-  write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_Plot.csv")),row.names=FALSE)
-  plot.new()
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
+  try({
+    recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ aki_kdigo_final")
+    fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
+    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+    plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
+    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_Plot.csv")),row.names=FALSE)
+    plot.new()
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
+  })
   
   # # Kaplan Meier plot for KDIGO grades - collapsing KDIGO2/3 into one group
   # # This also generates the same collapsed table for Model 1B later
@@ -324,10 +334,18 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # CoxPH model
   # Generate univariate analyses first
   message("Generating univariate Cox PH models (time to recovery, AKI patients only)...")
-  univ_formulas <- sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
+  univ_formulas <- tryCatch({
+    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
+  },error = function(c) {
+    message("Error running univariate formulae (univ_formulas).")
+    return(NULL)
+  })
   univ_models <- tryCatch(
     lapply(univ_formulas, function(x){survival::coxph(x, data = aki_index_recovery)}),
-    error = function(c) "Problem generating univariate models."
+    error = function(c) {
+      message("Error running univariate formulae (univ_models).")
+      return(NULL)
+    }
   )
   # Extract data 
   
@@ -444,28 +462,31 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
   
   message("Now proceeding to time-to-death analysis for AKI patients only...")
+  try({
+    deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ severe")
+    fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
+    plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
+    plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
+    plot_death_aki_only_summ_table <- plot_death_aki_only$data.survtable
+    write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
+    write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
+    plot.new()
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
+  })
   
-  deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ severe")
-  fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
-  plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
-  plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
-  plot_death_aki_only_summ_table <- plot_death_aki_only$data.survtable
-  write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_PlotSummStats.csv")),row.names=TRUE)
-  write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
-  write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
-  plot.new()
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
-  
-  deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ aki_kdigo_final")
-  fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
-  plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
-  plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
-  write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_PlotSummStats.csv")),row.names=TRUE)
-  write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
-  plot.new()
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
+  try({
+    deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ aki_kdigo_final")
+    fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
+    plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
+    plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
+    write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
+    plot.new()
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
+  })
   
   if(isTRUE(ckd_present)) {
     try({
@@ -482,10 +503,18 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   }
   
   message("Generating univariate Cox PH models (Time to death, AKI patients only)...")
-  univ_formulas <- sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+  univ_formulas <- tryCatch({
+    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+  },error = function(c) {
+    message("Error running univariate formulae (univ_formulas).")
+    return(NULL)
+  })
   univ_models <- tryCatch(
     lapply(univ_formulas, function(x){survival::coxph(x, data = aki_index_recovery)}),
-    error = "Problem generating univariate models."
+    error = function(c) {
+      message("Error running univariate formulae (univ_models).")
+      return(NULL)
+    }
   )
   # Extract data 
   try({
@@ -669,49 +698,56 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
   # This does NOT require the aki_index_death table to be modified
   death_tmp <- aki_index_death[,c("patient_id","deceased",demog_list,comorbid_death_list,med_death_list)] %>% as.data.frame()
-  comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
-  for(i in 1:length(comorbid_death_list)) {
-    death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"deceased")]
-    death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),deceased)
-    death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
-    if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
-      message(paste0(c("Including ",comorbid_death_list[i]," into the comorbid_death list...")))
-      comorbid_death_list_tmp[i] <- comorbid_death_list[i]
-    }
-  }
-  comorbid_death_list <- unlist(comorbid_death_list_tmp[lengths(comorbid_death_list_tmp) > 0L])
   
-  demog_death_list_tmp <- vector(mode="list",length=length(demog_list))
-  for(i in 1:length(demog_list)) {
-    death_tmp1 <- death_tmp[,c("patient_id",demog_list[i],"deceased")]
-    death_tmp2 <- death_tmp1 %>% dplyr::count(get(demog_list[i]),deceased)
-    death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
-    # if(min(death_tmp3$n) >= factor_cutoff) {
-    #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
-    # }
-    if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
-      message(paste0(c("Including ",demog_list[i]," into the demog_death list...")))
-      demog_death_list_tmp[i] <- demog_list[i]
+  if(length(comorbid_death_list) > 0) {
+    comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
+    for(i in 1:length(comorbid_death_list)) {
+      death_tmp1 <- death_tmp[,c("patient_id",comorbid_death_list[i],"deceased")]
+      death_tmp2 <- death_tmp1 %>% dplyr::count(get(comorbid_death_list[i]),deceased)
+      death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
+      if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+        message(paste0(c("Including ",comorbid_death_list[i]," into the comorbid_death list...")))
+        comorbid_death_list_tmp[i] <- comorbid_death_list[i]
+      }
     }
+    comorbid_death_list <- unlist(comorbid_death_list_tmp[lengths(comorbid_death_list_tmp) > 0L])
   }
-  demog_death_list <- unlist(demog_death_list_tmp[lengths(demog_death_list_tmp) > 0L])
   
-  med_death_list_tmp <- vector(mode="list",length=length(med_death_list))
-  if(length(med_death_list)>0) {
-    for(i in 1:length(med_death_list)) {
-      death_tmp1 <- death_tmp[,c("patient_id",med_death_list[i],"deceased")]
-      death_tmp2 <- death_tmp1 %>% dplyr::count(get(med_death_list[i]),deceased)
+  if(length(demog_list) > 0) {
+    demog_death_list_tmp <- vector(mode="list",length=length(demog_list))
+    for(i in 1:length(demog_list)) {
+      death_tmp1 <- death_tmp[,c("patient_id",demog_list[i],"deceased")]
+      death_tmp2 <- death_tmp1 %>% dplyr::count(get(demog_list[i]),deceased)
       death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
       # if(min(death_tmp3$n) >= factor_cutoff) {
       #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
       # }
       if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
-        message(paste0(c("Including ",med_death_list[i]," into the med_death list...")))
-        med_death_list_tmp[i] <- med_death_list[i]
+        message(paste0(c("Including ",demog_list[i]," into the demog_death list...")))
+        demog_death_list_tmp[i] <- demog_list[i]
       }
     }
+    demog_death_list <- unlist(demog_death_list_tmp[lengths(demog_death_list_tmp) > 0L])
   }
-  med_death_list <- unlist(med_death_list_tmp[lengths(med_death_list_tmp) > 0L])
+  
+  if(length(med_death_list) > 0) {
+    med_death_list_tmp <- vector(mode="list",length=length(med_death_list))
+    if(length(med_death_list)>0) {
+      for(i in 1:length(med_death_list)) {
+        death_tmp1 <- death_tmp[,c("patient_id",med_death_list[i],"deceased")]
+        death_tmp2 <- death_tmp1 %>% dplyr::count(get(med_death_list[i]),deceased)
+        death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
+        # if(min(death_tmp3$n) >= factor_cutoff) {
+        #     comorbid_death_list_tmp[i] <- comorbid_death_list[i]
+        # }
+        if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+          message(paste0(c("Including ",med_death_list[i]," into the med_death list...")))
+          med_death_list_tmp[i] <- med_death_list[i]
+        }
+      }
+    }
+    med_death_list <- unlist(med_death_list_tmp[lengths(med_death_list_tmp) > 0L])
+  }
   
   message("\nFinal factor list for death (before user customisation):",paste(c(demog_death_list,comorbid_death_list,med_death_list),collapse=" "))
   
@@ -727,26 +763,32 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # 4) Run analysis
   message("Now proceeding with time-to-event analysis...")
   message("Generating Kaplan-Meier curves (time to death, all patients)...")
-  deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ is_aki")
-  fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
-  plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
-  plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
-  plot_death_summ_table <- plot_death$data.survtable
-  write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=plot_death,width=12,height=12,units="cm")
-  plot.new()
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+  try({
+    message("(a) by AKI occurrence")
+    deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ is_aki")
+    fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
+    plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
+    plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
+    plot_death_summ_table <- plot_death$data.survtable
+    write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=plot_death,width=12,height=12,units="cm")
+    plot.new()
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+  })
   
   # Survival curves stratified by KDIGO stage
-  deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ aki_kdigo_final")
-  fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
-  plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
-  plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
-  plot_death_summ_table <- plot_death$data.survtable
-  write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=plot_death,width=12,height=12,units="cm")
-  plot.new()
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+  try( {
+    message("(b) by KDIGO AKI severity (no AKI = 0)")
+    deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ aki_kdigo_final")
+    fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
+    plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
+    plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
+    plot_death_summ_table <- plot_death$data.survtable
+    write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=plot_death,width=12,height=12,units="cm")
+    plot.new()
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+  })
   
   # # Collapse KDIGO2/3 into single group
   # aki_index_death_collapse <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_final = dplyr::if_else(as.numeric(aki_kdigo_final) >=2,2,as.numeric(aki_kdigo_final))) %>% dplyr::ungroup()
@@ -761,6 +803,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   if(isTRUE(ckd_present)) {
     try({
+      message("(c) by CKD comorbidity")
       deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ ckd")
       fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
       plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
@@ -769,15 +812,22 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD_Plot.csv")),row.names=FALSE)
       plot.new()
       ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
-      
     })
   }
   
   message("Generating univariate Cox PH models (Time to death, all patients)...")
-  univ_formulas <- sapply(c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+  univ_formulas <- tryCatch({ 
+    sapply(c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+  }, error = function(c) {
+    message("Error running univariate formulae (univ_formulas).")
+    return(NULL)
+  })
   univ_models <- tryCatch(
     lapply(univ_formulas, function(x){survival::coxph(x, data = aki_index_death)}),
-    error = "Problem generating univariate models."
+    error = function(c) {
+      message("Error running univariate formulae (univ_models).")
+      return(NULL)
+    }
   )
   # Extract data 
   try({

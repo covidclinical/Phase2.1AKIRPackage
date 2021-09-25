@@ -209,52 +209,58 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   # This does NOT require the aki_index_recovery table to be modified
   recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.50x",demog_list,comorbid_recovery_list,med_recovery_list)] %>% as.data.frame()
   
-  comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
-  for(i in 1:length(comorbid_recovery_list)) {
-    recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.50x")]
-    recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(comorbid_recovery_list[i]),recover_1.50x)
-    recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.50x == 1)
-    # if(min(recovery_tmp3$n) >= factor_cutoff) {
-    #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
-    # }
-    if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-      message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
-      comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
-    }
-  }
-  comorbid_recovery_list <- unlist(comorbid_recovery_list_tmp[lengths(comorbid_recovery_list_tmp) > 0L])
-  
-  demog_recovery_list_tmp <- vector(mode="list",length=length(demog_list))
-  for(i in 1:length(demog_list)) {
-    recovery_tmp1 <- recovery_tmp[,c("patient_id",demog_list[i],"recover_1.50x")]
-    recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(demog_list[i]),recover_1.50x)
-    recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.50x == 1)
-    # if(min(recovery_tmp3$n) >= factor_cutoff) {
-    #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
-    # }
-    if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-      message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
-      demog_recovery_list_tmp[i] <- demog_list[i]
-    }
-  }
-  demog_recovery_list <- unlist(demog_recovery_list_tmp[lengths(demog_recovery_list_tmp) > 0L])
-  
-  med_recovery_list_tmp <- vector(mode="list",length=length(med_recovery_list))
-  if(length(med_recovery_list)>0) {
-    for(i in 1:length(med_recovery_list)) {
-      recovery_tmp1 <- recovery_tmp[,c("patient_id",med_recovery_list[i],"recover_1.50x")]
-      recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(med_recovery_list[i]),recover_1.50x)
+  if(length(comorbid_recovery_list) > 0) {
+    comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
+    for(i in 1:length(comorbid_recovery_list)) {
+      recovery_tmp1 <- recovery_tmp[,c("patient_id",comorbid_recovery_list[i],"recover_1.50x")]
+      recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(comorbid_recovery_list[i]),recover_1.50x)
       recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.50x == 1)
       # if(min(recovery_tmp3$n) >= factor_cutoff) {
       #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       # }
       if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-        message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
-        med_recovery_list_tmp[i] <- med_recovery_list[i]
+        message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
+        comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       }
     }
+    comorbid_recovery_list <- unlist(comorbid_recovery_list_tmp[lengths(comorbid_recovery_list_tmp) > 0L])
   }
-  med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
+  
+  if(length(demog_list) > 0) {
+    demog_recovery_list_tmp <- vector(mode="list",length=length(demog_list))
+    for(i in 1:length(demog_list)) {
+      recovery_tmp1 <- recovery_tmp[,c("patient_id",demog_list[i],"recover_1.50x")]
+      recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(demog_list[i]),recover_1.50x)
+      recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.50x == 1)
+      # if(min(recovery_tmp3$n) >= factor_cutoff) {
+      #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+      # }
+      if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+        message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
+        demog_recovery_list_tmp[i] <- demog_list[i]
+      }
+    }
+    demog_recovery_list <- unlist(demog_recovery_list_tmp[lengths(demog_recovery_list_tmp) > 0L])
+  }
+  
+  if(length(med_recovery_list) > 0) {
+    med_recovery_list_tmp <- vector(mode="list",length=length(med_recovery_list))
+    if(length(med_recovery_list)>0) {
+      for(i in 1:length(med_recovery_list)) {
+        recovery_tmp1 <- recovery_tmp[,c("patient_id",med_recovery_list[i],"recover_1.50x")]
+        recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(get(med_recovery_list[i]),recover_1.50x)
+        recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.50x == 1)
+        # if(min(recovery_tmp3$n) >= factor_cutoff) {
+        #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
+        # }
+        if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+          message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
+          med_recovery_list_tmp[i] <- med_recovery_list[i]
+        }
+      }
+    }
+    med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
+  }
   
   message("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
   
@@ -272,31 +278,38 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   
   # Kaplan Meier plot for COVID-19 severity
   message("Generating Kaplan-Meier plots...")
-  recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ severe")
-  fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-  plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
-  plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-  plot_recover_summ_table <- plot_recover$data.survtable
-  write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe_PlotSummStats.csv")),row.names=TRUE)
-  write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=plot_recover$plot,width=12,height=12,units="cm")
-  plot.new()
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
-  
+  try({
+    message("(a) COVID-19 severity")
+    recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ severe")
+    fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
+    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+    plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
+    plot_recover_summ_table <- plot_recover$data.survtable
+    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=plot_recover$plot,width=12,height=12,units="cm")
+    plot.new()
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
+  })
+ 
   # Kaplan Meier plot for KDIGO grades
-  recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ aki_kdigo_final")
-  fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-  plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
-  plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-  write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_PlotSummStats.csv")),row.names=TRUE)
-  write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
-  plot.new()
-  ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
-  
+  try({
+    message("(b) AKI KDIGO stage")
+    recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ aki_kdigo_final")
+    fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
+    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+    plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
+    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
+    plot.new()
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
+  })
+ 
   if(isTRUE(ckd_present)) {
     try({
       # Kaplan Meier plot for CKD
+      message("(c) CKD comorbidity")
       recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ckd")
       fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
       plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
@@ -312,10 +325,18 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   # CoxPH model
   # Generate univariate analyses first
   message("Generating univariate Cox PH models (time to recovery, AKI patients only)...")
-  univ_formulas <- sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ', x)))
+  univ_formulas <- tryCatch({
+    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
+  },error = function(c) {
+    message("Error running univariate formulae (univ_formulas).")
+    return(NULL)
+  })
   univ_models <- tryCatch(
     lapply(univ_formulas, function(x){survival::coxph(x, data = aki_index_recovery)}),
-    error = function(c) "Problem generating univariate models."
+    error = function(c) {
+      message("Error running univariate formulae (univ_models).")
+      return(NULL)
+    }
   )
   # Extract data 
   
