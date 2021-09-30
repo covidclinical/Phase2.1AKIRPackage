@@ -229,8 +229,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     labs_cr_aki <- observations[observations$concept_code == '2160-0',] #LOINC code for Cr 2160-0
     # Remove unnecessary columns
     labs_cr_aki <- labs_cr_aki[,-c(4,5)]
-    # Filter for labs >= -365 days and <= +365 days
-    labs_cr_aki <- labs_cr_aki %>% dplyr::filter(days_since_admission >= -365 && days_since_admission <= 365)
+    # Filter for labs >= -365 days
+    labs_cr_aki <- labs_cr_aki %>% dplyr::filter(days_since_admission >= -365)
     
     # Since AKIs can occur in later admissions but not in the index admission (especially when expanding)
     # the window for the baseline Cr, we will need to first extract the first discharge date/day for each
@@ -251,32 +251,89 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     demog_no_cr <- demographics_filt[!(demographics_filt$patient_id %in% pts_valid_cr),]
     demographics_filt <- demographics_filt[demographics_filt$patient_id %in% pts_valid_cr,]
     labs_cr_aki <- labs_cr_aki[labs_cr_aki$patient_id %in% pts_valid_cr,]
+    
     # There are two possible scenarios which we have to consider when detecting each AKI event:
     # (1) AKI occurs after admission
     #   - easy to detect with the formal KDIGO definition as we only need to use older data points
     #   - we can use an approach similar to what is used in the MIMIC-III data-set: use a rolling
     #     time frame and detect the lowest Cr value to use as our baseline
-    # (2) Patient presents with an AKI at the time of admission 
+    # (2) Patient presents with an AKI at the time of admission with no pre-admission labs
     #   - this makes it harder for us to determine what is the true baseline especially with limited
     #     longitudinal data
-    #   - Hence one way to get around this is to generate a "retrospective" baseline (i.e. look into
-    #     future Cr values and find the minimum in a rolling timeframe) and use this as a surrogate
-    #     baseline
-    #   - Such a workaround is the only feasible way of dealing with missing retrospective data though
-    #     it is likely that we may miss quite a number of true AKIs using this method
+    #
+    # Main issue now is determining baseline sCr for patients without any pre-admission labs.
+    #
+    # Methods used in literature:
+    # (a) First admission sCr
+    #     - Most stringent
+    #     - problem is that this will underestimate AKI incidence especially as most patients will have 
+    #       community-acquired AKI
+    # (b) Back-deriving from MDRD with assumption of eGFR 75mL/min/1.73m2 (most commonly used method in literature)
+    #     - over-estimates AKI in high proportion of CKD patients
+    #     - under-estimates kidney function recovery
+    # (c) Lowest sCr recorded in first admission
+    #     - may be useful for patients who have no CKD and/or are younger (since more likely to recover 
+    #       in-patient to baseline sCr)
+    #     - may under-estimate in cases where AKIs are severe enough to cause irreversible kidney function decline
+    #     - in cases of prolonged hospitalization and/or severely fluid overloaded, may (1) falsely over-estimate AKI
+    #       diagnoses and misclassify AKI staging, (2) falsely increase rate of kidney function recovery
+    #
+    # The performance of these methods of estimating baseline sCr has been evaluated in limited settings.
+    # 
+    # Bagshaw et al (Nephrol Dial Transplant (2009) 24: 2739-2744, https://doi.org/10.1093/ndt/gfp159) used data from
+    # the BEST Kidney study (prospective observational study from 54 ICUs in 23 countries) and compared observed premorbid
+    # and estimated baseline sCr values (using method (b)). They found that using the estimated baseline sCr misclassified
+    # 18.8% of patients as having AKI at the time of ICU admission and 11.7% of patients at the time of study enrolment. 
+    # These numbers, when excluding CKD patients, improved to 6.6% and 4.0% respectively.
+    #
+    # More recently, Cooper et al (Kidney Int Rep (2021) 6, 645-656; https://doi.org/10.1016/j.ekir.2020.12.020).
+    # evaluated methods (b), (c), back-calculation with MDRD assuming eGFR of 100mL/min/1.73m2, and assigning age and 
+    # sex-reference GFR values. The latter three performed similarly (AUCROC 0.85, 0.85 and 0.87 respectively), whereas (b)
+    # had an AUCROC of 0.72 and underestimated AKI incidence by 50%. The study population mostly younger patients with
+    # low CKD premorbidity.
+    #
+    # Considerations when using sCr values post-AKI to estimate baseline
+    # 1) Too short a window may fail to capture true baseline sCr especially in cases of prolonged time to kidney function
+    #    recovery
+    # 2) Too long a window, especially in lack of RRT information and fluctuating sCr in CKD patients, may falsely capture a lower 
+    #    baseline sCr than is physiological (e.g. if a patient progressed to needing RRT by the 2nd admission in 3 months, but 
+    #    procedure codes do not capture RRT, then we will be falsely using a lower sCr)
+    # 3) Considerations of time-frame of long-term outcomes to avoid a "cyclical" argument (which does not really make sense but
+    #    some reviewers still view it that way that you cannot use retrospective AKI diagnoses??)
+    # 4) The method used should ideally have been evaluated in the literature before (in terms of sensitivity and specificity)
+    #
+    # In the initial manuscript submission, about 23% of the AKI cohort had a diagnosis code for CKD, and the actual number
+    # (if we were to calculate eGFR) is likely higher. Majority of the patients (64654 out of 77927, 82.9%) were also older than 
+    # 50 years old which meant a higher likelihood of CKD.
+    #
+    # Main considerations for minimizing errors would thus be
+    # 1) Keep the estimates of baseline sCr as close to the index AKI episode as possible to prevent confounding with
+    #    post-AKI recovery (i.e. the estimate must reflect the baseline sCr as close as possible to the AKI episode)
+    # 2) Use pre-admission labs wherever possible (unless subsequent values show patient to recover to even lower values)
+    #
+    # One must also be CONSISTENT in the baseline serum creatinine definition when looking at longitudinal outcomes at different
+    # time points or this will be drawn into question as to why different baselines are used and whether these outcomes can be
+    # interpreted in the same context.
+    #
+    # Hence, main algorithm for determining baseline sCr
+    # 1) If patient has pre-admission labs (or at least 2 sCr values prior to AKI onset), use these preferentially
+    # 2) If patient does not have sufficient labs prior to AKI onset, then use the lowest sCr in the INDEX admission as reference
+    #
+    # Alternatively, these can be re-expressed as such:
+    # - Use the lowest sCr value from -365 days all the way to the last day of the INDEX admission
+    
+    # Generate the lowest in-patient sCr from -365 days to last day of the first admission - one measure of baseline Cr
+    baseline_cr_index_admit <- merge(labs_cr_aki,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= -365) %>% dplyr::summarise(min_cr_index_admit = min(value)) %>% dplyr::ungroup()
     
     # Scenario (1): AKI occurs during admission
     # Find minimum Cr level in a rolling 365 day timeframe
     message("Generating minimum Cr level in the past 365 days")
     # labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=(min(days_since_admission)-365):(max(days_since_admission)+365))
-    # labs_cr_aki <- labs_cr_aki[data.table::CJ(unique(patient_id),seq(min(days_since_admission)-365,max(days_since_admission)))] # temporarily fill in null rows for missing days - the minimum rolling code only works for consecutive data
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_365d = RcppRoll::roll_min(value,366,fill=NA,na.rm=TRUE,align="right")) %>% dplyr::filter(!is.na(value))
     # Find minimum Cr level in a rolling 2 day timeframe (48h)
     message("Generating minimum Cr level in the past 48h")
-    # labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=(min(days_since_admission)-2):max(days_since_admission))
-    # labs_cr_aki <- labs_cr_aki[data.table::CJ(unique(patient_id),seq(min(days_since_admission)-2,max(days_since_admission)))] # temporarily fill in null rows for missing days - the minimum rolling code only works for consecutive data
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_48h = RcppRoll::roll_min(value,3,fill=NA,na.rm=TRUE,align="right")) %>% dplyr::filter(!is.na(value))
     
     # Scenario (2): Patient presents with an AKI already on board
@@ -284,14 +341,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Generating minimum Cr level 365 days in the future")
     # labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=min(days_since_admission):(max(days_since_admission)+365))
-    # labs_cr_aki <- labs_cr_aki[data.table::CJ(unique(patient_id),seq(min(days_since_admission),max(days_since_admission)+365))] # temporarily fill in null rows for missing days - the minimum rolling code only works for consecutive data
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_retro_365d = RcppRoll::roll_min(value,366,fill=NA,na.rm=TRUE,align="left")) %>% dplyr::filter(!is.na(value))
     # Find minimum Cr level in a rolling 2 day timeframe (48h)
     message("Generating minimum Cr level 48h in the future")
-    # labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=min(days_since_admission):(max(days_since_admission)+2))
-    # labs_cr_aki <- labs_cr_aki[data.table::CJ(unique(patient_id),seq(min(days_since_admission),max(days_since_admission)+2))] # temporarily fill in null rows for missing days - the minimum rolling code only works for consecutive data
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_48h_retro = RcppRoll::roll_min(value,3,fill=NA,na.rm=TRUE,align="left")) %>% dplyr::filter(!is.na(value))
+    
     
     # Another outcome we are interested in is to look at acute kidney disease, AKD (in between AKI and CKD)
     # We will use the definitions proposed for AKD as described by Chawla et. al. 2017 (ref (1))
@@ -326,8 +381,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Generating KDIGO severity grades for each serum Cr value")
     labs_cr_aki$aki_kdigo <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade)
     labs_cr_aki$aki_kdigo_retro <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade_retro)
-    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo))
-    # labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo,aki_kdigo_retro))
+    # labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo))
+    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo,aki_kdigo_retro))
     
     # Generate two columns grading AKD severity at 7d and 90d (grade 0B/C is coded as 0.5)
     labs_cr_aki$akd_180d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_180d)
@@ -466,7 +521,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # create the change in baseline index table
     message("Creating baseline shift tables for only AKI patients...")
-    aki_only_index_baseline_shift <- aki_only_index %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d)
+    aki_only_index_baseline_shift <- aki_only_index %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d,cr_365d_day,cr_180d_day,cr_90d_day)
     aki_only_index <- aki_only_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     colnames(aki_only_index)[2] <- "peak_cr_time"
     colnames(aki_only_index)[4] <- "aki_start"
@@ -501,7 +556,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # tmp_no_aki <- tmp_no_aki %>% dplyr::group_by(patient_id) %>% dplyr::slice(which.max(delta_cr)) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1))
     
     # create the change in baseline index table
-    no_aki_index_baseline_shift <- no_aki_index %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d)
+    no_aki_index_baseline_shift <- no_aki_index %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d,cr_365d_day,cr_180d_day,cr_90d_day)
     # tmp_no_aki_baseline_shift <- tmp_no_aki %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d)
     # no_aki_index_baseline_shift <- dplyr::bind_rows(no_aki_index_baseline_shift,tmp_no_aki_baseline_shift)
     
@@ -552,8 +607,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     ## dplyr::filter this table for Cr values that fall within the 7 day window
     # peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(between(time_from_peak,0,7)) %>% dplyr::ungroup()
     # Normalise to baseline values used for AKI calculation
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d)) %>% dplyr::ungroup()
-    # peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d,min_cr_retro_365d)) %>% dplyr::ungroup()
+    # peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d)) %>% dplyr::ungroup()
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id,time_from_peak) %>% dplyr::mutate(baseline_cr = min(min_cr_365d,min_cr_retro_365d)) %>% dplyr::ungroup()
     
     # In the event longitudinal data becomes very long, we will create a column where the very first baseline Cr for the index AKI is generated for each patient
     first_baseline <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak == 0) %>% dplyr::filter(baseline_cr == min(baseline_cr,na.rm=TRUE)) %>% dplyr::select(patient_id,baseline_cr) %>% dplyr::distinct()
@@ -564,13 +619,17 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Merge the first_baseline table back in
     peak_trend <- merge(peak_trend,first_baseline,by="patient_id",all.x=TRUE)
+    
     if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,covidrx_grp,days_since_admission,peak_cr_time,value,min_cr_365d,min_cr_retro_365d,time_from_peak,baseline_cr,first_baseline_cr)
     } else {
         peak_trend <- peak_trend %>% dplyr::select(patient_id,severe,days_since_admission,peak_cr_time,value,min_cr_365d,min_cr_retro_365d,time_from_peak,baseline_cr,first_baseline_cr)
     }
-    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr, ratio_prioronly = value/min_cr_365d) %>% dplyr::ungroup() %>% dplyr::distinct()
-    #peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+    
+    # TESTING: add in the (-365,last day of admission) definition of baseline Cr
+    peak_trend <- merge(peak_trend,baseline_cr_index_admit,by="patient_id",all.x=TRUE)
+    peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr, ratio_prioronly = value/min_cr_365d, ratio_baseline_index = value / min_cr_index_admit) %>% dplyr::ungroup() %>% dplyr::distinct()
+    # peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr, ratio_prioronly = value/min_cr_365d) %>% dplyr::ungroup() %>% dplyr::distinct()
     message("Final table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the selected AKI peak
     
@@ -745,10 +804,16 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Creating baseline shift counts (125% sCr definition)...")
     baseline_shift <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
+    
+    # Filter shifts based on omission criteria for Cr at 90d (80-100), 180d (150-210), 365d (330-390)
+    baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
     baseline_shift <- baseline_shift %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/first_baseline_cr, ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_365d,ratio_180d,ratio_90d)
-    baseline_shift_summ <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift_summ <- baseline_shift %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_all_365d = sum(ratio_365d > 0, na.rm=T), n_all_180d = sum(ratio_180d > 0, na.rm = T), n_all_90d = sum(ratio_90d > 0, na.rm = T), n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift_summ$n_all[baseline_shift_summ$n_all < obfuscation_value] <- NA
+        baseline_shift_summ$n_all_365d[baseline_shift_summ$n_all_365d < obfuscation_value] <- NA
+        baseline_shift_summ$n_all_180d[baseline_shift_summ$n_all_180d < obfuscation_value] <- NA
+        baseline_shift_summ$n_all_90d[baseline_shift_summ$n_all_90d < obfuscation_value] <- NA
         baseline_shift_summ$n_shift_365d[baseline_shift_summ$n_shift_365d < obfuscation_value] <- NA
         baseline_shift_summ$n_shift_180d[baseline_shift_summ$n_shift_180d < obfuscation_value] <- NA
         baseline_shift_summ$n_shift_90d[baseline_shift_summ$n_shift_90d < obfuscation_value] <- NA
@@ -757,22 +822,31 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Creating baseline shift counts (150% sCr definition)...")
     baseline_shift150 <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150 <- merge(baseline_shift150,first_baseline,by="patient_id",all.x=T)
+    baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
     baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/first_baseline_cr, ratio_180d = cr_180d/first_baseline_cr,ratio_90d = cr_90d/first_baseline_cr) %>% dplyr::select(patient_id,severe,ratio_365d,ratio_180d,ratio_90d)
-    baseline_shift150_summ <- baseline_shift150 %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift150_summ <- baseline_shift150 %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_all_365d = sum(ratio_365d > 0, na.rm=T), n_all_180d = sum(ratio_180d > 0, na.rm = T), n_all_90d = sum(ratio_90d > 0, na.rm = T), n_shift_365d = sum(ratio_365d >= 1.5, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift150_summ$n_all[baseline_shift150_summ$n_all < obfuscation_value] <- NA
+        baseline_shift150_summ$n_all_365d[baseline_shift150_summ$n_all_365d < obfuscation_value] <- NA
+        baseline_shift150_summ$n_all_180d[baseline_shift150_summ$n_all_180d < obfuscation_value] <- NA
+        baseline_shift150_summ$n_all_90d[baseline_shift150_summ$n_all_90d < obfuscation_value] <- NA
         baseline_shift150_summ$n_shift_365d[baseline_shift150_summ$n_shift_365d < obfuscation_value] <- NA
         baseline_shift150_summ$n_shift_180d[baseline_shift150_summ$n_shift_180d < obfuscation_value] <- NA
         baseline_shift150_summ$n_shift_90d[baseline_shift150_summ$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift150_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts.csv")),row.names=FALSE)
+    
     message("Creating baseline shift counts (125% sCr definition, only patients with pre-admission sCr)...")
     baseline_shift_365d <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift_365d <- merge(baseline_shift_365d[baseline_shift_365d$patient_id %in% patients_with_preadmit_cr,],first_baseline_prioronly,by="patient_id",all.x=T)
+    baseline_shift_365d <- baseline_shift_365d %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
     baseline_shift_365d <- baseline_shift_365d %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/first_baseline_cr_prioronly, ratio_180d = cr_180d/first_baseline_cr_prioronly,ratio_90d = cr_90d/first_baseline_cr_prioronly) %>% dplyr::select(patient_id,severe,ratio_365d,ratio_180d,ratio_90d)
-    baseline_shift_365d_summ <- baseline_shift_365d %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift_365d_summ <- baseline_shift_365d %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_all_365d = sum(ratio_365d > 0, na.rm=T), n_all_180d = sum(ratio_180d > 0, na.rm = T), n_all_90d = sum(ratio_90d > 0, na.rm = T), n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift_365d_summ$n_all[baseline_shift_365d_summ$n_all < obfuscation_value] <- NA
+        baseline_shift_365d_summ$n_all_365d[baseline_shift_365d_summ$n_all_365d < obfuscation_value] <- NA
+        baseline_shift_365d_summ$n_all_180d[baseline_shift_365d_summ$n_all_180d < obfuscation_value] <- NA
+        baseline_shift_365d_summ$n_all_90d[baseline_shift_365d_summ$n_all_90d < obfuscation_value] <- NA
         baseline_shift_365d_summ$n_shift_365d[baseline_shift_365d_summ$n_shift_365d < obfuscation_value] <- NA
         baseline_shift_365d_summ$n_shift_180d[baseline_shift_365d_summ$n_shift_180d < obfuscation_value] <- NA
         baseline_shift_365d_summ$n_shift_90d[baseline_shift_365d_summ$n_shift_90d < obfuscation_value] <- NA
@@ -781,15 +855,53 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     message("Creating baseline shift counts (150% sCr definition, only patients with pre-admission sCr)...")
     baseline_shift150_365d <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150_365d  <- merge(baseline_shift150_365d[baseline_shift150_365d$patient_id %in% patients_with_preadmit_cr,],first_baseline_prioronly,by="patient_id",all.x=T)
+    baseline_shift150_365d <- baseline_shift150_365d %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
     baseline_shift150_365d  <- baseline_shift150_365d %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/first_baseline_cr_prioronly, ratio_180d = cr_180d/first_baseline_cr_prioronly,ratio_90d = cr_90d/first_baseline_cr_prioronly) %>% dplyr::select(patient_id,severe,ratio_365d,ratio_180d,ratio_90d)
-    baseline_shift150_365d_summ <- baseline_shift150_365d %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_shift_365d = sum(ratio_365d >= 1.5, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
+    baseline_shift150_365d_summ <- baseline_shift150_365d %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_all_365d = sum(ratio_365d > 0, na.rm=T), n_all_180d = sum(ratio_180d > 0, na.rm = T), n_all_90d = sum(ratio_90d > 0, na.rm = T), n_shift_365d = sum(ratio_365d >= 1.5, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
     if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
         baseline_shift150_365d_summ$n_all[baseline_shift150_365d_summ$n_all < obfuscation_value] <- NA
+        baseline_shift150_365d_summ$n_all_365d[baseline_shift150_365d_summ$n_all_365d < obfuscation_value] <- NA
+        baseline_shift150_365d_summ$n_all_180d[baseline_shift150_365d_summ$n_all_180d < obfuscation_value] <- NA
+        baseline_shift150_365d_summ$n_all_90d[baseline_shift150_365d_summ$n_all_90d < obfuscation_value] <- NA
         baseline_shift150_365d_summ$n_shift_365d[baseline_shift150_365d_summ$n_shift_365d < obfuscation_value] <- NA
         baseline_shift150_365d_summ$n_shift_180d[baseline_shift150_365d_summ$n_shift_180d < obfuscation_value] <- NA
         baseline_shift150_365d_summ$n_shift_90d[baseline_shift150_365d_summ$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift150_365d_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts_PreAdmitCr.csv")),row.names=FALSE)
+    
+    message("Creating baseline shift counts (125% sCr definition) using baseline sCr defined as lowest sCr from (-365) days to last day of index admission...")
+    baseline_shift_index_admit_lowest <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
+    baseline_shift_index_admit_lowest <- merge(baseline_shift_index_admit_lowest,baseline_cr_index_admit,by="patient_id",all.x=T)
+    baseline_shift_index_admit_lowest <- baseline_shift_index_admit_lowest %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
+    baseline_shift_index_admit_lowest <- baseline_shift_index_admit_lowest %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/min_cr_index_admit, ratio_180d = cr_180d/min_cr_index_admit,ratio_90d = cr_90d/min_cr_index_admit) %>% dplyr::select(patient_id,severe,ratio_365d,ratio_180d,ratio_90d)
+    baseline_shift_index_admit_lowest_summ <- baseline_shift_index_admit_lowest %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_all_365d = sum(ratio_365d > 0, na.rm=T), n_all_180d = sum(ratio_180d > 0, na.rm = T), n_all_90d = sum(ratio_90d > 0, na.rm = T), n_shift_365d = sum(ratio_365d >= 1.25, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.25, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.25, na.rm=T)) %>% dplyr::ungroup()
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
+        baseline_shift_index_admit_lowest_summ$n_all[baseline_shift_index_admit_lowest_summ$n_all < obfuscation_value] <- NA
+        baseline_shift_index_admit_lowest_summ$n_all_365d[baseline_shift_index_admit_lowest_summ$n_all_365d < obfuscation_value] <- NA
+        baseline_shift_index_admit_lowest_summ$n_all_180d[baseline_shift_index_admit_lowest_summ$n_all_180d < obfuscation_value] <- NA
+        baseline_shift_index_admit_lowest_summ$n_all_90d[baseline_shift_index_admit_lowest_summ$n_all_90d < obfuscation_value] <- NA
+        baseline_shift_index_admit_lowest_summ$n_shift_365d[baseline_shift_index_admit_lowest_summ$n_shift_365d < obfuscation_value] <- NA
+        baseline_shift_index_admit_lowest_summ$n_shift_180d[baseline_shift_index_admit_lowest_summ$n_shift_180d < obfuscation_value] <- NA
+        baseline_shift_index_admit_lowest_summ$n_shift_90d[baseline_shift_index_admit_lowest_summ$n_shift_90d < obfuscation_value] <- NA
+    }
+    write.csv(baseline_shift_index_admit_lowest_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts_IndexAdmitLowestCr.csv")),row.names=FALSE)
+    message("Creating baseline shift counts (150% sCr definition) using baseline sCr defined as lowest sCr from (-365) days to last day of index admission...")
+    baseline_shift150_index_admit_lowest <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
+    baseline_shift150_index_admit_lowest  <- merge(baseline_shift150_index_admit_lowest,baseline_cr_index_admit,by="patient_id",all.x=T)
+    baseline_shift150_index_admit_lowest <- baseline_shift150_index_admit_lowest %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
+    baseline_shift150_index_admit_lowest  <- baseline_shift150_index_admit_lowest %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio_365d = cr_365d/min_cr_index_admit, ratio_180d = cr_180d/min_cr_index_admit,ratio_90d = cr_90d/min_cr_index_admit) %>% dplyr::select(patient_id,severe,ratio_365d,ratio_180d,ratio_90d)
+    baseline_shift150_index_admit_lowest_summ <- baseline_shift150_index_admit_lowest %>% dplyr::group_by(severe) %>% dplyr::summarise(n_all=dplyr::n(),n_all_365d = sum(ratio_365d > 0, na.rm=T), n_all_180d = sum(ratio_180d > 0, na.rm = T), n_all_90d = sum(ratio_90d > 0, na.rm = T), n_shift_365d = sum(ratio_365d >= 1.5, na.rm=T),n_shift_180d = sum(ratio_180d >= 1.5, na.rm=T),n_shift_90d = sum(ratio_90d >= 1.5, na.rm=T)) %>% dplyr::ungroup()
+    if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
+        baseline_shift150_index_admit_lowest_summ$n_all[baseline_shift150_index_admit_lowest_summ$n_all < obfuscation_value] <- NA
+        baseline_shift150_index_admit_lowest_summ$n_all_365d[baseline_shift150_index_admit_lowest_summ$n_all_365d < obfuscation_value] <- NA
+        baseline_shift150_index_admit_lowest_summ$n_all_180d[baseline_shift150_index_admit_lowest_summ$n_all_180d < obfuscation_value] <- NA
+        baseline_shift150_index_admit_lowest_summ$n_all_90d[baseline_shift150_index_admit_lowest_summ$n_all_90d < obfuscation_value] <- NA
+        
+        baseline_shift150_index_admit_lowest_summ$n_shift_365d[baseline_shift150_index_admit_lowest_summ$n_shift_365d < obfuscation_value] <- NA
+        baseline_shift150_index_admit_lowest_summ$n_shift_180d[baseline_shift150_index_admit_lowest_summ$n_shift_180d < obfuscation_value] <- NA
+        baseline_shift150_index_admit_lowest_summ$n_shift_90d[baseline_shift150_index_admit_lowest_summ$n_shift_90d < obfuscation_value] <- NA
+    }
+    write.csv(baseline_shift150_index_admit_lowest_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts_IndexAdmitLowestCr.csv")),row.names=FALSE)
     
     # =======================================================================================
     # Figure 1(a): Cr trends from start of AKI / after peak Cr for severe vs non-severe groups
