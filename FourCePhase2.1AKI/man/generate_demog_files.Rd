@@ -28,7 +28,8 @@ generate_demog_files(
   preadmit_cr_list = NULL,
   preadmit_only_analysis = FALSE,
   obfuscation,
-  obfuscation_level
+  obfuscation_level,
+  aki_first_visit_list
 )
 }
 \arguments{

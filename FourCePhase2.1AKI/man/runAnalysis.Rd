@@ -12,7 +12,9 @@ runAnalysis(
   docker = TRUE,
   input = "/4ceData/Input",
   siteid_nodocker = "",
-  skip_qc = FALSE
+  skip_qc = FALSE,
+  use_rrt_surrogate = FALSE,
+  print_rrt_surrogate = FALSE
 )
 }
 \description{

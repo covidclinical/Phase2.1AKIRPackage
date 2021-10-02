@@ -936,6 +936,6 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   })
   
   message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
-  return(list("aki_index_recovery" = aki_index_recovery, "med_recovery_list" = med_recovery_list, "comorbid_recovery_list" = comorbid_recovery_list))
+  return(list("aki_index_recovery" = aki_index_recovery, "med_recovery_list" = med_recovery_list, "comorbid_recovery_list" = comorbid_recovery_list,"aki_index_death" = aki_index_death))
 }
 
