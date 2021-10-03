@@ -1,5 +1,5 @@
 #' Generates AKI KDIGO grades using previous serum creatinine values
-#' @param x data.table contaning serum creatinine values, the baseline in past 90 days and past 48h
+#' @param x data.table containing serum creatinine values, the baseline in past 90 days and past 48h
 #' @noRd
 
 aki_kdigo_grade <- function(x) {
@@ -23,7 +23,7 @@ aki_kdigo_grade <- function(x) {
 }
 
 #' Generates AKI KDIGO grades using future serum creatinine values
-#' @param x data.table contaning serum creatinine values, the baseline in the next 365 days and next 48h
+#' @param x data.table containing serum creatinine values, the baseline in the next 365 days and next 48h
 #' @noRd
 
 aki_kdigo_grade_retro <- function(x) {
@@ -48,12 +48,34 @@ aki_kdigo_grade_retro <- function(x) {
   grade
 }
 
+#' Generates AKI KDIGO grades using previous serum creatinine values, with (-365,last day of first admission) used as
+#' reference for baseline sCr.
+#' @param x data.table containing serum creatinine values
+#' @noRd
+
+aki_kdigo_grade_index_baseline <- function(x) {
+  creat = as.numeric(x[4])
+  baseline = as.numeric(x[20])
+  grade = 0
+  ratio = round(creat/baseline,2)
+  diff = creat - baseline
+  if(diff > 0.3 || ratio >= 1.5) {
+    grade = 1
+  }
+  if(ratio >= 2 & ratio < 3) {
+    grade = 2
+  }
+  if(creat > 4 || ratio >= 3) {
+    grade = 3
+  }
+  grade
+}
+
 #' Generates AKI KDIGO grades but on serum creatinine values 180 days later using previous serum creatinine values
 #' @param x data.table contaning serum creatinine values, the baseline in past 90 days and past 48h
 #' @noRd
 
 akd_grade_180d <- function(x) {
-  creat = as.numeric(x[4])
   baseline_365d = as.numeric(x[5])
   baseline_48h = as.numeric(x[6])
   baseline_365d_retro = as.numeric(x[7])

@@ -4,16 +4,18 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE) {
     
-    ## make sure this instance has the latest version of the quality control and data wrangling code available
-    devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
-
+    if(isFALSE(offline)) {
+        ## make sure this instance has the latest version of the quality control and data wrangling code available
+        devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
+    }
+    
     ## ========================================
     ## PART 1: Read in Data Tables
     ## ========================================
-    message("\nPlease ensure that your working directory is set to /4ceData")
-    message("Reading in Input/LocalPatientSummary.csv and Input/LocalPatientObservations.csv...")
+    cat("\nPlease ensure that your working directory is set to /4ceData")
+    cat("\nReading in Input/LocalPatientSummary.csv and Input/LocalPatientObservations.csv...")
     
     if(isTRUE(docker)) {
         ## get the site identifier associated with the files stored in the /4ceData/Input directory that 
@@ -34,9 +36,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         course <- FourCePhase2.1Data::getLocalPatientClinicalCourse_nodocker(currSiteId,input)
     }
     obfuscation_value = as.numeric(FourCePhase2.1Data::getObfuscation(currSiteId))
-    message(paste0(c("Obfuscation level set to ",obfuscation_value)))
+    cat(paste0(c("Obfuscation level set to ",obfuscation_value)))
 
-    message("Transforming the Summary and Observations tables to generate tables for demographics, diagnoses, procedures")
+    cat("\nTransforming the Summary and Observations tables to generate tables for demographics, diagnoses, procedures.")
     # first generate a unique ID for each patient
     demographics <- demographics %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
     observations <- observations %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
@@ -46,6 +48,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Reorder the columns in each table to bring patient_id to the first column and remove patient_num
     demographics <- demographics %>% dplyr::select(patient_id,siteid,admission_date,days_since_admission,last_discharge_date,still_in_hospital,severe_date,severe,death_date,deceased,sex,age_group,race,race_collected)
     observations <- observations %>% dplyr::select(patient_id,siteid,days_since_admission,concept_type,concept_code,value)
+    
+    # Identify patients without any age or < 18 years and remove them from analysis
+    young_patients <- unlist(demographics$patient_id[demographics$age_group %in% c("other", "00to02", "03to05", "06to11", "12to17")])
+    if(length(young_patients) > 0) {
+        demographics <- demographics[!(demographics$patient_id %in% young_patients),]
+        observations <- observations[!(observations$patient_id %in% young_patients),]
+        course <- course[!(course$patient_id %in% young_patients),]
+    }
     
     # Generate a diagnosis table
     diagnosis <- observations[observations$concept_type %in% c("DIAG-ICD9","DIAG-ICD10"),-6]
@@ -69,10 +79,18 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Final headers for demographics_filt
     # patient_id  siteid sex age_group race  length_stay severe  time_to_severe  deceased  time_to_death
     
+    # Since AKIs can occur in later admissions but not in the index admission (especially when expanding)
+    # the window for the baseline Cr, we will need to first extract the first discharge date/day for each
+    # patient, and then use this as a basis to filter patients
+    # We cannot naively cut off Cr values as their true baseline may be achieved even after first discharge
+    
+    first_discharge <- course %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(in_hospital == 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE))
+    first_discharge <- first_discharge %>% dplyr::select(patient_id,days_since_admission)
+    colnames(first_discharge) <- c("patient_id","first_discharge_day")
     
     # Time to RRT
     # ==================
-    message("Creating table for RRT/Kidney transplant...")
+    cat("\nCreating table for RRT/Kidney transplant...")
     rrt_code <- c("5A1D70Z","5A1D80Z","5A1D90Z","3E1.M39Z","54.98","39.95","55.61","55.69","0TY00Z0","0TY00Z1","0TY00Z2","0TY10Z0","0TY10Z1","0TY10Z2")
     rrt_diag_icd10_code <- c("T82","Y60","Y61","Y62","Y84","Z49","Z99")
     rrt_diag_icd9_code <- c("458","792","V45","V56")
@@ -97,22 +115,25 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # during admission for COVID-19
     rrt_new <- unlist(rrt$patient_id[!(rrt$patient_id %in% rrt_old)])
     
-    # For debugging purposes
-    message(paste("Number of patients on RRT in total: ",nrow(rrt),"\nRRT previously: ",nrow(rrt_old),"\nRRT during admission: ",nrow(rrt_new)))
+    rrt_index_admit <- merge(rrt[!(rrt$patient_id %in% rrt_old),],first_discharge,by="patient_id",all.x=TRUE)
+    rrt_index_admit <- rrt_index_admit[!is.na(rrt_index_admit$first_discharge_day),] %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day) %>% dplyr::ungroup()
+    rrt_index_admit <- unlist(rrt_index_admit$patient_id)
     
-    # Final table headers for rrt and rrt_new:
-    # patient_id	days_since_admission
-    # days_since_admission = time to first RRT event
+    rrt_future_admit <- setdiff(rrt_new,rrt_index_admit)
+    
+    # For debugging purposes
+    cat(paste("\nNumber of patients on RRT in total: ",length(rrt),"\nRRT previously: ",length(rrt_old),"\nFirst RRT during and/or after first admission: ",length(rrt_new),"\nFirst RRT during index admission: ",length(rrt_index_admit),"\nFirst RRT after index admission:",length(rrt_future_admit)))
+    readr::write_lines(paste0("Number of patients on RRT in total: ",length(rrt),"\nRRT previously: ",length(rrt_old),"\nFirst RRT during and/or after first admission: ",length(rrt_new),"\nFirst RRT during index admission: ",length(rrt_index_admit),"\nFirst RRT after index admission:",length(rrt_future_admit)),file="debug_rrt_numbers.txt")
     
     # =============
     # Medications
     # =============
-    message("Now generating the medications tables:")
+    cat("\nNow generating the medications tables:")
     medications <- observations[observations$concept_type == "MED-CLASS",]
     medications <- medications[,-c(4,6)]
     medications <- medications %>% dplyr::arrange(patient_id,days_since_admission,concept_code)
     # Use 15 days as the cutoff for chronic medications
-    message("Generating table for chronic medications...")
+    cat("\nGenerating table for chronic medications...")
     med_chronic <- medications[medications$days_since_admission < -15,]
     med_new <- medications[medications$days_since_admission >= -15,]
     
@@ -125,7 +146,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     med_chronic[is.na(med_chronic)] <- 0
     
     # Create subtable for ACE-i/ARB pre-exposure
-    message("Generating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
+    cat("\nGenerating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
     acei_present = ("old_ACEI" %in% colnames(med_chronic))
     arb_present = ("old_ARB" %in% colnames(med_chronic))
     med_acearb_chronic <- NULL
@@ -147,7 +168,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Headers: patient_id   acei_arb_preexposure
     
     # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
-    message("Generating table for new medications started during the admission...")
+    cat("\nGenerating table for new medications started during the admission...")
     med_new <- med_new[!duplicated(med_new[,c(1,2,4)]),]
     med_new <- med_new[,c(1,4,3)]
     colnames(med_new)[3] <- "start_day"
@@ -157,7 +178,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     #med_new[is.na(med_new)] <- -999
     
     # Generate simplified table for determining who were started on COAGA near admission
-    message("Generating table for COAGA use during the admission...")
+    cat("\nGenerating table for COAGA use during the admission...")
     med_coaga_new <- NULL
     coaga_present <- tryCatch({
         med_coaga_new <- med_new %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
@@ -167,7 +188,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     },error= function(c) FALSE)
     
     # Generate simplified table for determining who were started on COAGB near admission
-    message("Generating table for COAGB use during the admission...")
+    cat("\nGenerating table for COAGB use during the admission...")
     med_coagb_new <- NULL
     coagb_present <- tryCatch({
         med_coagb_new <- med_new %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
@@ -181,7 +202,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     remdesivir_present = ("REMDESIVIR" %in% colnames(med_new))
     med_covid19_new <- NULL
     if(isTRUE(covid19antiviral_present) && isTRUE(remdesivir_present)){
-        message("Generating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
+        cat("\nGenerating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL),REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
         #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
@@ -190,7 +211,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     } else if(isTRUE(covid19antiviral_present)){
-        message("Generating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
+        cat("\nGenerating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(COVIDVIRAL=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
         #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
@@ -199,7 +220,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     } else if(isTRUE(remdesivir_present)){
-        message("Generating table for experimental COVID-19 treatment... (REMDESIVIR only)")
+        cat("\nGenerating table for experimental COVID-19 treatment... (REMDESIVIR only)")
         med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(REMDESIVIR=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
         # Uncomment following line to select for patients who were started on novel antivirals less than 72h from admission
         #med_covid19_new <- med_covid19_new[med_covid19_new$COVIDVIRAL <= 3,]
@@ -209,7 +230,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     }
     
-    
     # ====================
     # PART 2: AKI Detection Code
     # ====================
@@ -217,16 +237,16 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # with the serum creatinine levels.
     # We will then use this table, labs_cr_aki, to generate a summary table containing details of 
     # each AKI event and the post-AKI recovery labs
-    message("Now proceeding to AKI detection code:")
+    cat("\nNow proceeding to AKI detection code:")
     
     if(!is.null(rrt_old)) {
-        message("First removing patients who were previously on RRT (based on procedure codes)...")
+        cat("\nFirst removing patients who were previously on RRT (based on procedure codes)...")
         demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% rrt_old),]
         observations <- observations[!(observations$patient_id %in% rrt_old),]
         course <- course[!(course$patient_id %in% rrt_old),]
     }
     
-    message("Extracting serum creatinine values...")
+    cat("\nExtracting serum creatinine values...")
     # Extract serum Cr levels
     labs_cr_aki <- observations[observations$concept_code == '2160-0',] #LOINC code for Cr 2160-0
     # Remove unnecessary columns
@@ -234,18 +254,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Filter for labs >= -365 days
     labs_cr_aki <- labs_cr_aki %>% dplyr::filter(days_since_admission >= -365)
     
-    # Since AKIs can occur in later admissions but not in the index admission (especially when expanding)
-    # the window for the baseline Cr, we will need to first extract the first discharge date/day for each
-    # patient, and then use this as a basis to filter patients
-    # We cannot naively cut off Cr values as their true baseline may be achieved even after first discharge
-    
-    first_discharge <- course %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(in_hospital == 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE))
-    first_discharge <- first_discharge %>% dplyr::select(patient_id,days_since_admission)
-    colnames(first_discharge) <- c("patient_id","first_discharge_day")
-    
     # Generate separate demographics table for patients who do not have any sCr values fulfilling 
     # the above (e.g. all the labs are before t= -90days or patient has no sCr value in index admission)
-    message("Removing patients who do not have any serum creatinine values during admission...")
+    cat("\nRemoving patients who do not have any serum creatinine values during admission...")
     pts_valid_cr <- labs_cr_aki %>% dplyr::filter(days_since_admission >= 0)
     pts_valid_cr <- merge(pts_valid_cr,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
     pts_valid_cr <- pts_valid_cr %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day) %>% dplyr::ungroup()
@@ -325,27 +336,27 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # - Use the lowest sCr value from -365 days all the way to the last day of the INDEX admission
     
     # Generate the lowest in-patient sCr from -365 days to last day of the first admission - one measure of baseline Cr
-    baseline_cr_index_admit <- merge(labs_cr_aki,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= -365) %>% dplyr::summarise(min_cr_index_admit = min(value)) %>% dplyr::ungroup()
+    baseline_cr_index_admit <- merge(labs_cr_aki,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= ifelse(first_discharge_day < 7,7,first_discharge_day) & days_since_admission >= -365) %>% dplyr::summarise(min_cr_index_admit = min(value)) %>% dplyr::ungroup()
     
     # Scenario (1): AKI occurs during admission
     # Find minimum Cr level in a rolling 365 day timeframe
-    message("Generating minimum Cr level in the past 365 days")
+    cat("\nGenerating minimum Cr level in the past 365 days")
     # labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=(min(days_since_admission)-365):(max(days_since_admission)+365))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_365d = RcppRoll::roll_min(value,366,fill=NA,na.rm=TRUE,align="right")) %>% dplyr::filter(!is.na(value))
     # Find minimum Cr level in a rolling 2 day timeframe (48h)
-    message("Generating minimum Cr level in the past 48h")
+    cat("\nGenerating minimum Cr level in the past 48h")
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=(min(days_since_admission)-2):max(days_since_admission))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_48h = RcppRoll::roll_min(value,3,fill=NA,na.rm=TRUE,align="right")) %>% dplyr::filter(!is.na(value))
     
     # Scenario (2): Patient presents with an AKI already on board
     # Find minimum Cr level in a rolling 365 day timeframe
-    message("Generating minimum Cr level 365 days in the future")
+    cat("\nGenerating minimum Cr level 365 days in the future")
     # labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=min(days_since_admission):(max(days_since_admission)+365))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_retro_365d = RcppRoll::roll_min(value,366,fill=NA,na.rm=TRUE,align="left")) %>% dplyr::filter(!is.na(value))
     # Find minimum Cr level in a rolling 2 day timeframe (48h)
-    message("Generating minimum Cr level 48h in the future")
+    cat("\nGenerating minimum Cr level 48h in the future")
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission=min(days_since_admission):(max(days_since_admission)+2))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id) %>% dplyr::mutate(min_cr_48h_retro = RcppRoll::roll_min(value,3,fill=NA,na.rm=TRUE,align="left")) %>% dplyr::filter(!is.na(value))
     
@@ -365,8 +376,22 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Generate sCr levels at +90d (cr_90d) and +180d (cr_180d) timepoints (for determining post-AKI recovery, AKD)
     # labs_cr_aki <- data.table::setDT(labs_cr_aki)[,':='(cr_180d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][]
     labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
-    message("is.data.table(DT): ",data.table::is.data.table(labs_cr_aki))
+    cat("\nNow finding future creatinine values at 90 days, 180 days and 365 days...")
+    cr_90d_range <- 10 # means that the 90-day creatinine will be in the interval [80,100]
+    cr_180d_range <- 30 # means that the 180-day creatinine will be in the interval [150,210]
+    cr_365d_range <- 35 # means that the 365-day creatinine will be in the interval [330,400]
+    message("Warning: the package may appear to freeze at this stage. Do NOT stop the package!")
+    # First find the nearest retrospective value to 90,180 and 365 days
     labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1),cr_180d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
+    
+    # Now find the nearest future value
+    cat("\nNow finding the nearest future value closest to the 90,180 and 365-day mark...")
+    message("Warning again: the package may appear to freeze at this stage. Do NOT stop the package!")
+    labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+180,days_since_admission+180+cr_180d_range,incbounds = TRUE)],1),cr_90d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+90,days_since_admission+90+cr_90d_range,incbounds = TRUE)],1),cr_365d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+365,days_since_admission+365+cr_365d_range,incbounds = TRUE)],1),cr_180d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+180,days_since_admission+180+cr_180d_range,incbounds = TRUE)],1),cr_90d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+90,days_since_admission+90+cr_90d_range,incbounds = TRUE)],1),cr_365d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+365,days_since_admission+365+cr_365d_range,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
+    
+    cat("\nNow getting the closest possible value to each of the time points...")
+    # 
+    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(cr_90d_closer = ifelse((90 - cr_90d_day) <= (cr_90d_ul_day - 90) | is.na(cr_90d_ul_day),TRUE,FALSE),cr_180d_closer = ifelse(((180 - cr_180d_day) <= (cr_180d_ul_day - 180) | is.na(cr_180d_ul_day)),TRUE,FALSE),cr_365d_closer = ifelse(((365 - cr_365d_day) <= (cr_365d_ul_day - 365) | is.na(cr_365d_ul_day)),TRUE,FALSE)) %>% dplyr::mutate(cr_90d = ifelse(isTRUE(cr_90d_closer),cr_90d,cr_90d_ul),cr_180d = ifelse(isTRUE(cr_180d_closer),cr_180d,cr_180d_ul),cr_365d = ifelse(isTRUE(cr_365d_closer),cr_365d,cr_365d_ul)) %>% dplyr::ungroup() %>% dplyr::select(-c(cr_90d_ul,cr_180d_ul,cr_365d_ul,cr_90d_closer,cr_180d_closer,cr_365d_closer,cr_90d_ul_day,cr_180d_ul_day,cr_365d_ul_day))
     
     # Points to consider - 
     # 1) Should this be an average instead (in case this ends up being in the middle of another AKI)? What is the window
@@ -380,22 +405,26 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Now we have to start grading AKI severity at each time point
     # This approach is similar to how the MIMIC-III dataset generates AKI severity
     # Generate two columns using both the formal KDIGO AKI definition and the modified retrospective AKI definition
-    message("Generating KDIGO severity grades for each serum Cr value")
+    cat("\nGenerating KDIGO severity grades for each serum Cr value")
     labs_cr_aki$aki_kdigo <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade)
     labs_cr_aki$aki_kdigo_retro <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade_retro)
     # labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo))
     labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(aki_kdigo_final = max(aki_kdigo,aki_kdigo_retro))
     
-    # Generate two columns grading AKD severity at 7d and 90d (grade 0B/C is coded as 0.5)
-    labs_cr_aki$akd_180d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_180d)
-    labs_cr_aki$akd_90d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_90d)
+    # # Generate two columns grading AKD severity at 7d and 90d (grade 0B/C is coded as 0.5)
+    # labs_cr_aki$akd_180d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_180d)
+    # labs_cr_aki$akd_90d <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::akd_grade_90d)
+    
+    # Merge in baseline_cr_index_admit and do grading of AKIs based on this
+    labs_cr_aki <- merge(labs_cr_aki,baseline_cr_index_admit,by="patient_id",all.x=TRUE)
+    labs_cr_aki$aki_kdigo_index_baseline <- apply(labs_cr_aki,1,FourCePhase2.1AKI:::aki_kdigo_grade_index_baseline)
     
     # Now we are going to generate the start days of each AKI
     labs_cr_aki_tmp <- labs_cr_aki
     labs_cr_aki_tmp$valid = 1
     
     # Find the day of the minimum Cr used for grading AKIs (taken as baseline)
-    message("Now finding the day at which the minimum serum Cr is achieved")
+    cat("\nNow finding the day at which the minimum serum Cr is achieved")
     labs_cr_aki_tmp <- labs_cr_aki_tmp %>% dplyr::group_by(patient_id) %>% tidyr::complete(days_since_admission = tidyr::full_seq(days_since_admission,1)) %>% dplyr::mutate(value = zoo::na.fill(value,Inf))
     labs_cr_aki_tmp2 <- labs_cr_aki_tmp
     labs_cr_aki_tmp3 <- labs_cr_aki_tmp
@@ -407,7 +436,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     labs_cr_aki_tmp4 <- labs_cr_aki_tmp4[!is.na(labs_cr_aki_tmp4$valid),]
     
     # Generate delta_cr
-    message("Now identifying maxima points of serum Cr")
+    cat("\nNow identifying maxima points of serum Cr")
     labs_cr_aki_tmp4 <- labs_cr_aki_tmp4 %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(min_cr_365d_final = min(min_cr_365d,min_cr_retro_365d,na.rm=TRUE)) %>% dplyr::mutate(delta_cr = value - min_cr_365d_final)
     
     # Use the largest delta_cr to find the peak of each AKI
@@ -417,14 +446,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     labs_cr_aki_tmp4 <- merge(labs_cr_aki_tmp4,labs_cr_aki_delta_maxima,by=c("patient_id","days_since_admission"),all.x=TRUE)
     
     # Filter for KDIGO grades > 0
-    message("Now generating tables of all AKI events")
+    cat("\nNow generating tables of all AKI events")
     labs_cr_aki_tmp5 <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$aki_kdigo_final > 0,]
     labs_cr_aki_tmp5[is.na(labs_cr_aki_tmp5)] <- 0
     # Filter for maxima of delta_cr (which should give us the peaks)
     labs_cr_aki_tmp5 <- labs_cr_aki_tmp5[labs_cr_aki_tmp5$delta_is_max > 0,]
     
     # Filter and reorder columns to generate our final table of all AKI events
-    labs_aki_summ <- labs_cr_aki_tmp5 %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,min_cr_365d_final,cr_180d,cr_90d,cr_365d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_180d,akd_90d,cr_180d_day,cr_90d_day,cr_365d_day)
+    labs_aki_summ <- labs_cr_aki_tmp5 %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,min_cr_365d_final,min_cr_index_admit,cr_180d,cr_90d,cr_365d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,aki_kdigo_index_baseline,cr_180d_day,cr_90d_day,cr_365d_day)
+    # labs_aki_summ <- labs_cr_aki_tmp5 %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,min_cr_365d_final,min_cr_index_admit,cr_180d,cr_90d,cr_365d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,aki_kdigo_index_baseline,akd_180d,akd_90d,cr_180d_day,cr_90d_day,cr_365d_day)
     
     labs_aki_summ <- labs_aki_summ %>% dplyr::distinct(patient_id,days_since_admission,.keep_all=TRUE)
     labs_aki_summ <- labs_aki_summ %>% dplyr::filter(days_since_admission >= 0)
@@ -443,12 +473,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Generate a separate table (for reference) of all creatinine peaks not fulfilling KDIGO AKI criteria
     
     #Create table of sCr values for those without AKIs in index admission
-    message("Now generating a separate table for serum Cr peaks which do not reach AKI definitions")
+    cat("\nNow generating a separate table for serum Cr peaks which do not reach AKI definitions")
     labs_cr_nonaki <- labs_cr_aki_tmp4[!(labs_cr_aki_tmp4$patient_id %in% aki_list_first_admit),]
     # labs_cr_nonaki <- labs_cr_aki_tmp4[labs_cr_aki_tmp4$aki_kdigo_final == 0,]
     labs_cr_nonaki[is.na(labs_cr_nonaki)] <- 0
     # labs_cr_nonaki <- labs_cr_nonaki[labs_cr_nonaki$delta_is_max > 0,]
-    labs_cr_nonaki <- labs_cr_nonaki %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,min_cr_365d_final,cr_180d,cr_90d,cr_365d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,akd_180d,akd_90d,cr_180d_day,cr_90d_day,cr_365d_day)
+    labs_cr_nonaki <- labs_cr_nonaki %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,min_cr_365d_final,min_cr_index_admit,cr_180d,cr_90d,cr_365d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,aki_kdigo_index_baseline,cr_180d_day,cr_90d_day,cr_365d_day)
+    # labs_cr_nonaki <- labs_cr_nonaki %>% dplyr::select(patient_id,siteid,days_since_admission,value,day_min,day_min_retro,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,min_cr_365d_final,min_cr_index_admit,cr_180d,cr_90d,cr_365d,delta_cr,aki_kdigo,aki_kdigo_retro,aki_kdigo_final,aki_kdigo_index_baseline,akd_180d,akd_90d,cr_180d_day,cr_90d_day,cr_365d_day)
     labs_cr_nonaki_tmp <- labs_cr_nonaki %>% dplyr::filter(days_since_admission >= 0)
     # Generate the highest Cr peak for non-AKI peaks detected in the first admission
     labs_cr_nonaki_tmp <- merge(labs_cr_nonaki_tmp,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day) %>% dplyr::ungroup()
@@ -461,7 +492,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # We also want to generate tables to determine (1) if AKIs occurred before/after severe disease onset 
     # (2) how long before/after disease severity
     # These tables will help in segregating the populations for analysis later
-    message("Generating intermediate tables to determine if AKIs occured before or after severe COVID-19 onset")
+    cat("\nGenerating intermediate tables to determine if AKIs occured before or after severe COVID-19 onset")
     severe_time <- demographics_filt %>% dplyr::select(patient_id,severe,time_to_severe)
     labs_aki_severe <- merge(labs_aki_summ,severe_time,by="patient_id",all.x=TRUE)
     labs_aki_severe <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_to_aki = ifelse(!is.na(time_to_severe), time_to_severe - day_min,NA))
@@ -477,7 +508,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     ## Save the generated AKI tables for future reference / debugging (note: these will NOT be uploaded!!)
     #write.csv(labs_aki_summ,"PatientAKIEvents.csv",row.names=FALSE)
     #write.csv(labs_aki_severe,"PatientAKIEvents_Severe.csv",row.names=FALSE)
-       
     
     
     ## ==================================================================================
@@ -499,36 +529,28 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # This analysis uses the index AKI episode
     # Feel free to modify the code to look at other types of AKI episodes, e.g. you can dplyr::filter for the most severe AKI episode
     
-    message("Now generating tables for use for plotting normalised serum Cr values against time")
-    message("First creating table for AKI patients only...")
+    cat("\nNow generating tables for use for plotting normalised serum Cr values against time")
+    cat("\nFirst creating table for AKI patients only...")
     # First, dplyr::filter the labs_aki_severe table to show only the index AKI episodes
     # aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(delta_cr == max(delta_cr)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     # patient_id	site_id	days_since_admission	value	day_min	day_min_retro	min_cr_365d	min_cr_48h	min_cr_retro_365d	min_cr_48h_retro	min_cr_365d_final	cr_180d	cr_90d	delta_cr	aki_kdigo	aki_kdigo_retro	aki_kdigo_final	akd_7d	akd_90d	severe  time_to_severe	severe_to_aki	severe_before_aki
-    
-    # Filter labs_aki_severe by the first_admit criteria instead
-    # Use this list as the true AKI
-    # Now generate the no_aki_list the same way
-    # However, since some patients may not have an AKI in the first admit and also not have a Cr peak in first admit
-    # may need to filter the Cr table again and then find the highest Cr and take this as a reference for this
-    # subgroup, and at same time generate the cr_180d and cr_90d for this subgroup
-    # Afterwards create the final no_aki_list and proceed as planned
     
     aki_only_index <- labs_aki_severe %>% dplyr::group_by(patient_id) %>% tidyr::fill(severe) %>% dplyr::filter(first_admit == 1) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(delta_cr == max(delta_cr,na.rm=TRUE)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE)
     
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
     # severe - 2 = never severe, 4 = severe, AKI
     # aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(!is.na(time_to_severe),4,2)) %>% dplyr::ungroup()
-    message("Assigning new severity labels...")
+    cat("\nAssigning new severity labels...")
     aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = 2 * severe + 2) %>% dplyr::ungroup() # if severe = 0 initially, will be recoded as 2; if severe = 1 initially, will be recoded as 4
     
     # create the change in baseline index table
-    message("Creating baseline shift tables for only AKI patients...")
+    cat("\nCreating baseline shift tables for only AKI patients...")
     aki_only_index_baseline_shift <- aki_only_index %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d,cr_365d_day,cr_180d_day,cr_90d_day)
     aki_only_index <- aki_only_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
     colnames(aki_only_index)[2] <- "peak_cr_time"
     colnames(aki_only_index)[4] <- "aki_start"
     # Headers of aki_only_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki
-    message("\nNow creating list of non-AKI patients...")
+    cat("\n\nNow creating list of non-AKI patients...")
     no_aki_list <- demographics_filt %>% dplyr::select(patient_id,severe)
     no_aki_list <- no_aki_list[!(no_aki_list$patient_id %in% aki_only_index$patient_id),]
     no_aki_list <- no_aki_list[(no_aki_list$patient_id %in% pts_valid_cr),]
@@ -538,57 +560,38 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     labs_nonaki_severe <- labs_nonaki_severe[labs_nonaki_severe$patient_id %in% no_aki_list$patient_id,]
     labs_cr_nonaki <- labs_cr_nonaki[labs_cr_nonaki$patient_id %in% no_aki_list$patient_id,]
     
-    message("Creating table for non-AKI patients...")
+    cat("\nCreating table for non-AKI patients...")
     # Create a non-AKI equivalent for aki_only_index - except that this takes the largest delta_cr (and the earliest occurence of such a delta_cr)
     no_aki_index <- labs_nonaki_severe %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,.by_group = TRUE) %>% tidyr::fill(severe) %>% dplyr::filter(delta_cr == max(delta_cr, na.rm = TRUE)) %>% dplyr::filter(days_since_admission == min(days_since_admission, na.rm = TRUE)) %>% dplyr::distinct(days_since_admission,.keep_all = TRUE) %>% dplyr::ungroup()
     no_aki_index <- no_aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1))
     
-    # So far, we have not factored in cases which may not have had an AKI in the index admission
-    # Now, we will first create a temporary list of these patients, and then extract out the
-    # corresponding Cr tables from labs_cr_aki
-    # We will then filter for the largest peak in that admission and use that as reference
-    # Then merge this back into no_aki_index
-    
-    # tmp_list <- c(aki_only_index$patient_id,no_aki_index$patient_id)
-    # 
-    # 
-    # tmp_no_aki <- labs_cr_aki[!(labs_cr_aki$patient_id %in% tmp_list),] 
-    # tmp_no_aki <- merge(tmp_no_aki,first_discharge,by="patient_id",all.x=TRUE)
-    # tmp_no_aki <- tmp_no_aki %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0 & days_since_admission <= first_discharge_day) %>% dplyr::ungroup()
-    # tmp_no_aki <- tmp_no_aki %>% dplyr::group_by(patient_id) %>% dplyr::slice(which.max(delta_cr)) %>% dplyr::mutate(severe = ifelse(is.na(severe),1,2 * severe + 1))
-    
     # create the change in baseline index table
     no_aki_index_baseline_shift <- no_aki_index %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d,cr_365d_day,cr_180d_day,cr_90d_day)
-    # tmp_no_aki_baseline_shift <- tmp_no_aki %>% dplyr::select(patient_id,severe,cr_365d,cr_180d,cr_90d)
-    # no_aki_index_baseline_shift <- dplyr::bind_rows(no_aki_index_baseline_shift,tmp_no_aki_baseline_shift)
-    
     no_aki_index <- no_aki_index %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
-    # tmp_no_aki_index <- tmp_no_aki %>% dplyr::select(patient_id,days_since_admission,severe,day_min,severe_to_aki)
-    # no_aki_index <- dplyr::bind_rows(no_aki_index,tmp_no_aki_index)
     colnames(no_aki_index)[2] <- "peak_cr_time"
     colnames(no_aki_index)[4] <- "aki_start"
     
     #no_aki_index$severe_to_aki <- -999
-    message("Creating final table of peak Cr for all patients...")
+    cat("\nCreating final table of peak Cr for all patients...")
     aki_index <- dplyr::bind_rows(aki_only_index,no_aki_index)
     
     if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
-        message("Adding on temporal information for experimental COVID-19 antivirals...")
+        cat("\nAdding on temporal information for experimental COVID-19 antivirals...")
         aki_index <- merge(aki_index,med_covid19_new,by="patient_id",all.x=TRUE)
         aki_index$covid_rx[is.na(aki_index$covid_rx)] <- 0
         aki_index <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidrx_grp = dplyr::if_else(severe <= 2, dplyr::if_else(covid_rx == 0,1,2),dplyr::if_else(covid_rx == 0,3,4))) %>% dplyr::ungroup()
-        message(paste0(c("Column names for aki_index",colnames(aki_index))))
+        cat(paste0(c("Column names for aki_index",colnames(aki_index))))
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki,covidrx_grp)
     } else {
         aki_index <- aki_index %>% dplyr::select(patient_id,peak_cr_time,severe,aki_start,severe_to_aki)
     }
     # Headers of aki_index: patient_id  peak_cr_time  severe  aki_start  severe_to_aki  covidrx_grp
     aki_index <- aki_index %>% dplyr::arrange(patient_id,peak_cr_time,desc(severe))%>% dplyr::distinct(patient_id,peak_cr_time,.keep_all = TRUE)
-    message("Final table aki_index created.")
+    cat("\nFinal table aki_index created.")
     
     # Uncomment the following line to remove patients who were previously on RRT prior to admission
     # aki_index <- aki_index[!(aki_index$patient_id %in% rrt_new),]
-    message("Now generating table of normalised serum Cr...")
+    cat("\nNow generating table of normalised serum Cr...")
     # Create a common labs_cr_all table containing the serum Cr values, the severity groupings and anti-viral groupings
     labs_cr_aki_tmp <- labs_cr_aki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_365d,min_cr_retro_365d)
     labs_cr_nonaki_tmp <- labs_cr_nonaki %>% dplyr::select(patient_id,days_since_admission,value,min_cr_365d,min_cr_retro_365d)
@@ -632,7 +635,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     peak_trend <- merge(peak_trend,baseline_cr_index_admit,by="patient_id",all.x=TRUE)
     peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr, ratio_prioronly = value/min_cr_365d, ratio_baseline_index = value / min_cr_index_admit) %>% dplyr::ungroup() %>% dplyr::distinct()
     # peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr, ratio_prioronly = value/min_cr_365d) %>% dplyr::ungroup() %>% dplyr::distinct()
-    message("Final table of peak Cr for all patients - peak_trend - created.")
+    cat("\nFinal table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the selected AKI peak
     
     # ================================
@@ -642,7 +645,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # We now need to filter for patients with CKD4/5 using surrogate cutoffs (within the constraints of Phase 2.1)
     # This is where the ckd_cutoff value comes in useful
     # Default: 2.25mg/dL
-    message("Excluding patients with baseline Cr >= ",ckd_cutoff,"mg/dL...\n")
+    cat("\nExcluding patients with baseline Cr >= ",ckd_cutoff,"mg/dL...\n")
     esrf_list <- unlist(first_baseline$patient_id[first_baseline$first_baseline_cr >= ckd_cutoff])
     
     # We will now use the surrogate detection for RRTs
@@ -650,15 +653,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # We also do not have access to urea values - though this should be extracted (but if this were extracted then why not RRT procedure codes?)
     # Briefly, if the peak Cr >= 3mg/dL and there is a drop of >= 25% in sCr in 24h or less, this is highly likely to indicate RRT
     if(isTRUE(print_rrt_surrogate) | isTRUE(use_rrt_surrogate)) {
-        message("\n==========================\nRRT Surrogate Detection\n==========================\n")
-        message("Performing RRT Surrogate detection with Cr cutoff = 3 and ratio = 0.75...")
+        cat("\n\n==========================\nRRT Surrogate Detection\n==========================\n")
+        cat("\nPerforming RRT Surrogate detection with Cr cutoff = 3 and ratio = 0.75...")
         rrt_detection <- detect_rrt_drop(labs_cr_aki,cr_abs_cutoff = 3,ratio = 0.75)
         if(isTRUE(print_rrt_surrogate)) {
-            message("Printing RRT Surrogate Detection Tables. Ensure this is NOT uploaded as it contains patient-level data!")
-            message("Look in ~/FourCePhase2.1AKI for the following files:")
-            message("a) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv")
-            message("b) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv")
-            message("These files contain patient_id and days corresponding to suspected RRT episodes. Use these for manual chart review.")
+            cat("\nPrinting RRT Surrogate Detection Tables. Ensure this is NOT uploaded as it contains patient-level data!")
+            cat("\nLook in ~/FourCePhase2.1AKI for the following files:")
+            cat("\na) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv")
+            cat("\nb) DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv")
+            cat("\nThese files contain patient_id and days corresponding to suspected RRT episodes. Use these for manual chart review.")
             write.csv(rrt_detection,file=file.path(getProjectOutputDirectory(), "DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv"),row.names=FALSE)
             write.csv(rrt_detection[!(rrt_detection$patient_id %in% esrf_list),],file=file.path(getProjectOutputDirectory(), "DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv"),row.names=FALSE)
         }
@@ -666,7 +669,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     }
 
     if(isTRUE(use_rrt_surrogate)) {
-        message("You have opted to use the RRT surrogate results as exclusion criteria as well. Excluding these patients.")
+        cat("\nYou have opted to use the RRT surrogate results as exclusion criteria as well. Excluding these patients.")
         rrt_detection_prior_list <- unlist(rrt_detection$patient_id[rrt_detection$days_since_admission < 0])
         esrf_list <- c(esrf_list,rrt_detection_prior_list,rrt_old)
     } else {
@@ -677,7 +680,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # =======================================================================================
     # Filter the demographics, peak_trend, comorbid, meds tables to remove those with CKD4/5
     # =======================================================================================
-    message("Filtering to exclude patients with CKD4/5 and/or RRT/kidney transplant procedure/diagnoses codes.")
+    cat("\nFiltering to exclude patients with CKD4/5 and/or RRT/kidney transplant procedure/diagnoses codes.")
     demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% esrf_list),]
     observations <- observations[!(observations$patient_id %in% esrf_list),]
     course <- course[!(course$patient_id %in% esrf_list),]
@@ -726,8 +729,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Comorbidities & Prothrombotic Events
     # ======================================
-    message("Now creating tables for comorbidities and admission diagnoses...")
-    message("Creating Comorbidities table...")
+    cat("\nNow creating tables for comorbidities and admission diagnoses...")
+    cat("\nCreating Comorbidities table...")
     # Filter comorbids from all diagnoses
     comorbid_icd9 <- diag_icd9[diag_icd9$icd_code %in% comorbid_icd9_ref$icd_code,]
     comorbid_icd10 <- diag_icd10[diag_icd10$icd_code %in% comorbid_icd10_ref$icd_code,]
@@ -745,7 +748,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     comorbid[is.na(comorbid)] <- 0
     
     comorbid_list <- colnames(comorbid)[-1]
-    message("Comorbids in data set: ",comorbid_list)
+    cat("\nComorbids in data set: ",comorbid_list)
     # Final headers for comorbid table
     # Note: order of columns may depend on the overall characteristics of your patient population
     # patient_id	ihd,htn,dm,asthma,copd,bronchiectasis,ild,ckd,pe,dvt,cancer
@@ -773,7 +776,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Time to Intubation
     # ====================
-    message("Creating table for intubation...")
+    cat("\nCreating table for intubation...")
     # (1) Determine intubation from procedure code
     intubation_code <- c("0BH13EZ","0BH17EZ","0BH18EZ","0B21XEZ","5A09357","5A09358","5A09359","5A0935B","5A0935Z","5A09457","5A09458","5A09459","5A0945B","5A0945Z","5A09557","5A09558","5A09559","5A0955B","5A0955Z","96.7","96.04","96.70","96.71","96.72")
     intubation <- procedures[procedures$procedure_code %in% intubation_code,-c(2,4)]
@@ -803,7 +806,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # ==============================
     # Baseline Shift Tables
     # ==============================
-    message("Creating baseline shift counts (125% sCr definition)...")
+    cat("\nCreating baseline shift counts (125% sCr definition)...")
     baseline_shift <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift <- merge(baseline_shift,first_baseline,by="patient_id",all.x=T)
     
@@ -821,7 +824,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         baseline_shift_summ$n_shift_90d[baseline_shift_summ$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts.csv")),row.names=FALSE)
-    message("Creating baseline shift counts (150% sCr definition)...")
+    cat("\nCreating baseline shift counts (150% sCr definition)...")
     baseline_shift150 <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150 <- merge(baseline_shift150,first_baseline,by="patient_id",all.x=T)
     baseline_shift150 <- baseline_shift150 %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
@@ -838,7 +841,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     }
     write.csv(baseline_shift150_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts.csv")),row.names=FALSE)
     
-    message("Creating baseline shift counts (125% sCr definition, only patients with pre-admission sCr)...")
+    cat("\nCreating baseline shift counts (125% sCr definition, only patients with pre-admission sCr)...")
     baseline_shift_365d <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift_365d <- merge(baseline_shift_365d[baseline_shift_365d$patient_id %in% patients_with_preadmit_cr,],first_baseline_prioronly,by="patient_id",all.x=T)
     baseline_shift_365d <- baseline_shift_365d %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
@@ -854,7 +857,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         baseline_shift_365d_summ$n_shift_90d[baseline_shift_365d_summ$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift_365d_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts_PreAdmitCr.csv")),row.names=FALSE)
-    message("Creating baseline shift counts (150% sCr definition, only patients with pre-admission sCr)...")
+    cat("\nCreating baseline shift counts (150% sCr definition, only patients with pre-admission sCr)...")
     baseline_shift150_365d <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150_365d  <- merge(baseline_shift150_365d[baseline_shift150_365d$patient_id %in% patients_with_preadmit_cr,],first_baseline_prioronly,by="patient_id",all.x=T)
     baseline_shift150_365d <- baseline_shift150_365d %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
@@ -871,7 +874,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     }
     write.csv(baseline_shift150_365d_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts_PreAdmitCr.csv")),row.names=FALSE)
     
-    message("Creating baseline shift counts (125% sCr definition) using baseline sCr defined as lowest sCr from (-365) days to last day of index admission...")
+    cat("\nCreating baseline shift counts (125% sCr definition) using baseline sCr defined as lowest sCr from (-365) days to last day of index admission...")
     baseline_shift_index_admit_lowest <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift_index_admit_lowest <- merge(baseline_shift_index_admit_lowest,baseline_cr_index_admit,by="patient_id",all.x=T)
     baseline_shift_index_admit_lowest <- baseline_shift_index_admit_lowest %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
@@ -887,7 +890,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         baseline_shift_index_admit_lowest_summ$n_shift_90d[baseline_shift_index_admit_lowest_summ$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift_index_admit_lowest_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift_Counts_IndexAdmitLowestCr.csv")),row.names=FALSE)
-    message("Creating baseline shift counts (150% sCr definition) using baseline sCr defined as lowest sCr from (-365) days to last day of index admission...")
+    cat("\nCreating baseline shift counts (150% sCr definition) using baseline sCr defined as lowest sCr from (-365) days to last day of index admission...")
     baseline_shift150_index_admit_lowest <- dplyr::bind_rows(aki_only_index_baseline_shift,no_aki_index_baseline_shift) %>% dplyr::distinct()
     baseline_shift150_index_admit_lowest  <- merge(baseline_shift150_index_admit_lowest,baseline_cr_index_admit,by="patient_id",all.x=T)
     baseline_shift150_index_admit_lowest <- baseline_shift150_index_admit_lowest %>% dplyr::group_by(patient_id) %>% dplyr::mutate(cr_90d = ifelse(cr_90d_day >= 80 & cr_90d_day <= 100,cr_90d,NA_real_),cr_180d = ifelse(cr_180d_day >= 150 & cr_180d_day <= 210,cr_180d,NA_real_),cr_365d = ifelse(cr_365d_day >= 330 & cr_365d_day <= 390,cr_365d,NA_real_)) %>% dplyr::filter(!is.na(cr_365d) | !is.na(cr_180d) | !is.na(cr_90d)) %>% dplyr::ungroup()
@@ -912,7 +915,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Create KDIGO Stage table for demographics table
     # kdigo_grade <- peak_aki_vs_non_aki %>% dplyr::filter(time_from_peak == 0) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki_kdigo_stage = ifelse(aki == 0,0,ifelse(ratio < 2,1,ifelse(ratio<3,2,3)))) %>% dplyr::ungroup()
     # kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_stage)
-    message("Extracting KDIGO stages for index AKI episodes in the index admission only (does NOT extract for AKIs in future admissions)...")
+    cat("\nExtracting KDIGO stages for index AKI episodes in the index admission only (does NOT extract for AKIs in future admissions)...")
     # kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final,na.rm=TRUE)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::distinct(patient_id,.keep_all = TRUE) %>% dplyr::ungroup()
     kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(first_admit == 1) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final,na.rm=TRUE)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::distinct(patient_id,.keep_all = TRUE) %>% dplyr::ungroup()
     colnames(kdigo_grade)[2] <- "aki_kdigo_grade"
@@ -920,26 +923,33 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_grade)
     
+    # If patient received RRT in the index admission, the AKI is likely to be KDIGO 3 grade but this would not necessarily
+    # be captured in the serum creatinine trends
+    # Hence will need to check back against the rrt_index_admit list and replace the grading with 3
+    if(!is.null(rrt_index_admit) | nrows(rrt_index_admit) > 0) {
+        kdigo_grade$aki_kdigo_grade[kdigo_grade$patient_id %in% rrt_index_admit] <- 3
+    }
+    
     # Create the CKD table
-    message("Now checking if CKD is a comorbid present in the cohort...")
+    cat("\nNow checking if CKD is a comorbid present in the cohort...")
     ckd_list <- NULL
     ckd_present <- ("ckd" %in% comorbid_list)
     if(isTRUE(ckd_present)) {
         ckd_list <- comorbid %>% dplyr::select(patient_id,ckd)
     }
-    message("CKD present: ",ckd_present)
+    cat("\nCKD present: ",ckd_present)
         
-    message("First attempting to generate plots for only patients with pre-admission sCr...")
+    cat("\nFirst attempting to generate plots for only patients with pre-admission sCr...")
     generate_cr_graphs_prioronly(currSiteId,peak_trend[peak_trend$patient_id %in% patients_with_preadmit_cr,],is_obfuscated,obfuscation_value,kdigo_grade[kdigo_grade$patient_id %in% patients_with_preadmit_cr,],ckd_present,ckd_list[peak_trend$patient_id %in% patients_with_preadmit_cr,],labs_cr_all[peak_trend$patient_id %in% patients_with_preadmit_cr,])
-    message("Done!")
+    cat("\nDone!")
     
-    message("Now doing the same for ALL patients...")
+    cat("\nNow doing the same for ALL patients...")
     generate_cr_graphs(currSiteId,peak_trend,is_obfuscated,obfuscation_value,kdigo_grade,ckd_present,ckd_list,labs_cr_all,use_index_baseline = FALSE,baseline_cr_index_admit)
-    message("Done!")
+    cat("\nDone!")
     
-    message("Now doing the same for ALL patients - but using (-365,last_day_of_index_admit) as timeframe for baseline sCr...")
+    cat("\nNow doing the same for ALL patients - but using (-365,last_day_of_index_admit) as timeframe for baseline sCr...")
     generate_cr_graphs(currSiteId,peak_trend,is_obfuscated,obfuscation_value,kdigo_grade,ckd_present,ckd_list,labs_cr_all,use_index_baseline = TRUE,baseline_cr_index_admit)
-    message("Done!")
+    cat("\nDone!")
     
     
     ## ===============================================================================
@@ -960,8 +970,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             inr_present <- TRUE
         }
         if(isTRUE(inr_present)) {
-            message("=====================================")
-            message("Found cirrhotic patients and INR values in the Observations table. Will proceed with sub-group analysis for hepatorenal syndrome.")
+            cat("\n=====================================")
+            cat("\nFound cirrhotic patients and INR values in the Observations table. Will proceed with sub-group analysis for hepatorenal syndrome.")
             meld_analysis_valid <- TRUE
             # platelet_loinc <- c("13056-7","26515-7","49497-1","74464-9","777-3","778-1")
             
@@ -973,61 +983,61 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             sodium_present <- FALSE
             if(length(intersect(sodium_loinc,labs_list)) > 0) {
                 sodium_present <- TRUE
-                message("Sodium values present for MELD score correction.")
+                cat("\nSodium values present for MELD score correction.")
             }
             
-            message("Extracting first discharge dates...")
+            cat("\nExtracting first discharge dates...")
             # admissions <- read.csv("Input/LocalPatientClinicalCourse.csv")
             # admissions <- admissions %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
             first_discharge <- course %>% dplyr::group_by(patient_id) %>% dplyr::filter(in_hospital == 0) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
             first_discharge <- first_discharge %>% dplyr::select(patient_id,days_since_admission)
             colnames(first_discharge)[2] <- "first_discharge_day"
             
-            message("Restricting labs to first admission only")
+            cat("\nRestricting labs to first admission only")
             labs_cirrhosis_firstdischarge <- merge(labs_cirrhosis,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= 0) %>% dplyr::ungroup()
-            message("Extracting and binning INR")
+            cat("\nExtracting and binning INR")
             try({
                 labs_inr <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1"),]
                 labs_inr <- labs_inr[,-c(4,5)]
                 labs_inr <- labs_inr %>% dplyr::filter(days_since_admission >= 0)
                 labs_inr <- labs_inr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
             })
-            message("Extracting and binning bilirubin")
+            cat("\nExtracting and binning bilirubin")
             try({
                 labs_bil <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1975-2',]
                 labs_bil <- labs_bil[,-c(4,5)]
                 labs_bil <- labs_bil %>% dplyr::filter(days_since_admission >= 0)
                 labs_bil <- labs_bil %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
             })
-            message("Extracting and binning Cr")
+            cat("\nExtracting and binning Cr")
             try({
                 labs_cr <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '2160-0',]
                 labs_cr <- labs_cr[,-c(4,5)]
                 labs_cr <- labs_cr %>% dplyr::filter(days_since_admission >= 0)
                 labs_cr <- labs_cr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
             })
-            message("Extracting and binning AST")
+            cat("\nExtracting and binning AST")
             try({
                 labs_ast <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1920-8',]
                 labs_ast <- labs_ast[,-c(4,5)]
                 labs_ast <- labs_ast %>% dplyr::filter(days_since_admission >= 0)
                 labs_ast <- labs_ast %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
             })
-            message("Extracting and binning ALT")
+            cat("\nExtracting and binning ALT")
             try({
                 labs_alt <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1742-6',]
                 labs_alt <- labs_alt[,-c(4,5)]
                 labs_alt <- labs_alt %>% dplyr::filter(days_since_admission >= 0)
                 labs_alt <- labs_alt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
             })
-            message("Extracting and binning albumin")
+            cat("\nExtracting and binning albumin")
             try({
                 labs_alb <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1751-7',]
                 labs_alb <- labs_alb[,-c(4,5)]
                 labs_alb <- labs_alb %>% dplyr::filter(days_since_admission >= 0)
                 labs_alb <- labs_alb %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
             })
-            message("Merging all tables with binned data")
+            cat("\nMerging all tables with binned data")
             labs_meld <- merge(labs_inr,labs_bil,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
             labs_meld <- merge(labs_meld,labs_alb,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
             labs_meld <- merge(labs_meld,labs_ast,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
@@ -1035,7 +1045,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             labs_meld <- merge(labs_meld,labs_cr,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
             
             if(isTRUE(sodium_present)) {
-                message("Adding in sodium data")
+                cat("\nAdding in sodium data")
                 labs_na <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% sodium_loinc,]
                 labs_na <- labs_na[,-c(4,5)]
                 labs_na <- labs_na %>% dplyr::filter(days_since_admission >= 0)
@@ -1044,7 +1054,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             }
             
             # if(isTRUE(platelet_present)) {
-            #     message("Adding in platelet data")
+            #     cat("\nAdding in platelet data")
             #     labs_plt <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% platelet_loinc,]
             #     labs_plt <- labs_plt[,-c(4,5)]
             #     labs_plt <- labs_plt %>% dplyr::filter(days_since_admission >= 0)
@@ -1052,15 +1062,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             #     labs_meld <- merge(labs_meld,labs_plt,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
             # }
             
-            message("Imputing empty fields prior to MELD score calculation")
+            cat("\nImputing empty fields prior to MELD score calculation")
             labs_meld <- labs_meld %>% dplyr::group_by(patient_id,day_bin) %>% tidyr::fill(dplyr::everything()) %>% dplyr::distinct()
-            message("Calculating MELD score...")
+            cat("\nCalculating MELD score...")
             if(isTRUE(sodium_present)) {
                 labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr,Na = min_na)) %>% dplyr::ungroup()
             } else {
                 labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr)) %>% dplyr::ungroup()
             }
-            message("Extracting admission MELD score...")
+            cat("\nExtracting admission MELD score...")
             labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0)) %>% dplyr::ungroup()
             labs_meld_admission$meld_admit_severe[is.na(labs_meld_admission$meld_admit_severe)] <- 0
             meld_severe_list <- labs_meld_admission %>% dplyr::select(patient_id,meld,meld_admit_severe) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
@@ -1080,7 +1090,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             colnames(meld_label) <- c("meld_admit_severe","meld_severe_label")
             peak_cr_meld_summ <- merge(peak_cr_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
-                message("Obfuscating the MELD AKI graphs...")
+                cat("\nObfuscating the MELD AKI graphs...")
                 peak_cr_meld_summ <- peak_cr_meld_summ[peak_cr_meld_summ$n >= obfuscation_value,]
             }
             peak_cr_meld_timeplot <- ggplot2::ggplot(peak_cr_meld_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=meld_severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(meld_severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("MELD < 20, AKI"="#bc3c29","MELD < 20, no AKI"="#0072b5","MELD >= 20, AKI" = "#e18727","MELD >= 20, no AKI"="#20854e")) + ggplot2::theme_minimal()
@@ -1091,12 +1101,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             peak_cr_cld_summ <- merge(peak_cr_cld_summ,severe_label,by="severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
                 # peak_cr_summ <- peak_cr_summ %>% dplyr::filter(n >= obfuscation_value)
-                message("Obfuscating the AKI with severity graphs...")
+                cat("\nObfuscating the AKI with severity graphs...")
                 peak_cr_cld_summ <- peak_cr_cld_summ[peak_cr_cld_summ$n >= obfuscation_value,]
             }
             peak_cr_cld_timeplot <- ggplot2::ggplot(peak_cr_cld_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_PeakCr_AKI_CLD_only.png")),plot=peak_cr_timeplot,width=12,height=9,units="cm")
-            message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of cirrhotic patients (with severity) should have been generated.")
+            cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of cirrhotic patients (with severity) should have been generated.")
             
             # Plot from start of admission to 30 days post-peak AKI (if no AKI, then from peak Cr)
             adm_meld_cr <- labs_cr_all[labs_cr_all$patient_id %in% cirrhosis_list$patient_id,]
@@ -1110,7 +1120,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             adm_meld_summ <- merge(adm_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
                 # adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::filter(n >= obfuscation_value)
-                message("Obfuscating the admission to AKI graphs...")
+                cat("\nObfuscating the admission to AKI graphs...")
                 adm_meld_summ <- adm_meld_summ[adm_meld_summ$n >= obfuscation_value,]
             }
             adm_meld_timeplot <- ggplot2::ggplot(adm_meld_summ[which(adm_meld_summ$days_since_admission <= 30 & adm_meld_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=meld_severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(meld_severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("MELD < 20, AKI"="#bc3c29","MELD < 20, no AKI"="#0072b5","MELD >= 20, AKI" = "#e18727","MELD >= 20, no AKI"="#20854e")) + ggplot2::theme_minimal()
@@ -1121,13 +1131,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             adm_to_aki_cld_summ <- merge(adm_to_aki_cld_summ,severe_label,by="severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
                 # adm_to_aki_cld_summ <- adm_to_aki_cld_summ %>% dplyr::filter(n >= obfuscation_value)
-                message("Obfuscating the admission to AKI graphs...")
+                cat("\nObfuscating the admission to AKI graphs...")
                 adm_to_aki_cld_summ <- adm_to_aki_cld_summ[adm_to_aki_cld_summ$n >= obfuscation_value,]
             }
             adm_to_aki_cld_timeplot <- ggplot2::ggplot(adm_to_aki_cld_summ[which(adm_to_aki_cld_summ$days_since_admission <= 30 & adm_to_aki_cld_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(0,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
             ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_CrfromAdm_AKI_CLD_only.png")),plot=adm_to_aki_cld_timeplot,width=12,height=9,units="cm")
             
-            message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of cirrhotic patients, plotted from first day of admission, should have been generated.")
+            cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of cirrhotic patients, plotted from first day of admission, should have been generated.")
             
             # Plot from start of AKI to 30 days later 
             
@@ -1143,7 +1153,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             aki_start_meld_summ <- aki_start_meld %>% dplyr::group_by(meld_admit_severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
             aki_start_meld_summ <- merge(aki_start_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
-                message("Obfuscating the start of AKI graphs...")
+                cat("\nObfuscating the start of AKI graphs...")
                 # aki_start_meld_summ <- aki_start_meld_summ %>% dplyr::filter(n >= obfuscation_value)
                 aki_start_meld_summ <- aki_start_meld_summ[aki_start_meld_summ$n >= obfuscation_value,]
             }
@@ -1154,13 +1164,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             aki_start_cld_summ <- aki_start_cld_summ %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
             aki_start_cld_summ <- merge(aki_start_cld_summ,severe_label,by="severe",all.x=TRUE)
             if(isTRUE(is_obfuscated)) {
-                message("Obfuscating the start of AKI graphs...")
+                cat("\nObfuscating the start of AKI graphs...")
                 # aki_start_cld_summ <- aki_start_cld_summ %>% dplyr::filter(n >= obfuscation_value)
                 aki_start_cld_summ <- aki_start_cld_summ[aki_start_cld_summ$n >= obfuscation_value,]
             }
             aki_start_cld_timeplot <- ggplot2::ggplot(aki_start_cld_summ,ggplot2::aes(x=time_from_start,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
             ggplot2::ggsave(file=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_CrFromStart_AKI_CLD_only.png")),plot=aki_start_cld_timeplot,width=12,height=9,units="cm")
-            message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
+            cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
         }
     }
     
@@ -1171,7 +1181,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # =====================
     # Demographics Table
     # =====================
-    message("Now generating the demographics table...")
+    cat("\nNow generating the demographics table...")
     demog_full_analysis <- generate_demog_files(currSiteId,demographics_filt,labs_aki_summ,comorbid,comorbid_list,kdigo_grade,meld_analysis_valid,labs_meld_admission,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,cirrhosis_valid = isTRUE(cirrhosis_present),patients_with_preadmit_cr,preadmit_only_analysis = FALSE,is_obfuscated,obfuscation_value,aki_list_first_admit)
     demog_preadmit_cr_only_analysis <- generate_demog_files(currSiteId,demographics_filt,labs_aki_summ,comorbid,comorbid_list,kdigo_grade,meld_analysis_valid,labs_meld_admission,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,cirrhosis_valid = isTRUE(cirrhosis_present),patients_with_preadmit_cr,preadmit_only_analysis = TRUE,is_obfuscated,obfuscation_value,aki_list_first_admit)
     
@@ -1185,7 +1195,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Figure 1(b) Comparing serum creatinine trends of severe and non-severe patients, with or without remdesivir/lopinavir+ritonavir
     # ===============================================================================================================================
     if(isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)) {
-        message("Now preparing plots for serum Cr trends in experimental COVID-19 treatment...")
+        cat("\nNow preparing plots for serum Cr trends in experimental COVID-19 treatment...")
         # Plotting from peak
         peak_trend_covidviral <- peak_trend %>% dplyr::select(patient_id,covidrx_grp,time_from_peak,ratio) %>% dplyr::distinct(patient_id,time_from_peak,.keep_all=TRUE)
         peak_cr_covidviral_summ <- peak_trend_covidviral %>% dplyr::group_by(covidrx_grp,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
@@ -1230,7 +1240,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         cr_from_covidrx_timeplot <- ggplot2::ggplot(cr_from_covidrx_summ,ggplot2::aes(x=time_from_covidrx,y=mean_ratio,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from COVIDVIRAL Start",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("Non-severe"="#bc3c29","Severe"="#0072b5")) + ggplot2::theme_minimal()
         print(cr_from_covidrx_timeplot)
         ggplot2::ggsave(file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromCovidRx_Severe.png")),plot=cr_from_covidrx_timeplot,width=20,height=9,units="cm")
-        message("If no errors at this point, plots for COVID-19 experimental treatment should be done.")
+        cat("\nIf no errors at this point, plots for COVID-19 experimental treatment should be done.")
     }
     
     
@@ -1238,7 +1248,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     ## PART 4: Time To Event Analysis
     ## ====================================
     
-    message("Now proceeding to time-to-event analysis. Ensure that the survival and survminer packages are installed in your R environment.")
+    cat("\nNow proceeding to time-to-event analysis. Ensure that the survival and survminer packages are installed in your R environment.")
     
     main_analysis <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,labs_aki_summ,demographics,demog_time_to_event,demog_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,patients_with_preadmit_cr,preadmit_only_analysis = FALSE,is_obfuscated,obfuscation_value,restrict_models,factor_cutoff)
     main_analysis_prioronly <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,labs_aki_summ,demographics,demog_prioronly_time_to_event,demog_prioronly_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,patients_with_preadmit_cr,preadmit_only_analysis = TRUE,is_obfuscated,obfuscation_value,restrict_models,factor_cutoff)
@@ -1254,9 +1264,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # ================================================
     # Part 3: Hepatorenal Syndrome Analyses
     # ================================================
-    message("Cirrhosis present: ",cirrhosis_present)
+    cat("\nCirrhosis present: ",cirrhosis_present)
     if(isTRUE(cirrhosis_present)) {
-        message("Doing time-to-event analyses for cirrhotic patients using MELD scoring")
+        cat("\nDoing time-to-event analyses for cirrhotic patients using MELD scoring")
         restrict_list <- ""
         model1 <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld")
         model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
@@ -1264,10 +1274,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         model4 <- c("age_group","sex","severe","aki_kdigo_final","ckd","acei_arb_preexposure")
         
         if(restrict_models == TRUE) {
-            message("\nWe notice that you are keen to restrict the models to certain variables.")
-            message("We are now going to read in the file CustomModelVariables.txt...")
+            cat("\n\nWe notice that you are keen to restrict the models to certain variables.")
+            cat("\nWe are now going to read in the file CustomModelVariables.txt...")
             restrict_list <- scan("Input/CustomModelVariables.txt",what="")
-            message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
+            cat(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
             
         }
         
@@ -1278,7 +1288,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_recovery$meld_admit_severe <- factor(cirrhotic_recovery$meld_admit_severe,levels=c(0,1),labels = c("MELD < 20","MELD >= 20"))
         }
         
-        message("Filtering factor list down further for CoxPH models...")
+        cat("\nFiltering factor list down further for CoxPH models...")
         comorbid_recovery_list <- comorbid_recovery_list[comorbid_recovery_list != "cld"]
         recovery_tmp <- cirrhotic_recovery[,c("patient_id","recover_1.25x",demog_list,comorbid_recovery_list,med_recovery_list)] %>% as.data.frame()
         
@@ -1291,7 +1301,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
             # }
             if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-                message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
+                cat(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
                 comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
             }
         }
@@ -1306,7 +1316,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
             # }
             if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-                message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
+                cat(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
                 demog_recovery_list_tmp[i] <- demog_list[i]
             }
         }
@@ -1322,29 +1332,29 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
                 # }
                 if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-                    message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
+                    cat(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
                     med_recovery_list_tmp[i] <- med_recovery_list[i]
                 }
             }
         }
         med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
         
-        message("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
+        cat("\n\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
         
         if(restrict_models == TRUE) {
             demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
             comorbid_recovery_list <- comorbid_recovery_list[comorbid_recovery_list %in% restrict_list]
             med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
-            message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
+            cat(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
         }
         variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
         readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId, "_cirrhotic_custom_equation.txt")),append=F)
         
-        message("Now proceeding to time-to-Cr recovery analysis...")
+        cat("\nNow proceeding to time-to-Cr recovery analysis...")
         # Now run the actual time-to-event analysis
         
         # Kaplan Meier plot
-        message("Generating Kaplan-Meier plots...")
+        cat("\nGenerating Kaplan-Meier plots...")
         recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
         #surv_recover <- survival::Surv(time=cirrhotic_recovery$time_to_ratio1.25,event=cirrhotic_recovery$recover_1.25x)
         fit_km_cirrhotic_recover <- survminer::surv_fit(recoverPlotFormula, data=cirrhotic_recovery)
@@ -1377,7 +1387,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         if(isTRUE(meld_analysis_valid)) {
             meld_var <- "meld_admit_severe"
         }
-        message("Generating univariate Cox PH models (time to recovery, cirrhotic AKI patients only)...")
+        cat("\nGenerating univariate Cox PH models (time to recovery, cirrhotic AKI patients only)...")
         univ_formulas <- sapply(c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
         univ_models <- tryCatch(
             lapply(univ_formulas, function(x){survival::coxph(x, data = cirrhotic_recovery)}),
@@ -1394,13 +1404,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"univ_results_recover_cirrhotic")
         })
         
-        message("\nGenerating Model 1 (time to recovery, cirrhotic AKI patients only)...")
+        cat("\n\nGenerating Model 1 (time to recovery, cirrhotic AKI patients only)...")
         try({
             recovery_model1 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
             #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
             recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
-            message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
+            cat(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
             coxph_cirrhotic_recover1 <- survival::coxph(recoverCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_recover1_summ <- summary(coxph_cirrhotic_recover1) 
             print(coxph_cirrhotic_recover1_summ)
@@ -1412,12 +1422,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover1_summ","coxph_cirrhotic_recover1_hr","coxph_cirrhotic_recover1_stats1","coxph_cirrhotic_recover1_stats2")
         })
         
-        message("\nGenerating Model 2 (time to recovery, cirrhotic AKI patients only)...")
+        cat("\n\nGenerating Model 2 (time to recovery, cirrhotic AKI patients only)...")
         try({
             recovery_model2 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
             recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
-            message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
+            cat(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
             coxph_cirrhotic_recover2 <- survival::coxph(recoverCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_recover2_summ <- summary(coxph_cirrhotic_recover2) 
             print(coxph_cirrhotic_recover2_summ)
@@ -1429,13 +1439,13 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover2_summ","coxph_cirrhotic_recover2_hr","coxph_cirrhotic_recover2_stats1","coxph_cirrhotic_recover2_stats2")
         })
         
-        message("\nGenerating Model 3 (time to recovery, cirrhotic AKI patients only)...")
+        cat("\n\nGenerating Model 3 (time to recovery, cirrhotic AKI patients only)...")
         try({
             recovery_model3 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
             recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-            message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-            message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+            cat(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+            cat(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
             coxph_cirrhotic_recover3 <- survival::coxph(recoverCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_recover3_summ <- summary(coxph_cirrhotic_recover3) 
             print(coxph_cirrhotic_recover3_summ)
@@ -1447,9 +1457,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover3_summ","coxph_cirrhotic_recover3_hr","coxph_cirrhotic_recover3_stats1","coxph_cirrhotic_recover3_stats2")
         })
         
-        message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
+        cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
         
-        message("Now proceeding to time-to-death analysis for AKI patients only...")
+        cat("\nNow proceeding to time-to-death analysis for AKI patients only...")
         
         deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ severe")
         fit_death_cirrhotic_aki <- survminer::surv_fit(deathPlotFormula, data=cirrhotic_recovery)
@@ -1473,7 +1483,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             })
         }
         
-        message("Generating univariate Cox PH models (Time to death, Cirrhotic AKI patients only)...")
+        cat("\nGenerating univariate Cox PH models (Time to death, Cirrhotic AKI patients only)...")
         
         univ_formulas <- sapply(c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
         univ_models <- tryCatch(
@@ -1490,12 +1500,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"univ_results_death_cirrhotic")
         })
         
-        message("Generating Model 1 (Time to death, cirrhotic AKI patients only)...")
+        cat("\nGenerating Model 1 (Time to death, cirrhotic AKI patients only)...")
         try({
             cirrhotic_death_aki_model1 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model1 <- cirrhotic_death_aki_model1[cirrhotic_death_aki_model1 %in% model1]
             deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model1,collapse="+")))
-            message("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model1,collapse="+")))
+            cat("\nFormula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model1,collapse="+")))
             coxph_cirrhotic_death1 <- survival::coxph(deathCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_death1_summ <- summary(coxph_cirrhotic_death1)
             print(coxph_cirrhotic_death1_summ)
@@ -1507,12 +1517,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death1_summ","coxph_cirrhotic_death1_hr","coxph_cirrhotic_death1_stats1","coxph_cirrhotic_death1_stats2")
         })
         
-        message("Generating Model 2 (Time to death, cirrhotic AKI patients only)...")
+        cat("\nGenerating Model 2 (Time to death, cirrhotic AKI patients only)...")
         try({
             cirrhotic_death_aki_model2 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model2 <- cirrhotic_death_aki_model2[cirrhotic_death_aki_model2 %in% model2]
             deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model2,collapse="+")))
-            message("Formula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model2,collapse="+")))
+            cat("\nFormula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model2,collapse="+")))
             coxph_cirrhotic_death2 <- survival::coxph(deathCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_death2_summ <- summary(coxph_cirrhotic_death2) 
             print(coxph_cirrhotic_death2_summ)
@@ -1524,12 +1534,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death2_summ","coxph_cirrhotic_death2_hr","coxph_cirrhotic_death2_stats1","coxph_cirrhotic_death2_stats2")
         })
         
-        message("Generating Model 3 (Time to death, cirrhotic AKI patients only)...")
+        cat("\nGenerating Model 3 (Time to death, cirrhotic AKI patients only)...")
         try({
             cirrhotic_death_aki_model3 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model3 <- cirrhotic_death_aki_model3[cirrhotic_death_aki_model3 %in% model3]
             deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model3,collapse="+")))
-            message("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model3,collapse="+")))
+            cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model3,collapse="+")))
             coxph_cirrhotic_death3 <- survival::coxph(deathCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_death3_summ <- summary(coxph_cirrhotic_death3) 
             print(coxph_cirrhotic_death3_summ)
@@ -1569,7 +1579,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
     # # We will then modify thromb_list to only include variable names where this criteria is fulfilled
     # # This does NOT require the aki_index_thromb table to be modified
-    # message("thromb_list for Thromb Analysis before filtering for regression: ",paste(thromb_list,sep = ","))
+    # cat("\nthromb_list for Thromb Analysis before filtering for regression: ",paste(thromb_list,sep = ","))
     # thromb_tmp <- aki_index_thromb[,c("patient_id","is_aki",thromb_list)]
     # thromb_list_tmp <- vector(mode="list",length=length(thromb_list))
     # for(i in 1:length(thromb_list)) {
@@ -1581,14 +1591,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     #     }
     # }
     # thromb_list <- unlist(thromb_list_tmp[lengths(thromb_list_tmp) > 0L])
-    # message("thromb_list for Thromb Analysis after filtering for CoxPH: ",paste(thromb_list,sep = ","))
+    # cat("\nthromb_list for Thromb Analysis after filtering for CoxPH: ",paste(thromb_list,sep = ","))
     # 
     # aki_thromb_formula <- as.formula(paste("is_aki ~ severe",thromb_list),sep="+")
     # aki_thromb_logit <- glm(aki_thromb_formula,family = binomial,data=aki_index_thromb)
     # writeLines(capture.output(summary(aki_thromb_logit)),con=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_ThrombGLMSummary.txt"))
     # aki_thromb_logit_tidy <- aki_thromb_logit %>% broom::tidy(exponentiate=T,conf.int=T) %>% knitr::kable(align="l")
     # 
-    message("\n========================================\nAnalysis complete.")
+    cat("\n\n========================================\nAnalysis complete.")
     if(isTRUE(print_rrt_surrogate)) {
         message("Final reminder:\nYou have opted to print patient-level data files for the purposes of manual chart review for RRT procedures.")
         message("The files are located at ",getProjectOutputDirectory(), " and are named as:")
