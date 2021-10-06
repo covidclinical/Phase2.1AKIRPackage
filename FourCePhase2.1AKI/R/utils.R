@@ -55,7 +55,7 @@ aki_kdigo_grade_retro <- function(x) {
 
 aki_kdigo_grade_index_baseline <- function(x) {
   creat = as.numeric(x[4])
-  baseline = as.numeric(x[20])
+  baseline = as.numeric(x[18])
   grade = 0
   ratio = round(creat/baseline,2)
   diff = creat - baseline

@@ -28,7 +28,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   peak_aki_vs_non_aki_summ <- merge(peak_aki_vs_non_aki_summ,aki_label,by="aki",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ %>% dplyr::filter(n >= obfuscation_value) %>% dplyr::arrange(aki,time_from_peak)
-    message("Obfuscating the AKI vs non-AKI graphs...")
+    cat("\nObfuscating the AKI vs non-AKI graphs...")
     peak_aki_vs_non_aki_summ <- peak_aki_vs_non_aki_summ[peak_aki_vs_non_aki_summ$n >= obfuscation_value,]
   }
   write.csv(peak_aki_vs_non_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_PeakCr_AKI_vs_NonAKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -36,7 +36,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI_PriorCrOnly.png")),plot=peak_aki_vs_non_aki_timeplot,width=12,height=9,units="cm")
   peak_aki_vs_non_aki_timeplot_raw <- ggplot2::ggplot(peak_aki_vs_non_aki_summ,ggplot2::aes(x=time_from_peak,y=mean_value,group=aki_label))+ggplot2::geom_line(ggplot2::aes(color = factor(aki_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(aki_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value, color=factor(aki_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr (mg/dL)", color = "AKI Group") + ggplot2::xlim(-30,30) + ggplot2::scale_color_manual(values=c("AKI"="#bc3c29","Non-AKI"="#0072b5")) + ggplot2::theme_minimal()
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI_RawCr_PriorCrOnly.png")),plot=peak_aki_vs_non_aki_timeplot_raw,width=12,height=9,units="cm")
-  message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients should have been generated.")
+  cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients should have been generated.")
   
   # Now, derive our first table peak_trend_severe to compare across the different severity groups
   peak_trend_severe <- peak_trend %>% dplyr::select(patient_id,severe,time_from_peak,ratio_prioronly,value) %>% dplyr::arrange(patient_id,severe,time_from_peak,ratio_prioronly)
@@ -56,7 +56,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   peak_cr_summ <- merge(peak_cr_summ,severe_label,by="severe",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # peak_cr_summ <- peak_cr_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the AKI with severity graphs...")
+    cat("\nObfuscating the AKI with severity graphs...")
     peak_cr_summ <- peak_cr_summ[peak_cr_summ$n >= obfuscation_value,]
   }
   write.csv(peak_cr_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_PeakCr_Severe_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -73,7 +73,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   peak_cr_kdigo_summ <- merge(peak_cr_kdigo_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # peak_cr_kdigo_summ <- peak_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the AKI with severity graphs...")
+    cat("\nObfuscating the AKI with severity graphs...")
     peak_cr_kdigo_summ <- peak_cr_kdigo_summ[peak_cr_kdigo_summ$n >= obfuscation_value,]
   }
   write.csv(peak_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_PeakCr_KDIGOStage_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -93,7 +93,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
     peak_cr_kdigo_and_severe_summ <- merge(peak_cr_kdigo_and_severe_summ,severe_simplified_label,by="severe",all.x=TRUE)
     if(isTRUE(is_obfuscated)) {
       # peak_cr_kdigo_summ <- peak_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
-      message("Obfuscating the AKI with severity graphs...")
+      cat("\nObfuscating the AKI with severity graphs...")
       peak_cr_kdigo_and_severe_summ <- peak_cr_kdigo_and_severe_summ[peak_cr_kdigo_and_severe_summ$n >= obfuscation_value,]
     }
     write.csv(peak_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_PeakCr_KDIGOStage_CovidSevere_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -114,7 +114,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
       
       if(isTRUE(is_obfuscated)) {
         # peak_cr_ckd_summ <- peak_cr_ckd_summ %>% dplyr::filter(n >= obfuscation_value)
-        message("Obfuscating the AKI with severity graphs...")
+        cat("\nObfuscating the AKI with severity graphs...")
         peak_cr_ckd_and_severe_summ <- peak_cr_ckd_and_severe_summ[peak_cr_ckd_and_severe_summ$n >= obfuscation_value,]
       }
       write.csv(peak_cr_ckd_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_PeakCr_CKD_CovidSevere_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -128,7 +128,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   })
   
   
-  message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients (with severity) should have been generated.")
+  cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients (with severity) should have been generated.")
   
   #-------------------------------------------------------------------------------------
   # Plot from start of admission to 30 days post-peak AKI (if no AKI, then from peak Cr)
@@ -146,7 +146,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   adm_to_aki_summ <- merge(adm_to_aki_summ,severe_label,by="severe",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # adm_to_aki_summ <- adm_to_aki_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the admission to AKI graphs...")
+    cat("\nObfuscating the admission to AKI graphs...")
     adm_to_aki_summ <- adm_to_aki_summ[adm_to_aki_summ$n >= obfuscation_value,]
   }
   write.csv(adm_to_aki_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromAdm_Severe_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -155,14 +155,14 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdm_Severe_AKI_PriorCrOnly.png")),plot=adm_to_aki_timeplot,width=12,height=9,units="cm")
   adm_to_aki_timeplot_raw <- ggplot2::ggplot(adm_to_aki_summ[which(adm_to_aki_summ$days_since_admission <= 30 & adm_to_aki_summ$days_since_admission >= 0),],ggplot2::aes(x=days_since_admission,y=mean_value,group=severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from admission",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::scale_color_manual(values=c("Non-severe, AKI"="#bc3c29","Non-severe, no AKI"="#0072b5","Severe, AKI" = "#e18727","Severe, no AKI"="#20854e")) + ggplot2::theme_minimal()
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrFromAdm_Severe_AKI_RawCr_PriorCrOnly.png")),plot=adm_to_aki_timeplot_raw,width=12,height=9,units="cm")
-  message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from first day of admission, should have been generated.")
+  cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from first day of admission, should have been generated.")
   
   # Calculate mean and SD each for each KDIGO stage
   adm_to_aki_cr_kdigo_summ <- adm_to_aki_cr %>% dplyr::group_by(aki_kdigo_grade,days_since_admission) %>% dplyr::summarise(mean_ratio_prioronly = mean(ratio_prioronly,na.rm=TRUE),sem_ratio_prioronly = sd(ratio_prioronly,na.rm=TRUE)/sqrt(dplyr::n()),mean_value = mean(value,na.rm=TRUE),sem_value = sd(value,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
   adm_to_aki_cr_kdigo_summ <- merge(adm_to_aki_cr_kdigo_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # adm_to_aki_cr_kdigo_summ <- adm_to_aki_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the AKI with severity graphs...")
+    cat("\nObfuscating the AKI with severity graphs...")
     adm_to_aki_cr_kdigo_summ <- adm_to_aki_cr_kdigo_summ[adm_to_aki_cr_kdigo_summ$n >= obfuscation_value,]
   }
   write.csv(adm_to_aki_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromAdm_KDIGOStage_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -178,7 +178,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   adm_to_aki_cr_kdigo_and_severe_summ <- merge(adm_to_aki_cr_kdigo_and_severe_summ,severe_simplified_label,by="severe",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # adm_to_aki_cr_kdigo_summ <- adm_to_aki_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the AKI with severity graphs...")
+    cat("\nObfuscating the AKI with severity graphs...")
     adm_to_aki_cr_kdigo_and_severe_summ <- adm_to_aki_cr_kdigo_and_severe_summ[adm_to_aki_cr_kdigo_and_severe_summ$n >= obfuscation_value,]
   }
   write.csv(adm_to_aki_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrFromAdm_KDIGOStage_CovidSevere_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -204,7 +204,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   aki_30d_cr_summ <- aki_30d_cr %>% dplyr::group_by(severe,time_from_start) %>% dplyr::summarise(mean_ratio_prioronly = mean(ratio_prioronly,na.rm=TRUE),sem_ratio_prioronly = sd(ratio_prioronly,na.rm=TRUE)/sqrt(dplyr::n()),mean_value = mean(value,na.rm=TRUE),sem_value = sd(value,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
   aki_30d_cr_summ <- merge(aki_30d_cr_summ,severe_label,by="severe",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
-    message("Obfuscating the start of AKI graphs...")
+    cat("\nObfuscating the start of AKI graphs...")
     # aki_30d_cr_summ <- aki_30d_cr_summ %>% dplyr::filter(n >= obfuscation_value)
     aki_30d_cr_summ <- aki_30d_cr_summ[aki_30d_cr_summ$n >= obfuscation_value,]
   }
@@ -219,7 +219,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   aki_30d_cr_kdigo_summ <- merge(aki_30d_cr_kdigo_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # aki_30d_cr_kdigo_summ <- aki_30d_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the AKI with severity graphs...")
+    cat("\nObfuscating the AKI with severity graphs...")
     aki_30d_cr_kdigo_summ <- aki_30d_cr_kdigo_summ[aki_30d_cr_kdigo_summ$n >= obfuscation_value,]
   }
   write.csv(aki_30d_cr_kdigo_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromAdm_KDIGOStage_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -235,7 +235,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   aki_30d_cr_kdigo_and_severe_summ <- merge(aki_30d_cr_kdigo_and_severe_summ,severe_simplified_label,by="severe",all.x=TRUE)
   if(isTRUE(is_obfuscated)) {
     # aki_30d_cr_kdigo_summ <- aki_30d_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
-    message("Obfuscating the AKI with severity graphs...")
+    cat("\nObfuscating the AKI with severity graphs...")
     aki_30d_cr_kdigo_and_severe_summ <- aki_30d_cr_kdigo_and_severe_summ[aki_30d_cr_kdigo_and_severe_summ$n >= obfuscation_value,]
   }
   write.csv(aki_30d_cr_kdigo_and_severe_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_CrfromAdm_KDIGOStage_CovidSevere_AKI_PriorCrOnly.csv")),row.names=FALSE)
@@ -245,7 +245,7 @@ generate_cr_graphs_prioronly <- function(siteid,base_table,obfuscation,obfuscati
   aki_30d_cr_kdigo_and_severe_timeplot_raw <- ggplot2::ggplot(aki_30d_cr_kdigo_and_severe_summ,ggplot2::aes(x=time_from_start,y=mean_value,group=kdigo_label))+ggplot2::geom_line(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(kdigo_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_value-sem_value,ymax=mean_value+sem_value,color = factor(kdigo_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Time from AKI Start (days)",y = "Serum Cr (mg/dL)", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(0,4) + ggplot2::scale_color_manual(values=c("No AKI"="#bc3c29","KDIGO Stage 1"="#0072b5","KDIGO Stage 2" = "#e18727","KDIGO Stage 3"="#20854e")) + ggplot2::theme_minimal() + ggplot2::facet_wrap(~severe_label)
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromStart_KDIGOStage_CovidSevere_AKI_RawCr_PriorCrOnly.png")),plot=aki_30d_cr_kdigo_and_severe_timeplot_raw,width=12,height=8,units="cm")
   
-  message("At this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
+  cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
 }
 
 

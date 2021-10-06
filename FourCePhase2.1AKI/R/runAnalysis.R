@@ -391,7 +391,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     cat("\nNow getting the closest possible value to each of the time points...")
     # 
-    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(cr_90d_closer = ifelse((90 - cr_90d_day) <= (cr_90d_ul_day - 90) | is.na(cr_90d_ul_day),TRUE,FALSE),cr_180d_closer = ifelse(((180 - cr_180d_day) <= (cr_180d_ul_day - 180) | is.na(cr_180d_ul_day)),TRUE,FALSE),cr_365d_closer = ifelse(((365 - cr_365d_day) <= (cr_365d_ul_day - 365) | is.na(cr_365d_ul_day)),TRUE,FALSE)) %>% dplyr::mutate(cr_90d = ifelse(isTRUE(cr_90d_closer),cr_90d,cr_90d_ul),cr_180d = ifelse(isTRUE(cr_180d_closer),cr_180d,cr_180d_ul),cr_365d = ifelse(isTRUE(cr_365d_closer),cr_365d,cr_365d_ul)) %>% dplyr::ungroup() %>% dplyr::select(-c(cr_90d_ul,cr_180d_ul,cr_365d_ul,cr_90d_closer,cr_180d_closer,cr_365d_closer,cr_90d_ul_day,cr_180d_ul_day,cr_365d_ul_day))
+    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(cr_90d_closer = ifelse((90 - cr_90d_day) <= (cr_90d_ul_day - 90) | is.na(cr_90d_ul_day),TRUE,FALSE),cr_180d_closer = ifelse(((180 - cr_180d_day) <= (cr_180d_ul_day - 180) | is.na(cr_180d_ul_day)),TRUE,FALSE),cr_365d_closer = ifelse(((365 - cr_365d_day) <= (cr_365d_ul_day - 365) | is.na(cr_365d_ul_day)),TRUE,FALSE)) %>% dplyr::mutate(cr_90d = ifelse(isTRUE(cr_90d_closer),cr_90d,cr_90d_ul),cr_180d = ifelse(isTRUE(cr_180d_closer),cr_180d,cr_180d_ul),cr_365d = ifelse(isTRUE(cr_365d_closer),cr_365d,cr_365d_ul)) %>% dplyr::ungroup() 
+    labs_cr_aki <- labs_cr_aki %>% dplyr::group_by(patient_id,days_since_admission) %>% dplyr::mutate(cr_90d_day = ifelse(isTRUE(cr_90d_closer),cr_90d_day,cr_90d_ul_day),cr_180d_day = ifelse(isTRUE(cr_180d_closer),cr_180d_day,cr_180d_ul_day),cr_365d_day = ifelse(isTRUE(cr_365d_closer),cr_365d_day,cr_365d_ul_day)) %>% dplyr::ungroup()
+    labs_cr_aki <- labs_cr_aki %>% dplyr::select(patient_id,days_since_admission,siteid,value,min_cr_365d,min_cr_48h,min_cr_retro_365d,min_cr_48h_retro,cr_180d,cr_90d,cr_365d,cr_180d_day,cr_90d_day,cr_365d_day)
     
     # Points to consider - 
     # 1) Should this be an average instead (in case this ends up being in the middle of another AKI)? What is the window
@@ -926,7 +928,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # If patient received RRT in the index admission, the AKI is likely to be KDIGO 3 grade but this would not necessarily
     # be captured in the serum creatinine trends
     # Hence will need to check back against the rrt_index_admit list and replace the grading with 3
-    if(!is.null(rrt_index_admit) | nrows(rrt_index_admit) > 0) {
+    if(!is.null(rrt_index_admit) | length(rrt_index_admit) > 0) {
         kdigo_grade$aki_kdigo_grade[kdigo_grade$patient_id %in% rrt_index_admit] <- 3
     }
     

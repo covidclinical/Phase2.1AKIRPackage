@@ -68,7 +68,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   restrict_models <- restrict_model_corr
   
   file_prefix <- ""
-  message("\n============================\nSet-up for Time-to-Event Analysis\n============================")
+  cat("\n============================\nSet-up for Time-to-Event Analysis\n============================")
   if(isTRUE(preadmit_only_analysis)) {
     file_prefix <- "_PreAdmitCrOnly"
     currSiteId <- paste0(currSiteId,file_prefix)
@@ -85,11 +85,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     # Set the ratio used for analysis to the ratio calculated from pre-admission Cr only
     peak_trend$ratio <- peak_trend$ratio_prioronly
     
-    message("Performing analysis for patients with pre-admission Cr only.")
-    message("Recovery threshold: 150%")
+    cat("\nPerforming analysis for patients with pre-admission Cr only.")
+    cat("\nRecovery threshold: 150%")
   } else {
-    message("Performing analysis for ALL patients.")
-    message("Recovery threshold: 150%")
+    cat("\nPerforming analysis for ALL patients.")
+    cat("\nRecovery threshold: 150%")
   }
   
   # If user wishes to customize the Cox PH equations used for recovery and death analysis, we will read in
@@ -106,14 +106,14 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   model4 <- c("age_group","sex","severe","aki_kdigo_final","ckd","acei_arb_preexposure")
   
   if(restrict_models == TRUE) {
-    message("\nWe notice that you are keen to restrict the models to certain variables.")
-    message("We are now going to read in the file CustomModelVariables.txt...")
+    cat("\nWe notice that you are keen to restrict the models to certain variables.")
+    cat("\nWe are now going to read in the file CustomModelVariables.txt...")
     restrict_list <- scan("Input/CustomModelVariables.txt",what="")
     message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
     
   }
   
-  message("\n============================\nPart 1: Time to Recovery\n============================")
+  cat("\n============================\nPart 1: Time to Recovery\n============================")
   # First generate table where we find the time taken to achieve 1.50x baseline ratio
   labs_cr_recovery <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak >= 0) %>% tidyr::fill(severe)
   labs_cr_recovery_tmp <- labs_cr_recovery %>% dplyr::group_by(patient_id) %>% tidyr::complete(time_from_peak = tidyr::full_seq(time_from_peak,1)) %>% dplyr::mutate(ratio = zoo::na.fill(ratio,Inf))
@@ -123,12 +123,12 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   labs_aki_summ_index <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission))
   # Get index AKI grade
   index_aki_grade <- labs_aki_summ_index %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::group_by(patient_id) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::ungroup()
-  message("Filtering for AKI patients only...")
+  cat("\nFiltering for AKI patients only...")
   # Filter for AKI cases only
   aki_index_recovery <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::filter(severe %in% c(2,4,5)) %>% dplyr::mutate(severe=ifelse(severe==2,0,1))
   aki_index_recovery <- merge(aki_index_recovery,time_to_ratio1.50,by="patient_id",all.x=TRUE) 
   aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(recover_1.50x = ifelse(is.na(time_to_ratio1.50),0,1))
-  message("Computing death and recovery times...")
+  cat("\nComputing death and recovery times...")
   # Get death times/censor times
   discharge_day <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = dplyr::if_else(deceased==0,as.integer(days_since_admission),as.integer(as.Date(death_date) - as.Date(admission_date)))) %>% dplyr::select(patient_id,deceased,time_to_death_km)
   aki_index_recovery <- merge(aki_index_recovery,discharge_day,by="patient_id",all.x=TRUE)
@@ -140,10 +140,10 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   
   aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE)
   
-  message("\nDoing initial filter for medications with more than one factor level.")
+  cat("\nDoing initial filter for medications with more than one factor level.")
   med_recovery_list <- c("COAGA","COAGB","covid_rx","acei_arb_preexposure")
   med_recovery_list <- med_recovery_list[c(coaga_present,coagb_present,dplyr::if_else((isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)),TRUE,FALSE),dplyr::if_else((isTRUE(acei_present) | isTRUE(arb_present)),TRUE,FALSE))]
-  message("\nAvailable medications: ",paste(med_recovery_list,collapse=" "))
+  cat("\nAvailable medications: ",paste(med_recovery_list,collapse=" "))
   
   # First create a temporary table where we filter out the medications with only one factor level
   
@@ -173,7 +173,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   # aki_index_recovery[is.na(aki_index_recovery)] <- 0
   # aki_index_recovery[c("severe","aki_kdigo_final",comorbid_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",comorbid_list)],factor)
   
-  message("\nDoing initial filter for comorbids with more than one factor level.")
+  cat("\nDoing initial filter for comorbids with more than one factor level.")
   # First create a temporary table where we filter out the comorbids with only one factor level
   comorbid_recovery_tmp <- merge(aki_index_recovery,comorbid,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
   comorbid_recovery_tmp[is.na(comorbid_recovery_tmp)] <- 0
@@ -200,9 +200,9 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   aki_index_recovery[is.na(aki_index_recovery)] <- 0
   aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list,med_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list,med_recovery_list)],factor)
   
-  message("Current factor list for recovery: ",paste(c(demog_list,comorbid_recovery_list,med_recovery_list),collapse=", "))
+  cat("\nCurrent factor list for recovery: ",paste(c(demog_list,comorbid_recovery_list,med_recovery_list),collapse=", "))
   
-  message("Filtering factor list down further for CoxPH models...")
+  cat("\nFiltering factor list down further for CoxPH models...")
   # This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
   # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
   # We will then modify comorbid_recovery_list to only include variable names where this criteria is fulfilled
@@ -262,7 +262,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     med_recovery_list <- unlist(med_recovery_list_tmp[lengths(med_recovery_list_tmp) > 0L])
   }
   
-  message("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
+  cat("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" "))
   
   if(restrict_models == TRUE) {
     demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
@@ -273,13 +273,13 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
   readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation_150.txt")),append=F)
   
-  message("Now proceeding to time-to-Cr recovery analysis...")
+  cat("\nNow proceeding to time-to-Cr recovery analysis...")
   # Now run the actual time-to-event analysis
   
   # Kaplan Meier plot for COVID-19 severity
-  message("Generating Kaplan-Meier plots...")
+  cat("\nGenerating Kaplan-Meier plots...")
   try({
-    message("(a) COVID-19 severity")
+    cat("\n(a) COVID-19 severity")
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ severe")
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
@@ -294,7 +294,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
  
   # Kaplan Meier plot for KDIGO grades
   try({
-    message("(b) AKI KDIGO stage")
+    cat("\n(b) AKI KDIGO stage")
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ aki_kdigo_final")
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
@@ -309,7 +309,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   if(isTRUE(ckd_present)) {
     try({
       # Kaplan Meier plot for CKD
-      message("(c) CKD comorbidity")
+      cat("\n(c) CKD comorbidity")
       recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ckd")
       fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
       plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
@@ -324,17 +324,17 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   
   # CoxPH model
   # Generate univariate analyses first
-  message("Generating univariate Cox PH models (time to recovery, AKI patients only)...")
+  cat("\nGenerating univariate Cox PH models (time to recovery, AKI patients only)...")
   univ_formulas <- tryCatch({
     sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
   },error = function(c) {
-    message("Error running univariate formulae (univ_formulas).")
+    cat("\nError running univariate formulae (univ_formulas).")
     return(NULL)
   })
   univ_models <- tryCatch(
     lapply(univ_formulas, function(x){survival::coxph(x, data = aki_index_recovery)}),
     error = function(c) {
-      message("Error running univariate formulae (univ_models).")
+      cat("\nError running univariate formulae (univ_models).")
       return(NULL)
     }
   )
@@ -349,7 +349,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     write.csv(univ_results_recover,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
-  message("\nGenerating Model 1 (time to recovery, AKI patients only)...")
+  cat("\nGenerating Model 1 (time to recovery, AKI patients only)...")
   try({
     recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
@@ -368,7 +368,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
   })
 
-  message("\nGenerating Model 2 (time to recovery, AKI patients only)...")
+  cat("\nGenerating Model 2 (time to recovery, AKI patients only)...")
   try({
     recovery_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
@@ -387,7 +387,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
   })
   
-  message("\nGenerating Model 3 (time to recovery, AKI patients only)...")
+  cat("\nGenerating Model 3 (time to recovery, AKI patients only)...")
   try({
     recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
@@ -405,7 +405,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     coxph_recover3_plot <- survminer::ggforest(coxph_recover3,data=aki_index_recovery)
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
   })
-  message("\nGenerating Model 4 with ACE-i/ARBs (time to recovery, AKI patients only)...")
+  cat("\nGenerating Model 4 with ACE-i/ARBs (time to recovery, AKI patients only)...")
   try({
     recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model4 <- recovery_model4[recovery_model4 %in% model4]
@@ -424,7 +424,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
   })
   
-  message("If you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
+  cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
   aki_index_recovery
 }
 
