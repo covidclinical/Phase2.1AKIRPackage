@@ -988,13 +988,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 cat("\nSodium values present for MELD score correction.")
             }
             
-            cat("\nExtracting first discharge dates...")
-            # admissions <- read.csv("Input/LocalPatientClinicalCourse.csv")
-            # admissions <- admissions %>% dplyr::mutate(patient_id=paste(currSiteId,patient_num,sep="_"))
-            first_discharge <- course %>% dplyr::group_by(patient_id) %>% dplyr::filter(in_hospital == 0) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission)) %>% dplyr::ungroup()
-            first_discharge <- first_discharge %>% dplyr::select(patient_id,days_since_admission)
-            colnames(first_discharge)[2] <- "first_discharge_day"
-            
             cat("\nRestricting labs to first admission only")
             labs_cirrhosis_firstdischarge <- merge(labs_cirrhosis,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= 0) %>% dplyr::ungroup()
             cat("\nExtracting and binning INR")
