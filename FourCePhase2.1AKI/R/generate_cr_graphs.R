@@ -256,6 +256,6 @@ generate_cr_graphs <- function(siteid,base_table,obfuscation,obfuscation_level,k
   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_CrfromStart_KDIGOStage_CovidSevere_AKI_RawCr.png")),plot=aki_30d_cr_kdigo_and_severe_timeplot_raw,width=12,height=8,units="cm")
   
   cat("\nAt this point, if there are no errors, graphs and CSV files for normalised creatinine of AKI vs non-AKI patients, plotted from start of AKI/creatinine increase, should have been generated.")
-  
-  
+
+  return(list("peak_aki_vs_non_aki" = peak_aki_vs_non_aki, "peak_trend_severe" = peak_trend_severe, "adm_to_aki_cr" = adm_to_aki_cr, "aki_from_start" = aki_30d_cr))
 }
