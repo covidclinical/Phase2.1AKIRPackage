@@ -40,6 +40,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     sink(error_log,append=TRUE,split=TRUE)
     
     if(isTRUE(debug_on)) {
+        cat("\n===================\nYou have enabled debugging for this session. Warnings and messages will be redirected to the error log.\nDue to the nature of error handling in R, this output will not be displayed on the console.\nOutput via the cat() or print() functions will still be visible.\n===================\n")
         sink(error_log,append=TRUE,type="message")
     }
     
@@ -1636,6 +1637,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     sink()
     if(isTRUE(debug_on)) {
         sink(type="message")
+        cat("\n\nPlease check the error log in the project output folder for details.\n")
     }
     closeAllConnections()
 }
