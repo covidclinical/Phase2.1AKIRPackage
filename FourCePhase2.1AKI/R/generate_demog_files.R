@@ -124,14 +124,14 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
   demog_summ <- demog_summ %>% dplyr::distinct()
   
-  message(paste0(c("Obfuscation cutoff: ",obfuscation_value)))
+  cat(paste0(c("\nObfuscation cutoff: ",obfuscation_value,"\n")))
   # Obfuscation requirements by certain sites
   if(isTRUE(is_obfuscated) & !is.null(obfuscation_value)) {
     comorbid_demog_summ_tmp <- vector(mode="list",length=length(comorbid_list))
     for(i in 1:length(comorbid_list)) {
       demog_summ_tmp1 <- demog_summ[,c("patient_id","aki",comorbid_list[i])]
       demog_summ_tmp2 <- demog_summ_tmp1 %>% dplyr::group_by(aki) %>% dplyr::count(get(comorbid_list[i]))
-      message(paste0(c("Performing demographics table comorbid filtering for: ",comorbid_list[i]," with lowest count ",min(demog_summ_tmp2$n)," and obfuscation cutoff ",obfuscation_value)))
+      cat(paste0(c("\nPerforming demographics table comorbid filtering for: ",comorbid_list[i]," with lowest count ",min(demog_summ_tmp2$n)," and obfuscation cutoff ",obfuscation_value,"\n")))
       if(min(demog_summ_tmp2$n) >= obfuscation_value) {
         comorbid_demog_summ_tmp[i] <- comorbid_list[i]
       }
@@ -184,7 +184,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
         
         # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
         p_value <- tryCatch({
-          message(paste0(c("Attempting Fisher's test for ",table_one_vars[i])))
+          cat(paste0(c("\nAttempting Fisher's test for ",table_one_vars[i],"\n")))
           fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
         }, error = function(e) {
           message("Failed running Fisher's exact test for ",table_one_vars[i],", proceeding with Monte Carlo simulation.")
@@ -214,13 +214,13 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     tryCatch({
       if(isTRUE(cirrhosis_present)) {
         # First generate the subgroup table stratified by AKI for cirrhotic patients only
-        message("Creating temporary demographics table for cirrhotic patients")
+        cat("\nCreating temporary demographics table for cirrhotic patients\n")
         demog_cld_obf <- demog_cld_summ %>% dplyr::group_by(aki) %>% dplyr::count() %>% tidyr::pivot_wider(names_from = "aki",values_from = "n")
         demog_cld_obf$category <- "n"
         demog_cld_obf <- demog_cld_obf[,c(3,1,2)]
         demog_cld_obf$p_val <- NA
         colnames(demog_cld_obf) <- c("category","No_AKI","AKI","p_val")
-        message("Filtering variables for cirrhotic patient demographics table...")
+        cat("\nFiltering variables for cirrhotic patient demographics table...\n")
         for(i in 1:length(table_one_vars)) {
           try({
             tmp <- demog_cld_summ %>% dplyr::group_by(aki) %>% dplyr::count(get(table_one_vars[i])) %>% tidyr::pivot_wider(names_from="aki",values_from = "n")
@@ -230,7 +230,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
             
             # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
             p_value <- tryCatch({
-              message(paste0(c("Attempting Fisher's test for ",table_one_vars[i])))
+              cat(paste0(c("\nAttempting Fisher's test for ",table_one_vars[i],"\n")))
               fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
             }, error = function(e) {
               message("Failed running Fisher's exact test for ",table_one_vars[i],", proceeding with Monte Carlo simulation.")
@@ -248,7 +248,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
             rm(p_value)
           })
         }
-        message("Computing counts and percentages")
+        cat("\nComputing counts and percentages\n")
         demog_cld_obf$No_AKI[demog_cld_obf$No_AKI < obfuscation_value] <- 0
         demog_cld_obf$AKI[demog_cld_obf$AKI < obfuscation_value] <- 0
         demog_cld_obf <- demog_cld_obf %>% dplyr::group_by(category) %>% dplyr::mutate(total = No_AKI + AKI) %>% dplyr::ungroup()
@@ -257,22 +257,25 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
         total_pop <- demog_cld_obf$total[1]
         demog_cld_obf <- demog_cld_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop) %>% dplyr::ungroup()
         demog_meld_files <- "demog_cld_obf"
-        message("No issues with creating demog_cld_obf")
+        cat("\nNo issues with creating demog_cld_obf\n")
       }
     },error = function(e) {
+      cat("\nHaving issues generating demographic table for cirrhosis patients only. Check for any error messages that appear.")
+      cat("\nOriginal error message:\n",e,"\n")
       message("Having issues generating demographic table for cirrhosis patients only. Check for any error messages that appear.")
+      message("Original error message:\n",e)
     })
     try({
       if(isTRUE(meld_analysis_valid)) {
         # If possible to split by MELD, then generate the demographics table split by MELD score cutoff 20
-        message("MELD analysis possible. Generating demographics table for cirrhotics stratified by MELD.")
+        cat("\nMELD analysis possible. Generating demographics table for cirrhotics stratified by MELD.\n")
         demog_meld_summ <- demog_cld_summ
         demog_meld_obf <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe) %>% dplyr::count() %>% tidyr::pivot_wider(names_from = "meld_admit_severe",values_from = "n")
         demog_meld_obf$category <- "n"
         demog_meld_obf <- demog_meld_obf[,c(3,1,2)]
         demog_meld_obf$p_val <- NA
         colnames(demog_meld_obf) <- c("category","MELD_less20","MELD_20ormore","p_val")
-        message("Performing filtering of variables for demographics table for cirrhotics by MELD")
+        cat("\nPerforming filtering of variables for demographics table for cirrhotics by MELD\n")
         for(i in 1:length(table_one_meld_vars)) {
           try({
             tmp <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe) %>% dplyr::count(get(table_one_meld_vars[i])) %>% tidyr::pivot_wider(names_from="meld_admit_severe",values_from = "n")
@@ -282,7 +285,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
             
             # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
             p_value <- tryCatch({
-              message(paste0(c("Attempting Fisher's test for ",table_one_meld_vars[i])))
+              cat(paste0(c("\nAttempting Fisher's test for ",table_one_meld_vars[i],"\n")))
               fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
             }, error = function(e) {
               message("Failed running Fisher's exact test for ",table_one_meld_vars[i],", proceeding with Monte Carlo simulation.")
@@ -300,7 +303,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
             rm(p_value)
           })
         }
-        message("Computing admission labs averages")
+        cat("\nComputing admission labs averages\n")
         #Calculate stats of admission labs
         lab_meld_list <- NULL
         lab_anova <- NULL
@@ -332,7 +335,10 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
           lab_anova <- c("ast_anova","alt_anova","bil_anova","inr_anova","alb_anova")
           lab_meld_stats <- "lab_meld_stats"
         }, error = function(e) {
-          message("Error in processing labs. Check error messages.")
+          message("\nError in processing labs. Check error messages.\n")
+          message("\nOriginal error:\n",e)
+          cat("\nError in processing labs. Check error messages.\n")
+          cat("\nOriginal error:\n",e,"\n")
         })
         try({
           demog_meld_obf$MELD_less20[demog_meld_obf$MELD_less20 < obfuscation_value] <- 0
@@ -342,7 +348,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
           meld_20ormore_total <- demog_meld_obf$MELD_20ormore[1]
           total_pop <- demog_meld_obf$total[1]
           demog_meld_obf <- demog_meld_obf %>% dplyr::group_by(category) %>% dplyr::mutate(MELD_less20_perc = MELD_less20 / meld_less20_total * 100, MELD_20ormore_perc = MELD_20ormore/meld_20ormore_total * 100, total_perc = total/total_pop * 100) %>% dplyr::ungroup()
-          message("Computed final demog_meld_obf table.")
+          cat("\nComputed final demog_meld_obf table.\n")
         })
         
         if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
@@ -372,7 +378,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
       }
     })
   }
-  message("Attempting to save demographics tables for cirrhotic patients.")
+  cat("\nAttempting to save demographics tables for cirrhotic patients.\n")
   try({
     if(isTRUE(cirrhosis_present)) {
       if(obfuscation_value == 0 & isTRUE(is_obfuscated)) {
@@ -391,7 +397,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     }
     try({save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")})
   }
-  message("TableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.")
+  cat("\nTableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.\n")
   
   demog_time_to_event_tmp <- demog_summ[,c("sex","age_group","race")] 
   demog_time_to_event_tmp <- data.table::as.data.table(lapply(demog_time_to_event_tmp,factor))

@@ -376,7 +376,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Generate sCr levels at +90d (cr_90d) and +180d (cr_180d) timepoints (for determining post-AKI recovery, AKD)
     # labs_cr_aki <- data.table::setDT(labs_cr_aki)[,':='(cr_180d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][]
     labs_cr_aki <- data.table::data.table(labs_cr_aki,key=c("patient_id","days_since_admission"))
-    cat("\nNow finding future creatinine values at 90 days, 180 days and 365 days...")
+    cat("\nNow finding future creatinine values at 90 days, 180 days and 365 days...\n")
     cr_90d_range <- 10 # means that the 90-day creatinine will be in the interval [80,100]
     cr_180d_range <- 30 # means that the 180-day creatinine will be in the interval [150,210]
     cr_365d_range <- 35 # means that the 365-day creatinine will be in the interval [330,400]
@@ -385,7 +385,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1),cr_180d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
     
     # Now find the nearest future value
-    cat("\nNow finding the nearest future value closest to the 90,180 and 365-day mark...")
+    cat("\nNow finding the nearest future value closest to the 90,180 and 365-day mark...\n")
     message("Warning again: the package may appear to freeze at this stage. Do NOT stop the package!")
     labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+180,days_since_admission+180+cr_180d_range,incbounds = TRUE)],1),cr_90d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+90,days_since_admission+90+cr_90d_range,incbounds = TRUE)],1),cr_365d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+365,days_since_admission+365+cr_365d_range,incbounds = TRUE)],1),cr_180d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+180,days_since_admission+180+cr_180d_range,incbounds = TRUE)],1),cr_90d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+90,days_since_admission+90+cr_90d_range,incbounds = TRUE)],1),cr_365d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+365,days_since_admission+365+cr_365d_range,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
     
@@ -968,7 +968,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             dir.create(file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis")))
             cirrhosis_list <- comorbid %>% dplyr::select(patient_id,cld) %>% dplyr::filter(cld == 1)
             labs_cirrhosis <- observations[observations$patient_id %in% cirrhosis_list$patient_id,] %>% dplyr::filter(concept_type == "LAB-LOINC")
-            labs_list <- unique(labs_cirrhosis$concept_code)
+            labs_list <- unlist(unique(labs_cirrhosis$concept_code))
             inr_present <- FALSE
             if(length(intersect(inr_loinc,labs_list)) > 0) {
                 inr_present <- TRUE
@@ -1092,6 +1092,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 # labs_meld_admission:
                 # patient_id, day_bin, mean/min/max/first of labs, meld (integer score), meld_admit_severe (0/1)
                 # Possible that some patient_ids may not be inside this if there are no labs in days 0-3 (i.e. no day_bin == "[0,3]")
+                cat("\nNow creating creatinine graphs with MELD scores")
                 peak_trend_meld <- peak_trend[peak_trend$patient_id %in% cirrhosis_list$patient_id,]
                 peak_trend_meld <- merge(peak_trend_meld,meld_severe_list,by="patient_id",all.x=TRUE)
                 peak_trend_meld$meld_admit_severe[peak_trend_meld$meld_admit_severe] <- 0
@@ -1106,6 +1107,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 peak_cr_meld_timeplot <- ggplot2::ggplot(peak_cr_meld_summ,ggplot2::aes(x=time_from_peak,y=mean_ratio,group=meld_severe_label))+ggplot2::geom_line(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_point(ggplot2::aes(color = factor(meld_severe_label))) + ggplot2::geom_errorbar(ggplot2::aes(ymin=mean_ratio-sem_ratio,ymax=mean_ratio+sem_ratio,color = factor(meld_severe_label)),position=ggplot2::position_dodge(0.05))+ ggplot2::theme(legend.position="right") + ggplot2::labs(x = "Days from AKI Peak",y = "Serum Cr/Baseline Cr", color = "Severity") + ggplot2::xlim(-30,30) + ggplot2::ylim(1,3.5) + ggplot2::scale_color_manual(values=c("MELD < 20, AKI"="#bc3c29","MELD < 20, no AKI"="#0072b5","MELD >= 20, AKI" = "#e18727","MELD >= 20, no AKI"="#20854e")) + ggplot2::theme_minimal()
                 ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_PeakCr_MELD_AKI.png")),plot=peak_cr_meld_timeplot,width=12,height=9,units="cm")
                 
+                cat("Creating tables for graphs sorted by COVID-19 severity...")
                 peak_trend_severe_cld <- peak_trend_severe[peak_trend_severe$patient_id %in% cirrhosis_list$patient_id,]
                 peak_cr_cld_summ <- peak_trend_severe_cld %>% dplyr::group_by(severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
                 peak_cr_cld_summ <- merge(peak_cr_cld_summ,severe_label,by="severe",all.x=TRUE)
@@ -1567,6 +1569,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     }
     if(isTRUE(exists("cirrhotic_files"))) {
         if(!is.null(cirrhotic_files)) {
+            cat("\nSaving cirrhotic analysis files. File sizes may range from 40-100+MB depending on cohort size.\nThis may exceed GitHub's upload limit and you may have to manually transfer the file over Slack.\nThis process may take a while - DO NOT STOP THE FUNCTION\n")
             save(list=cirrhotic_files,file=file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_MELD_CLD_TimeToEvent.rda")),compress="bzip2")
         }
     }

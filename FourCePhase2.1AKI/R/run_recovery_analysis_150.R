@@ -219,7 +219,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
       #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       # }
       if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-        message(paste0(c("Including ",comorbid_recovery_list[i]," into the comorbid_recovery list...")))
+        cat(paste0(c("\nIncluding ",comorbid_recovery_list[i]," into the comorbid_recovery list...\n")))
         comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       }
     }
@@ -236,7 +236,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
       #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
       # }
       if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-        message(paste0(c("Including ",demog_list[i]," into the demog_recovery list...")))
+        cat(paste0(c("\nIncluding ",demog_list[i]," into the demog_recovery list...\n")))
         demog_recovery_list_tmp[i] <- demog_list[i]
       }
     }
@@ -254,7 +254,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
         #     comorbid_recovery_list_tmp[i] <- comorbid_recovery_list[i]
         # }
         if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-          message(paste0(c("Including ",med_recovery_list[i]," into the med_recovery list...")))
+          cat(paste0(c("\nIncluding ",med_recovery_list[i]," into the med_recovery list...\n")))
           med_recovery_list_tmp[i] <- med_recovery_list[i]
         }
       }
@@ -268,7 +268,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
     comorbid_recovery_list <- comorbid_recovery_list[comorbid_recovery_list %in% restrict_list]
     med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
+    cat(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
   }
   variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
   readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation_150.txt")),append=F)
@@ -354,7 +354,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model1,collapse="+")))
-    message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model1,collapse="+")))
+    cat(paste("\nFormula for Model 1: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model1,collapse="+")))
     coxph_recover1 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
     coxph_recover1_summ <- summary(coxph_recover1) 
     print(coxph_recover1_summ)
@@ -373,7 +373,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     recovery_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model2,collapse="+")))
-    message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model2,collapse="+")))
+    cat(paste("\nFormula for Model 2: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model2,collapse="+"),"\n"))
     coxph_recover2 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
     coxph_recover2_summ <- summary(coxph_recover2) 
     print(coxph_recover2_summ)
@@ -392,7 +392,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model3,collapse="+")))
-    message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model3,collapse="+")))
+    cat(paste("\nFormula for Model 3: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model3,collapse="+")),"\n")
     coxph_recover3 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
     coxph_recover3_summ <- summary(coxph_recover3) 
     print(coxph_recover3_summ)
@@ -410,7 +410,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list)
     recovery_model4 <- recovery_model4[recovery_model4 %in% model4]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model4,collapse="+")))
-    message(paste("Formula for Model 4: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model4,collapse="+")))
+    cat(paste("\nFormula for Model 4: survival::Surv(time=time_to_ratio1.50,event=recover_1.50x) ~ ",paste(recovery_model4,collapse="+")),"\n")
     coxph_recover4 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
     coxph_recover4_summ <- summary(coxph_recover4) 
     print(coxph_recover4_summ)
