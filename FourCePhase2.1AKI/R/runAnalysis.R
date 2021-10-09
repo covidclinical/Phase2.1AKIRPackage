@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE,debug_on=FALSE) {
     
     if(isFALSE(offline)) {
         ## make sure this instance has the latest version of the quality control and data wrangling code available
@@ -38,7 +38,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_error.log")))
     sink(error_log,append=TRUE,split=TRUE)
-    sink(error_log,append=TRUE,type="message")
+    
+    if(isTRUE(debug_on)) {
+        sink(error_log,append=TRUE,type="message")
+    }
     
     obfuscation_value = as.numeric(FourCePhase2.1Data::getObfuscation(currSiteId))
     cat(paste0(c("\nObfuscation level set to ",obfuscation_value)))
@@ -1631,7 +1634,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         message("\nEnsure that these files are removed before uploading to GitHub!")
     }
     sink()
-    sink(type="message")
-    
+    if(isTRUE(debug_on)) {
+        sink(type="message")
+    }
+    closeAllConnections()
 }
 
