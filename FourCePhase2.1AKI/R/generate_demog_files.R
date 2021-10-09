@@ -352,7 +352,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
         })
         
         if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
-          table_one_meld <- tableone::CreateTableOne(data=demog_meld_summ,vars=table_one_Meld_vars,strata="meld_admit_severe")
+          table_one_meld <- tableone::CreateTableOne(data=demog_meld_summ,vars=table_one_meld_vars,strata="meld_admit_severe")
           export_table_one_meld <- print(table_one_meld,showAllLevels=TRUE,formatOptions=list(big.mark=","))
           if(exists("demog_meld_obf")) {
             demog_meld_files <- c(demog_meld_files,"demog_meld_obf","table_one_meld","export_table_one_meld",lab_meld_stats,lab_anova)
