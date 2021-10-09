@@ -37,7 +37,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     }
     
     error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_error.log")))
-    sink(error_log,append=TRUE)
+    sink(error_log,append=TRUE,split=TRUE)
     sink(error_log,append=TRUE,type="message")
     
     obfuscation_value = as.numeric(FourCePhase2.1Data::getObfuscation(currSiteId))
