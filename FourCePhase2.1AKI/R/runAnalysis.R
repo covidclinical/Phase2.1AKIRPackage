@@ -951,7 +951,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     cat("\nCKD present: ",ckd_present)
         
     cat("\nFirst attempting to generate plots for only patients with pre-admission sCr...")
-    generate_cr_graphs_prioronly(currSiteId,peak_trend[peak_trend$patient_id %in% patients_with_preadmit_cr,],is_obfuscated,obfuscation_value,kdigo_grade[kdigo_grade$patient_id %in% patients_with_preadmit_cr,],ckd_present,ckd_list[peak_trend$patient_id %in% patients_with_preadmit_cr,],labs_cr_all[peak_trend$patient_id %in% patients_with_preadmit_cr,])
+    generate_cr_graphs_prioronly(currSiteId,peak_trend[peak_trend$patient_id %in% patients_with_preadmit_cr,],is_obfuscated,obfuscation_value,kdigo_grade[kdigo_grade$patient_id %in% patients_with_preadmit_cr,],ckd_present,ckd_list[ckd_list$patient_id %in% patients_with_preadmit_cr,],labs_cr_all[labs_cr_all$patient_id %in% patients_with_preadmit_cr,])
     cat("\nDone!")
     
     cat("\nNow doing the same for ALL patients...")
@@ -1063,7 +1063,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 }
                 cat("\nMerging all tables with binned data\n")
                 cat("Valid variables: ",labs_meld_list)
-                labs_meld <- mget(labs_meld_list) %>% purrr::reduce(merge,by=c("patient_id","day_bin")) %>% dplyr::distinct()
+                labs_meld <- mget(labs_meld_list) %>% purrr::reduce(dplyr::full_join,by=c("patient_id","day_bin")) %>% dplyr::distinct()
                 # labs_meld <- merge(labs_inr,labs_bil,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
                 # labs_meld <- merge(labs_meld,labs_alb,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
                 # labs_meld <- merge(labs_meld,labs_ast,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
@@ -1092,8 +1092,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                     labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr)) %>% dplyr::ungroup()
                 }
                 cat("\nExtracting admission MELD score...")
-                labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0)) %>% dplyr::ungroup()
+                labs_meld$missing_value <- apply(labs_meld, 1, function(x) sum(is.na(x))/4) # find number of missing labs per patient and time interval
+                if(isTRUE(sodium_present)) {
+                    labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0),sodium_valid = dplyr::if_else(is.na(min_na),0,1)) %>% dplyr::mutate(meld_labs_valid = dplyr::if_else((meld < 20) & ((missing_value > 0 & sodium_valid == 1) | (missing_value > 1 & sodium_valid == 0)),0,1)) %>% dplyr::ungroup()
+                } else {
+                    labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0)) %>% dplyr::mutate(meld_labs_valid = dplyr::if_else((meld < 20) & (missing_value > 0),0,1)) %>% dplyr::ungroup()
+                }
+                
                 labs_meld_admission$meld_admit_severe[is.na(labs_meld_admission$meld_admit_severe)] <- 0
+                labs_meld_admission <- labs_meld_admission[labs_meld_admission$meld_labs_valid == 1,]
                 meld_severe_list <- labs_meld_admission %>% dplyr::select(patient_id,meld,meld_admit_severe) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
                 
                 # Final headers
@@ -1107,7 +1114,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 peak_trend_meld <- peak_trend[peak_trend$patient_id %in% cirrhosis_list$patient_id,]
                 peak_trend_meld <- merge(peak_trend_meld,meld_severe_list,by="patient_id",all.x=TRUE)
                 peak_trend_meld$meld_admit_severe[peak_trend_meld$meld_admit_severe] <- 0
+                peak_trend_meld <- peak_trend_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = dplyr::if_else(severe == 1 | severe == 3,0,1)) %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(aki == 1,dplyr::if_else(meld_admit_severe == 1,4,2),dplyr::if_else(meld_admit_severe == 1,3,1)))
                 peak_cr_meld_summ <- peak_trend_meld %>% dplyr::group_by(meld_admit_severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
+                
+                
                 meld_label <- data.table::data.table(c(1,2,3,4),c("MELD < 20, no AKI","MELD < 20, AKI","MELD >= 20, no AKI","MELD >= 20, AKI"))
                 colnames(meld_label) <- c("meld_admit_severe","meld_severe_label")
                 peak_cr_meld_summ <- merge(peak_cr_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
@@ -1139,6 +1149,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 adm_meld_cr$meld_admit_severe[is.na(adm_meld_cr$meld_admit_severe)] <- 0
                 adm_meld_cr <- adm_meld_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_365d,min_cr_retro_365d)) %>% dplyr::ungroup()
                 adm_meld_cr <- adm_meld_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
+                adm_meld_cr <- adm_meld_cr %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = dplyr::if_else(severe == 1 | severe == 3,0,1)) %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(aki == 1,dplyr::if_else(meld_admit_severe == 1,4,2),dplyr::if_else(meld_admit_severe == 1,3,1)))
                 adm_meld_summ <- adm_meld_cr %>% dplyr::group_by(meld_admit_severe,days_since_admission) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
                 adm_meld_summ <- merge(adm_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
                 if(isTRUE(is_obfuscated)) {
@@ -1173,6 +1184,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(baseline_cr = min(min_cr_365d,min_cr_retro_365d)) %>% dplyr::ungroup()
                 aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ratio = value/baseline_cr) %>% dplyr::ungroup()
                 #aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = ifelse((severe == 4 | severe == 5),4,severe))
+                aki_start_meld <- aki_start_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = dplyr::if_else(severe == 1 | severe == 3,0,1)) %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(aki == 1,dplyr::if_else(meld_admit_severe == 1,4,2),dplyr::if_else(meld_admit_severe == 1,3,1)))
                 aki_start_meld_summ <- aki_start_meld %>% dplyr::group_by(meld_admit_severe,time_from_start) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
                 aki_start_meld_summ <- merge(aki_start_meld_summ,meld_label,by="meld_admit_severe",all.x=TRUE)
                 if(isTRUE(is_obfuscated)) {
@@ -1437,7 +1449,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
             #recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
             recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
-            cat(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+")))
+            cat(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model1,"severe * aki_kdigo_final"),collapse="+"),"\n"))
             coxph_cirrhotic_recover1 <- survival::coxph(recoverCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_recover1_summ <- summary(coxph_cirrhotic_recover1) 
             print(coxph_cirrhotic_recover1_summ)
@@ -1449,12 +1461,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_recover1_summ","coxph_cirrhotic_recover1_hr","coxph_cirrhotic_recover1_stats1","coxph_cirrhotic_recover1_stats2")
         })
         
-        cat("\n\nGenerating Model 2 (time to recovery, cirrhotic AKI patients only)...")
+        cat("\n\nGenerating Model 2 (time to recovery, cirrhotic AKI patients only)...\n")
         try({
             recovery_model2 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
             recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
-            cat(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
+            cat(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+"),"\n"))
             coxph_cirrhotic_recover2 <- survival::coxph(recoverCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_recover2_summ <- summary(coxph_cirrhotic_recover2) 
             print(coxph_cirrhotic_recover2_summ)
@@ -1471,8 +1483,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             recovery_model3 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
             recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-            cat(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-            cat(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
+            cat(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+"),"\n"))
             coxph_cirrhotic_recover3 <- survival::coxph(recoverCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_recover3_summ <- summary(coxph_cirrhotic_recover3) 
             print(coxph_cirrhotic_recover3_summ)
@@ -1527,12 +1538,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"univ_results_death_cirrhotic")
         })
         
-        cat("\nGenerating Model 1 (Time to death, cirrhotic AKI patients only)...")
+        cat("\nGenerating Model 1 (Time to death, cirrhotic AKI patients only)...\n")
         try({
             cirrhotic_death_aki_model1 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model1 <- cirrhotic_death_aki_model1[cirrhotic_death_aki_model1 %in% model1]
             deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model1,collapse="+")))
-            cat("\nFormula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model1,collapse="+")))
+            cat("Formula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model1,collapse="+"),"\n"))
             coxph_cirrhotic_death1 <- survival::coxph(deathCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_death1_summ <- summary(coxph_cirrhotic_death1)
             print(coxph_cirrhotic_death1_summ)
@@ -1544,12 +1555,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death1_summ","coxph_cirrhotic_death1_hr","coxph_cirrhotic_death1_stats1","coxph_cirrhotic_death1_stats2")
         })
         
-        cat("\nGenerating Model 2 (Time to death, cirrhotic AKI patients only)...")
+        cat("\nGenerating Model 2 (Time to death, cirrhotic AKI patients only)...\n")
         try({
             cirrhotic_death_aki_model2 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model2 <- cirrhotic_death_aki_model2[cirrhotic_death_aki_model2 %in% model2]
             deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model2,collapse="+")))
-            cat("\nFormula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model2,collapse="+")))
+            cat("Formula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model2,collapse="+"),"\n"))
             coxph_cirrhotic_death2 <- survival::coxph(deathCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_death2_summ <- summary(coxph_cirrhotic_death2) 
             print(coxph_cirrhotic_death2_summ)
@@ -1561,12 +1572,12 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cirrhotic_files <- c(cirrhotic_files,"coxph_cirrhotic_death2_summ","coxph_cirrhotic_death2_hr","coxph_cirrhotic_death2_stats1","coxph_cirrhotic_death2_stats2")
         })
         
-        cat("\nGenerating Model 3 (Time to death, cirrhotic AKI patients only)...")
+        cat("\nGenerating Model 3 (Time to death, cirrhotic AKI patients only)...\n")
         try({
             cirrhotic_death_aki_model3 <- c("severe","aki_kdigo_final",meld_var,demog_recovery_list,comorbid_recovery_list,med_recovery_list)
             cirrhotic_death_aki_model3 <- cirrhotic_death_aki_model3[cirrhotic_death_aki_model3 %in% model3]
             deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model3,collapse="+")))
-            cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model3,collapse="+")))
+            cat("Formula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(cirrhotic_death_aki_model3,collapse="+"),"\n"))
             coxph_cirrhotic_death3 <- survival::coxph(deathCoxPHFormula, data=cirrhotic_recovery)
             coxph_cirrhotic_death3_summ <- summary(coxph_cirrhotic_death3) 
             print(coxph_cirrhotic_death3_summ)

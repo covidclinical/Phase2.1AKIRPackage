@@ -184,7 +184,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
         
         # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
         p_value <- tryCatch({
-          cat(paste0(c("\nAttempting Fisher's test for ",table_one_vars[i],"\n")))
+          cat(paste0(c("Attempting Fisher's test for ",table_one_vars[i],"\n")))
           fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
         }, error = function(e) {
           message("Failed running Fisher's exact test for ",table_one_vars[i],", proceeding with Monte Carlo simulation.")
@@ -230,7 +230,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
             
             # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
             p_value <- tryCatch({
-              cat(paste0(c("\nAttempting Fisher's test for ",table_one_vars[i],"\n")))
+              cat(paste0(c("Attempting Fisher's test for ",table_one_vars[i],"\n")))
               fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
             }, error = function(e) {
               message("Failed running Fisher's exact test for ",table_one_vars[i],", proceeding with Monte Carlo simulation.")
@@ -269,7 +269,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
       if(isTRUE(meld_analysis_valid)) {
         # If possible to split by MELD, then generate the demographics table split by MELD score cutoff 20
         cat("\nMELD analysis possible. Generating demographics table for cirrhotics stratified by MELD.\n")
-        demog_meld_summ <- demog_cld_summ
+        demog_meld_summ <- demog_cld_summ[demog_cld_summ$meld_labs_valid == 1,]
         demog_meld_obf <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe) %>% dplyr::count() %>% tidyr::pivot_wider(names_from = "meld_admit_severe",values_from = "n")
         demog_meld_obf$category <- "n"
         demog_meld_obf <- demog_meld_obf[,c(3,1,2)]
@@ -285,7 +285,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
             
             # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
             p_value <- tryCatch({
-              cat(paste0(c("\nAttempting Fisher's test for ",table_one_meld_vars[i],"\n")))
+              cat(paste0(c("Attempting Fisher's test for ",table_one_meld_vars[i],"\n")))
               fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
             }, error = function(e) {
               message("Failed running Fisher's exact test for ",table_one_meld_vars[i],", proceeding with Monte Carlo simulation.")
@@ -308,32 +308,105 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
         lab_meld_list <- NULL
         lab_anova <- NULL
         lab_meld_stats <- NULL
+        lab_anova_raw <- NULL
         tryCatch({
-          lab_meld_stats <- demog_meld_summ %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
-            mean_admit_ast = mean(first_ast,na.rm=TRUE),
-            mean_admit_alt = mean(first_alt,na.rm=TRUE),
-            mean_admit_bil = mean(first_bil,na.rm=TRUE),
-            mean_admit_inr = mean(first_inr,na.rm=TRUE),
-            mean_admit_alb = mean(first_alb,na.rm=TRUE),
-            sd_admit_ast = sd(first_ast,na.rm=TRUE),
-            sd_admit_alt = sd(first_alt,na.rm=TRUE),
-            sd_admit_bil = sd(first_bil,na.rm=TRUE),
-            sd_admit_inr = sd(first_inr,na.rm=TRUE),
-            sd_admit_alb = sd(first_alb,na.rm=TRUE),
-            n_admit_ast = sum(!is.na(first_ast)),
-            n_admit_alt = sum(!is.na(first_alt)),
-            n_admit_bil = sum(!is.na(first_bil)),
-            n_admit_inr = sum(!is.na(first_inr)),
-            n_admit_alb = sum(!is.na(first_alb))
-          ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
-          ast_anova <- stats::aov(first_ast ~ meld_admit_severe * aki,data=demog_meld_summ)
-          alt_anova <- stats::aov(first_alt ~ meld_admit_severe * aki,data=demog_meld_summ)
-          bil_anova <- stats::aov(first_bil ~ meld_admit_severe * aki,data=demog_meld_summ)
-          inr_anova <- stats::aov(first_inr ~ meld_admit_severe * aki,data=demog_meld_summ)
-          alb_anova <- stats::aov(first_alb ~ meld_admit_severe * aki,data=demog_meld_summ)
-          lab_meld_list <- c("first_ast","first_alt","first_bil","first_inr","first_alb")
-          lab_anova <- c("ast_anova","alt_anova","bil_anova","inr_anova","alb_anova")
-          lab_meld_stats <- "lab_meld_stats"
+          try({
+            cat("Two-way ANOVA for AST (MELD >= 20, AKI as variables)...\n")
+            ast_stats <- demog_meld_summ %>% dplyr::select(patient_id,first_ast,meld_admit_severe,aki)
+            model <- lm(first_ast ~ meld_admit_severe * aki,data=ast_stats)
+            ast_anova_raw <- car::Anova(model,type=3)
+            ast_anova <- broom::tidy(ast_anova_raw)
+            lab_anova_raw <- c(lab_anova_raw,"ast_anova_raw")
+            lab_meld_list <- c(lab_meld_list,"first_ast")
+            lab_anova <- c(lab_anova,"ast_anova")
+            ast_stats <- ast_stats %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+              mean_admit_ast = mean(first_ast,na.rm=TRUE),
+              sd_admit_ast = sd(first_ast,na.rm=TRUE),
+              n_admit_ast = sum(!is.na(first_ast))
+            ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            lab_meld_stats <- c(lab_meld_stats,"ast_stats")
+          })
+          try({
+            cat("Two-way ANOVA for ALT (MELD >= 20, AKI as variables)...\n")
+            alt_stats <- demog_meld_summ %>% dplyr::select(patient_id,first_alt,meld_admit_severe,aki)
+            model <- lm(first_alt ~ meld_admit_severe * aki,data=alt_stats)
+            alt_anova_raw <- car::Anova(model,type=3)
+            alt_anova <- broom::tidy(alt_anova_raw)
+            lab_anova_raw <- c(lab_anova_raw,"alt_anova_raw")
+            lab_meld_list <- c(lab_meld_list,"first_alt")
+            lab_anova <- c(lab_anova,"alt_anova")
+            alt_stats <- alt_stats %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+              mean_admit_alt = mean(first_alt,na.rm=TRUE),
+              sd_admit_alt = sd(first_alt,na.rm=TRUE),
+              n_admit_alt = sum(!is.na(first_alt))
+            ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            lab_meld_stats <- c(lab_meld_stats,"alt_stats")
+          })
+          try({
+            cat("Two-way ANOVA for bilirubin (MELD >= 20, AKI as variables)...\n")
+            bil_stats <- demog_meld_summ %>% dplyr::select(patient_id,max_bil,meld_admit_severe,aki)
+            model <- lm(max_bil ~ meld_admit_severe * aki,data=bil_stats)
+            bil_anova_raw <- car::Anova(model,type=3)
+            bil_anova <- broom::tidy(bil_anova_raw)
+            lab_anova_raw <- c(lab_anova_raw,"bil_anova_raw")
+            lab_meld_list <- c(lab_meld_list,"max_bil")
+            lab_anova <- c(lab_anova,"bil_anova")
+            bil_stats <- bil_stats %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+              mean_admit_bil = mean(max_bil,na.rm=TRUE),
+              sd_admit_bil = sd(max_bil,na.rm=TRUE),
+              n_admit_bil = sum(!is.na(max_bil))
+            ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            lab_meld_stats <- c(lab_meld_stats,"bil_stats")
+          })
+          try({
+            cat("Two-way ANOVA for INR (MELD >= 20, AKI as variables)...\n")
+            inr_stats <- demog_meld_summ %>% dplyr::select(patient_id,max_inr,meld_admit_severe,aki)
+            model <- lm(max_inr ~ meld_admit_severe * aki,data=inr_stats)
+            inr_anova_raw <- car::Anova(model,type=3)
+            inr_anova <- broom::tidy(inr_anova_raw)
+            lab_anova_raw <- c(lab_anova_raw,"inr_anova_raw")
+            lab_meld_list <- c(lab_meld_list,"max_inr")
+            lab_anova <- c(lab_anova,"inr_anova")
+            inr_stats <- inr_stats %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+              mean_admit_inr = mean(max_inr,na.rm=TRUE),
+              sd_admit_inr = sd(max_inr,na.rm=TRUE),
+              n_admit_inr = sum(!is.na(max_inr))
+            ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            lab_meld_stats <- c(lab_meld_stats,"inr_stats")
+          })
+          try({
+            cat("Two-way ANOVA for alb (MELD >= 20, AKI as variables)...\n")
+            alb_stats <- demog_meld_summ %>% dplyr::select(patient_id,first_alb,meld_admit_severe,aki)
+            model <- lm(first_alb ~ meld_admit_severe * aki,data=alb_stats)
+            alb_anova_raw <- car::Anova(model,type=3)
+            alb_anova <- broom::tidy(alb_anova_raw)
+            lab_anova_raw <- c(lab_anova_raw,"alb_anova_raw")
+            lab_meld_list <- c(lab_meld_list,"first_alb")
+            lab_anova <- c(lab_anova,"alb_anova")
+            alb_stats <- alb_stats %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+              mean_admit_alb = mean(first_alb,na.rm=TRUE),
+              sd_admit_alb = sd(first_alb,na.rm=TRUE),
+              n_admit_alb = sum(!is.na(first_alb))
+            ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            lab_meld_stats <- c(lab_meld_stats,"alb_stats")
+          })
+          try({
+            cat("Two-way ANOVA for Na (MELD >= 20, AKI as variables)...\n")
+            na_stats <- demog_meld_summ %>% dplyr::select(patient_id,min_na,meld_admit_severe,aki)
+            model <- lm(min_na ~ meld_admit_severe * aki,data=ast_stats)
+            na_anova_raw <- car::Anova(model,type=3)
+            na_anova <- broom::tidy(na_anova_raw)
+            lab_anova_raw <- c(lab_anova_raw,"na_anova_raw")
+            lab_meld_list <- c(lab_meld_list,"min_na")
+            lab_anova <- c(lab_anova,"na_anova")
+            na_stats <- na_stats %>% dplyr::group_by(meld_admit_severe,aki) %>% dplyr::summarise(
+              mean_admit_na = mean(first_na,na.rm=TRUE),
+              sd_admit_na = sd(first_na,na.rm=TRUE),
+              n_admit_na = sum(!is.na(first_na))
+            ) %>% dplyr::ungroup() %>% dplyr::arrange(meld_admit_severe,aki)
+            lab_meld_stats <- c(lab_meld_stats,"na_stats")
+          })
+          lab_meld_stats <- mget(lab_meld_stats) %>% purrr::reduce(dplyr::full_join,by=c("meld_admit_severe","aki"))
         }, error = function(e) {
           message("\nError in processing labs. Check error messages.\n")
           message("\nOriginal error:\n",e)
@@ -355,12 +428,12 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
           table_one_meld <- tableone::CreateTableOne(data=demog_meld_summ,vars=table_one_meld_vars,strata="meld_admit_severe")
           export_table_one_meld <- print(table_one_meld,showAllLevels=TRUE,formatOptions=list(big.mark=","))
           if(exists("demog_meld_obf")) {
-            demog_meld_files <- c(demog_meld_files,"demog_meld_obf","table_one_meld","export_table_one_meld",lab_meld_stats,lab_anova)
+            demog_meld_files <- c(demog_meld_files,"demog_meld_obf","table_one_meld","export_table_one_meld","lab_meld_stats",lab_anova,lab_anova_raw)
           } else {
-            demog_meld_files <- c(demog_meld_files,"table_one_meld","export_table_one_meld",lab_meld_stats,lab_anova)
+            demog_meld_files <- c(demog_meld_files,"table_one_meld","export_table_one_meld","lab_meld_stats",lab_anova,lab_anova_raw)
           }
         } else {
-          demog_meld_files <- c(demog_meld_files,"demog_meld_obf",lab_meld_stats,lab_anova)
+          demog_meld_files <- c(demog_meld_files,"demog_meld_obf","lab_meld_stats",lab_anova,lab_anova_raw)
         }
       }
     })
@@ -395,7 +468,9 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     if(isTRUE(preadmit_only_analysis)) {
       file_rda_suffix <- "_preadmit_cr_only.rdata"
     }
-    try({save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")})
+    try({
+      save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")
+    })
   }
   cat("\nTableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.\n")
   
