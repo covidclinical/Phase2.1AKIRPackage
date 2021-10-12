@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE,debug_on=FALSE) {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-04-30") {
     
     if(isFALSE(offline)) {
         ## make sure this instance has the latest version of the quality control and data wrangling code available
@@ -57,6 +57,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Reorder the columns in each table to bring patient_id to the first column and remove patient_num
     demographics <- demographics %>% dplyr::select(patient_id,siteid,admission_date,days_since_admission,last_discharge_date,still_in_hospital,severe_date,severe,death_date,deceased,sex,age_group,race,race_collected)
     observations <- observations %>% dplyr::select(patient_id,siteid,days_since_admission,concept_type,concept_code,value)
+    demographics$death_date <- as.Date(demographics$death_date,format="%Y-%m-%d")
+    demographics$admission_date <- as.Date(demographics$admission_date,format="%Y-%m-%d")
     
     # Identify patients without any age or < 18 years and remove them from analysis
     young_patients <- unlist(demographics$patient_id[demographics$age_group %in% c("other", "00to02", "03to05", "06to11", "12to17")])
@@ -64,6 +66,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         demographics <- demographics[!(demographics$patient_id %in% young_patients),]
         observations <- observations[!(observations$patient_id %in% young_patients),]
         course <- course[!(course$patient_id %in% young_patients),]
+    }
+    
+    # Remove patients who were admitted after April 30, 2020 (or other pre-specific date cutoff)
+    later_patients <- unlist(demographics$patient_id[demographics$admission_date < as.Date(date_cutoff)])
+    if(length(later_patients) > 0) {
+        demographics <- demographics[!(demographics$patient_id %in% later_patients),]
+        observations <- observations[!(observations$patient_id %in% later_patients),]
+        course <- course[!(course$patient_id %in% later_patients),]
     }
     
     # Generate a diagnosis table
@@ -77,8 +87,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     colnames(procedures) <- c("patient_id","siteid","days_since_admission","icd_version","procedure_code")
     
     demographics_filt <- demographics %>% dplyr::mutate(time_to_severe = ifelse(severe == 1, as.numeric(as.Date(severe_date) - as.Date(admission_date)),NA))
-    demographics_filt$death_date <- as.Date(demographics_filt$death_date,format="%Y-%m-%d")
-    demographics_filt$admission_date <- as.Date(demographics_filt$admission_date,format="%Y-%m-%d")
     demographics_filt <- demographics_filt %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death = ifelse(deceased == 1, as.numeric(death_date - admission_date),NA))
     demographics_filt <- demographics_filt %>% dplyr::mutate(length_stay = ifelse(still_in_hospital==1,days_since_admission,as.numeric(as.Date(last_discharge_date) - as.Date(admission_date))))
     
