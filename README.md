@@ -98,7 +98,7 @@ If `print_rrt_surrogate` is set to TRUE, please ensure that these files have bee
    - As a workaround, try to run the package in the older R 4.0.2 environment instead
 
 ## Work in Progress
-1) [ ] Debugging v0.1.5.0 for any issues after extending baseline serum creatinine definitions to prior 365 days only
+1) [x] Debugging v0.1.5.0 for any issues after extending baseline serum creatinine definitions to prior 365 days only
 2) [ ] Transitioning package to use Phase 2.2-formatted data when specified
 3) [ ] Modifying Phase 2.2 SQL scripts to incorporate missing procedure codes for RRT and kidney transplant (e.g. peritoneal dialysis codes not included in most cases)
 4) [ ] Implementing an age-based serum creatinine cutoff based on the CKD-EPI equation and using an assumed eGFR < 30mL/kg/1.73m2 cutoff (using lower limits of age groups as reference, given the obfuscation of age present in Phase 1.1/2.1)
