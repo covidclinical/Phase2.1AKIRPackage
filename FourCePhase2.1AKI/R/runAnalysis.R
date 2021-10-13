@@ -69,7 +69,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     }
     
     # Remove patients who were admitted after April 30, 2020 (or other pre-specific date cutoff)
-    later_patients <- unlist(demographics$patient_id[demographics$admission_date < as.Date(date_cutoff)])
+    later_patients <- unlist(demographics$patient_id[demographics$admission_date > as.Date(date_cutoff)])
     if(length(later_patients) > 0) {
         demographics <- demographics[!(demographics$patient_id %in% later_patients),]
         observations <- observations[!(observations$patient_id %in% later_patients),]
@@ -980,135 +980,100 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     cirrhosis_present <- ("cld" %in% comorbid_list)
     inr_loinc <- c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1")
+    sodium_loinc <- c("2947-0","32717-1","39792-7","41657-8","39791-9","2951-2","77139-4")
     meld_analysis_valid <- FALSE
     labs_meld_admission <- NULL
+    meld_labs_day_cutoff <- 3
     tryCatch({
         if(isTRUE(cirrhosis_present)) {
+            cat("\n=====================================\n")
+            cat("\nProcessing serum creatinine graphs for cirrhotic patients.\nFirst checking if admission MELD labs are available.")
             dir.create(file.path(getProjectOutputDirectory(),paste0(currSiteId,"_Cirrhosis")))
             cirrhosis_list <- comorbid %>% dplyr::select(patient_id,cld) %>% dplyr::filter(cld == 1)
             labs_cirrhosis <- observations[observations$patient_id %in% cirrhosis_list$patient_id,] %>% dplyr::filter(concept_type == "LAB-LOINC")
-            labs_list <- unlist(unique(labs_cirrhosis$concept_code))
-            inr_present <- FALSE
-            if(length(intersect(inr_loinc,labs_list)) > 0) {
-                inr_present <- TRUE
+            labs_meld_first72h <- labs_cirrhosis %>% dplyr::filter(days_since_admission >= 0 & days_since_admission <= meld_labs_day_cutoff)
+            labs_list <- unlist(unique(labs_meld_first72h$concept_code))
+            inr_present <- (length(intersect(inr_loinc,labs_list)) > 0)
+            bil_present <- ('1975-2' %in% labs_list)
+            cr_present <- ('2160-0' %in% labs_list)
+            sodium_present <- (length(intersect(sodium_loinc,labs_list)) > 0)
+            if(isTRUE(sodium_present)){
+                cat("\nSodium values present for MELD score correction.")
             }
-            if(isTRUE(inr_present)) {
-                cat("\n=====================================")
-                cat("\nFound cirrhotic patients and INR values in the Observations table. Will proceed with sub-group analysis for hepatorenal syndrome.")
+            
+            if(isTRUE(inr_present) & isTRUE(bil_present) & isTRUE(cr_present)) {
+                cat("\nFound INR + bilirubin + creatinine values in first 72h in the Observations table. Will proceed with sub-group analysis for hepatorenal syndrome.")
                 meld_analysis_valid <- TRUE
-                # platelet_loinc <- c("13056-7","26515-7","49497-1","74464-9","777-3","778-1")
-                
-                sodium_loinc <- c("2947-0","32717-1","39792-7","41657-8","39791-9","2951-2","77139-4")
-                # platelet_present <- FALSE
-                # if(length(intersect(platelet_loinc,labs_list)) > 0) {
-                #     platelet_present <- TRUE
-                # }
-                sodium_present <- FALSE
-                if(length(intersect(sodium_loinc,labs_list)) > 0) {
-                    sodium_present <- TRUE
-                    cat("\nSodium values present for MELD score correction.")
-                }
-                cat("\nRestricting labs to first admission only")
-                labs_cirrhosis_firstdischarge <- merge(labs_cirrhosis,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day & days_since_admission >= 0) %>% dplyr::ungroup()
                 cat("\nExtracting and binning INR")
-                
                 labs_meld_list <- NULL
                 try({
-                    labs_inr <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% c("6301-6","34714-6","38875-1","46418-0","52129-4","61189-7","72281-9","92891-1"),]
-                    labs_inr <- labs_inr[,-c(4,5)]
+                    labs_inr <- labs_meld_first72h[labs_meld_first72h$concept_code %in% inr_loinc,-c(4,5)]
                     labs_inr <- labs_inr %>% dplyr::filter(days_since_admission >= 0)
-                    labs_inr <- labs_inr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
+                    labs_inr <- labs_inr %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_inr")
                 })
                 cat("\nExtracting and binning bilirubin")
                 try({
-                    labs_bil <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1975-2',]
-                    labs_bil <- labs_bil[,-c(4,5)]
-                    labs_bil <- labs_bil %>% dplyr::filter(days_since_admission >= 0)
-                    labs_bil <- labs_bil %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
+                    labs_bil <- labs_meld_first72h[labs_meld_first72h$concept_code == '1975-2',-c(4,5)]
+                    labs_bil <- labs_bil %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_bil")
                 })
                 cat("\nExtracting and binning Cr")
                 try({
-                    labs_cr <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '2160-0',]
-                    labs_cr <- labs_cr[,-c(4,5)]
-                    labs_cr <- labs_cr %>% dplyr::filter(days_since_admission >= 0)
-                    labs_cr <- labs_cr %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
+                    labs_cr <- labs_meld_first72h[labs_meld_first72h$concept_code == '2160-0',-c(4,5)]
+                    labs_cr <- labs_cr %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_cr")
                 })
                 cat("\nExtracting and binning AST")
                 try({
-                    labs_ast <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1920-8',]
-                    labs_ast <- labs_ast[,-c(4,5)]
-                    labs_ast <- labs_ast %>% dplyr::filter(days_since_admission >= 0)
-                    labs_ast <- labs_ast %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
+                    labs_ast <- labs_meld_first72h[labs_meld_first72h$concept_code == '1920-8',-c(4,5)]
+                    labs_ast <- labs_ast %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_ast")
                 })
                 cat("\nExtracting and binning ALT")
                 try({
-                    labs_alt <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1742-6',]
-                    labs_alt <- labs_alt[,-c(4,5)]
-                    labs_alt <- labs_alt %>% dplyr::filter(days_since_admission >= 0)
-                    labs_alt <- labs_alt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
+                    labs_alt <- labs_meld_first72h[labs_meld_first72h$concept_code == '1742-6',-c(4,5)]
+                    labs_alt <- labs_alt %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_alt")
                 })
                 cat("\nExtracting and binning albumin")
                 try({
-                    labs_alb <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code == '1751-7',]
-                    labs_alb <- labs_alb[,-c(4,5)]
-                    labs_alb <- labs_alb %>% dplyr::filter(days_since_admission >= 0)
-                    labs_alb <- labs_alb %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
+                    labs_alb <- labs_meld_first72h[labs_meld_first72h$concept_code == '1751-7',-c(4,5)]
+                    labs_alb <- labs_alb %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_alb")
                 })
                 
                 if(isTRUE(sodium_present)) {
                     cat("\nAdding in sodium data")
-                    labs_na <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% sodium_loinc,]
-                    labs_na <- labs_na[,-c(4,5)]
-                    labs_na <- labs_na %>% dplyr::filter(days_since_admission >= 0)
-                    labs_na <- labs_na %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_na = mean(na.omit(value)),min_na = min(na.omit(value)),max_na = max(na.omit(value)),first_na = dplyr::first(na.omit(value)))
+                    labs_na <- labs_meld_first72h[labs_meld_first72h$concept_code %in% sodium_loinc,-c(4,5)]
+                    labs_na <- labs_na %>% dplyr::summarise(mean_na = mean(na.omit(value)),min_na = min(na.omit(value)),max_na = max(na.omit(value)),first_na = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_na")
                 }
-                cat("\nMerging all tables with binned data\n")
                 cat("Valid variables: ",labs_meld_list)
-                labs_meld <- mget(labs_meld_list) %>% purrr::reduce(dplyr::full_join,by=c("patient_id","day_bin")) %>% dplyr::distinct()
-                # labs_meld <- merge(labs_inr,labs_bil,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
-                # labs_meld <- merge(labs_meld,labs_alb,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
-                # labs_meld <- merge(labs_meld,labs_ast,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
-                # labs_meld <- merge(labs_meld,labs_alt,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
-                # labs_meld <- merge(labs_meld,labs_cr,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
                 
+                cat("\nMerging all tables with binned data\n")
                 
-                
-                # if(isTRUE(platelet_present)) {
-                #     cat("\nAdding in platelet data")
-                #     labs_plt <- labs_cirrhosis_firstdischarge[labs_cirrhosis_firstdischarge$concept_code %in% platelet_loinc,]
-                #     labs_plt <- labs_plt[,-c(4,5)]
-                #     labs_plt <- labs_plt %>% dplyr::filter(days_since_admission >= 0)
-                #     labs_plt <- labs_plt %>% dplyr::mutate(day_bin = ggplot2::cut_width(days_since_admission,width=3,boundary=0)) %>% dplyr::group_by(patient_id,day_bin) %>% dplyr::summarise(mean_plt = mean(na.omit(value)),min_plt = min(na.omit(value)),max_plt = max(na.omit(value)),first_plt = dplyr::first(na.omit(value)))
-                #     labs_meld <- merge(labs_meld,labs_plt,by=c("patient_id","day_bin"),all=T) %>% dplyr::distinct()
-                # }
-                
+                labs_meld <- mget(labs_meld_list) %>% purrr::reduce(dplyr::full_join,by="patient_id") %>% dplyr::distinct()
+
                 severe_label <- data.table::data.table(c(1,2,3,4),c("Non-severe, no AKI","Non-severe, AKI","Severe, no AKI","Severe, AKI"))
                 colnames(severe_label) <- c("severe","severe_label")
-                cat("\nImputing empty fields prior to MELD score calculation")
-                labs_meld <- labs_meld %>% dplyr::group_by(patient_id,day_bin) %>% tidyr::fill(dplyr::everything()) %>% dplyr::distinct()
+                
+                cat("\nFiltering for patients with complete MELD labs on admission.\n")
+                labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld_valid = dplyr::if_else((is.na(first_inr) | is.na(first_bil) | is.na(first_cr)), 0,1)) %>% dplyr::ungroup() %>% dplyr::filter(meld_valid == 1)
+                
                 cat("\nCalculating MELD score...")
                 if(isTRUE(sodium_present)) {
-                    labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr,Na = min_na)) %>% dplyr::ungroup()
+                    labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = first_bil,inr = first_inr,sCr = first_cr,Na = min_na)) %>% dplyr::ungroup()
                 } else {
-                    labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = max_bil,inr = max_inr,sCr = max_cr)) %>% dplyr::ungroup()
+                    labs_meld <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld = FourCePhase2.1AKI:::meld_score(bil = first_bil,inr = first_inr,sCr = first_cr)) %>% dplyr::ungroup()
                 }
                 cat("\nExtracting admission MELD score...")
-                labs_meld$missing_value <- apply(labs_meld, 1, function(x) sum(is.na(x))/4) # find number of missing labs per patient and time interval
                 if(isTRUE(sodium_present)) {
-                    labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0),sodium_valid = dplyr::if_else(is.na(min_na),0,1)) %>% dplyr::mutate(meld_labs_valid = dplyr::if_else((meld < 20) & ((missing_value > 0 & sodium_valid == 1) | (missing_value > 1 & sodium_valid == 0)),0,1)) %>% dplyr::ungroup()
+                    labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0),sodium_valid = dplyr::if_else(is.na(min_na),0,1)) %>% dplyr::ungroup()
                 } else {
-                    labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::filter(day_bin == "[0,3]") %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0)) %>% dplyr::mutate(meld_labs_valid = dplyr::if_else((meld < 20) & (missing_value > 0),0,1)) %>% dplyr::ungroup()
+                    labs_meld_admission <- labs_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(meld >= 20,1,0)) %>% dplyr::ungroup()
                 }
-                
-                labs_meld_admission$meld_admit_severe[is.na(labs_meld_admission$meld_admit_severe)] <- 0
-                labs_meld_admission <- labs_meld_admission[labs_meld_admission$meld_labs_valid == 1,]
+                labs_meld_admission <- labs_meld_admission[!is.na(labs_meld_admission$meld_admit_severe),]
                 meld_severe_list <- labs_meld_admission %>% dplyr::select(patient_id,meld,meld_admit_severe) %>% dplyr::distinct(patient_id,.keep_all=TRUE)
                 
                 # Final headers
@@ -1119,9 +1084,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 # patient_id, day_bin, mean/min/max/first of labs, meld (integer score), meld_admit_severe (0/1)
                 # Possible that some patient_ids may not be inside this if there are no labs in days 0-3 (i.e. no day_bin == "[0,3]")
                 cat("\nNow creating creatinine graphs with MELD scores")
-                peak_trend_meld <- peak_trend[peak_trend$patient_id %in% cirrhosis_list$patient_id,]
+                peak_trend_meld <- peak_trend[peak_trend$patient_id %in% meld_severe_list$patient_id,]
                 peak_trend_meld <- merge(peak_trend_meld,meld_severe_list,by="patient_id",all.x=TRUE)
-                peak_trend_meld$meld_admit_severe[peak_trend_meld$meld_admit_severe] <- 0
+                
                 peak_trend_meld <- peak_trend_meld %>% dplyr::group_by(patient_id) %>% dplyr::mutate(aki = dplyr::if_else(severe == 1 | severe == 3,0,1)) %>% dplyr::mutate(meld_admit_severe = dplyr::if_else(aki == 1,dplyr::if_else(meld_admit_severe == 1,4,2),dplyr::if_else(meld_admit_severe == 1,3,1)))
                 peak_cr_meld_summ <- peak_trend_meld %>% dplyr::group_by(meld_admit_severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
                 
