@@ -1010,44 +1010,44 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                 try({
                     labs_inr <- labs_meld_first72h[labs_meld_first72h$concept_code %in% inr_loinc,-c(4,5)]
                     labs_inr <- labs_inr %>% dplyr::filter(days_since_admission >= 0)
-                    labs_inr <- labs_inr %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
+                    labs_inr <- labs_inr %>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_inr = mean(na.omit(value)),min_inr = min(na.omit(value)),max_inr = max(na.omit(value)),first_inr = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_inr")
                 })
                 cat("\nExtracting and binning bilirubin")
                 try({
                     labs_bil <- labs_meld_first72h[labs_meld_first72h$concept_code == '1975-2',-c(4,5)]
-                    labs_bil <- labs_bil %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
+                    labs_bil <- labs_bil %>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_bil = mean(na.omit(value)),min_bil = min(na.omit(value)),max_bil = max(na.omit(value)),first_bil = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_bil")
                 })
                 cat("\nExtracting and binning Cr")
                 try({
                     labs_cr <- labs_meld_first72h[labs_meld_first72h$concept_code == '2160-0',-c(4,5)]
-                    labs_cr <- labs_cr %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
+                    labs_cr <- labs_cr%>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_cr = mean(na.omit(value)),min_cr = min(na.omit(value)),max_cr = max(na.omit(value)),first_cr = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_cr")
                 })
                 cat("\nExtracting and binning AST")
                 try({
                     labs_ast <- labs_meld_first72h[labs_meld_first72h$concept_code == '1920-8',-c(4,5)]
-                    labs_ast <- labs_ast %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
+                    labs_ast <- labs_ast %>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_ast = mean(na.omit(value)),min_ast = min(na.omit(value)),max_ast = max(na.omit(value)),first_ast = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_ast")
                 })
                 cat("\nExtracting and binning ALT")
                 try({
                     labs_alt <- labs_meld_first72h[labs_meld_first72h$concept_code == '1742-6',-c(4,5)]
-                    labs_alt <- labs_alt %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
+                    labs_alt <- labs_alt %>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_alt = mean(na.omit(value)),min_alt = min(na.omit(value)),max_alt = max(na.omit(value)),first_alt = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_alt")
                 })
                 cat("\nExtracting and binning albumin")
                 try({
                     labs_alb <- labs_meld_first72h[labs_meld_first72h$concept_code == '1751-7',-c(4,5)]
-                    labs_alb <- labs_alb %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
+                    labs_alb <- labs_alb %>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_alb = mean(na.omit(value)),min_alb = min(na.omit(value)),max_alb = max(na.omit(value)),first_alb = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_alb")
                 })
                 
                 if(isTRUE(sodium_present)) {
                     cat("\nAdding in sodium data")
                     labs_na <- labs_meld_first72h[labs_meld_first72h$concept_code %in% sodium_loinc,-c(4,5)]
-                    labs_na <- labs_na %>% dplyr::summarise(mean_na = mean(na.omit(value)),min_na = min(na.omit(value)),max_na = max(na.omit(value)),first_na = dplyr::first(na.omit(value)))
+                    labs_na <- labs_na %>% dplyr::group_by(patient_id) %>% dplyr::summarise(mean_na = mean(na.omit(value)),min_na = min(na.omit(value)),max_na = max(na.omit(value)),first_na = dplyr::first(na.omit(value)))
                     labs_meld_list <- c(labs_meld_list,"labs_na")
                 }
                 cat("Valid variables: ",labs_meld_list)
