@@ -1188,7 +1188,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         }
         
         if(isTRUE(meld_analysis_valid)) {
-            save(peak_cr_cld_summ,peak_cr_meld_summ,adm_to_aki_cld_summ,adm_meld_summ,aki_start_cld_summ,aki_start_meld_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_MELD_CLD_graphs.rda")),compress="bzip2")
+            try({save(peak_cr_cld_summ,peak_cr_meld_summ,adm_to_aki_cld_summ,adm_meld_summ,aki_start_cld_summ,aki_start_meld_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_MELD_CLD_graphs.rda")),compress="bzip2")})
+        } else {
+            try({save(peak_cr_cld_summ,adm_to_aki_cld_summ,aki_start_cld_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_Cirrhosis"), paste0(currSiteId,"_CLD_graphs.rda")),compress="bzip2")})
         }
     }, error = function(e) {
         message("\nEncountered error while processing cirrhosis graphs.\nSpecific message:\n",e)
