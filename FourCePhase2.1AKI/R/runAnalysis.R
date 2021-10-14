@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-04-30") {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = FALSE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-07-31") {
     
     if(isFALSE(offline)) {
         ## make sure this instance has the latest version of the quality control and data wrangling code available
@@ -68,13 +68,18 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         course <- course[!(course$patient_id %in% young_patients),]
     }
     
-    # Remove patients who were admitted after April 30, 2020 (or other pre-specific date cutoff)
+    # Plot histogram of admission dates for site, binned by month
+    cat("\nCreating histogram of admission dates per month.\n")
+    admission_date_histogram <- ggplot2::ggplot(demographics,ggplot2::aes(x=admission_date)) + ggplot2::stat_bin(binwidth = 30,position = "identity") + ggplot2::scale_x_date(date_breaks = "months", date_labels = "%b-%Y", guide=ggplot2::guide_axis(angle=60)) + ggplot2::theme_bw() + ggplot2::xlab("Admission Month") + ggplot2::ylab("No. of Admissions")
+    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(),paste0(currSiteId, "_AdmissionDates_Histogram_Waves.png")),plot=print(admission_date_histogram))
+    
+    # Remove patients who were admitted after July 31, 2020 (or other pre-specific date cutoff)
     later_patients <- unlist(demographics$patient_id[demographics$admission_date > as.Date(date_cutoff)])
+    cat("\nNo. of patients with admission dates past ",date_cutoff,": ",length(later_patients),"\n")
     if(length(later_patients) > 0) {
         demographics <- demographics[!(demographics$patient_id %in% later_patients),]
         observations <- observations[!(observations$patient_id %in% later_patients),]
         course <- course[!(course$patient_id %in% later_patients),]
-        cat("\nNo. of patients with admission dates past ",date_cutoff,": ",length(later_patients),"\n")
     }
     
     # Generate a diagnosis table
