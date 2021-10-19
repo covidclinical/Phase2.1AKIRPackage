@@ -294,6 +294,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Find patients who have only 1 serum creatinine reading by the end of first admission and remove these patients
     pts_insufficient_cr <- merge(labs_cr_aki,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::distinct() %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day) %>% dplyr::filter(max(count_prior_cr) <= 1) %>% dplyr::ungroup()
     pts_insufficient_cr <- unlist(unique(pts_insufficient_cr$patient_id))
+    cat("\nNo. of patients with only 1 serum creatinine reading by the end of first admission: ",length(pts_insufficient_cr))
     labs_cr_aki <- labs_cr_aki[!(labs_cr_aki$patient_id %in% pts_insufficient_cr),]
     
     # There are two possible scenarios which we have to consider when detecting each AKI event:
@@ -676,7 +677,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # peak_trend will now be a common table to plot from the selected AKI peak
     
     # =======================================================================================
-    # Filter the demographics, peak_trend, comorbid, meds tables to remove those with CKD4/5
+    # Filter the demographics, peak_trend, comorbid, meds tables to remove those patients who 
+    # do not have at least 1 measurement prior to peak Cr
     # =======================================================================================
     cat("\nFiltering to exclude patients without at least 2 prior Cr values.\n")
     cat("No. of patients without at least 2 Cr values prior to peak: ",length(patients_no_prior_cr),"\n")
