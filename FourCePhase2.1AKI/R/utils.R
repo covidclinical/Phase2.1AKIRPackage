@@ -201,7 +201,7 @@ get_day <- function(ratio,time_from_peak,target=1.25) {
 get_day_sustained_recovery <- function(ratio,time_from_peak,target=1.25,window=2) {
   if(length(ratio) > 1){
     ratio_mean <- zoo::rollapply(ratio,window,max,fill=NA,align="left",partial=TRUE)
-    index = detect_index(ratio_mean,function(x) x <= target)
+    index = purrr::detect_index(ratio_mean,function(x) x <= target)
     if(index >= 0) {
       day = time_from_peak[index]
     } else {
