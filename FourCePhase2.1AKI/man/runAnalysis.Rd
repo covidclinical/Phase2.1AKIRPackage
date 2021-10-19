@@ -13,8 +13,11 @@ runAnalysis(
   input = "/4ceData/Input",
   siteid_nodocker = "",
   skip_qc = FALSE,
+  offline = FALSE,
   use_rrt_surrogate = FALSE,
-  print_rrt_surrogate = FALSE
+  print_rrt_surrogate = FALSE,
+  debug_on = FALSE,
+  date_cutoff = "2020-07-31"
 )
 }
 \description{

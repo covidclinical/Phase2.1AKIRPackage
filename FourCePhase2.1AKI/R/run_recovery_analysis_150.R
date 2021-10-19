@@ -117,7 +117,8 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   # First generate table where we find the time taken to achieve 1.50x baseline ratio
   labs_cr_recovery <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::filter(time_from_peak >= 0) %>% tidyr::fill(severe)
   labs_cr_recovery_tmp <- labs_cr_recovery %>% dplyr::group_by(patient_id) %>% tidyr::complete(time_from_peak = tidyr::full_seq(time_from_peak,1)) %>% dplyr::mutate(ratio = zoo::na.fill(ratio,Inf))
-  time_to_ratio1.50 <- labs_cr_recovery_tmp %>% split(.$patient_id) %>% purrr::map(~get_day(.$ratio,.$time_from_peak,target=1.50)) %>% purrr::map_df(~dplyr::data_frame(.x),.id='patient_id')
+  # time_to_ratio1.50 <- labs_cr_recovery_tmp %>% split(.$patient_id) %>% purrr::map(~get_day(.$ratio,.$time_from_peak,target=1.50)) %>% purrr::map_df(~dplyr::data_frame(.x),.id='patient_id')
+  time_to_ratio1.50 <- labs_cr_recovery_tmp %>% split(.$patient_id) %>% purrr::map(~get_day_sustained_recovery(.$ratio,.$time_from_peak,target=1.50,window=2)) %>% purrr::map_df(~dplyr::data_frame(.x),.id='patient_id')
   colnames(time_to_ratio1.50)[2] <- "time_to_ratio1.50"
   
   labs_aki_summ_index <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission))

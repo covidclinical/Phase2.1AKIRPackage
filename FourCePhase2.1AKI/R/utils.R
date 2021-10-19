@@ -191,6 +191,28 @@ get_day <- function(ratio,time_from_peak,target=1.25) {
   day
 }
 
+#' Returns the time point at which the normalised serum Cr falls below a certain value
+#' and is sustained for specified number of consecutive serum creatinine values
+#' @param ratio Vector containing normalised serum Cr values
+#' @param time_from_peak Day of interest, expressed as time from peak
+#' @param target Threshold of interest, default = 1.25
+#' @param window Number of consecutive serum creatinine values required to satisfy recovery definition, default = 2
+#' @noRd
+get_day_sustained_recovery <- function(ratio,time_from_peak,target=1.25,window=2) {
+  if(length(ratio) > 1){
+    ratio_mean <- zoo::rollapply(ratio,window,max,fill=NA,align="left",partial=TRUE)
+    index = detect_index(ratio_mean,function(x) x <= target)
+    if(index >= 0) {
+      day = time_from_peak[index]
+    } else {
+      day = time_from_peak[length(time_from_peak)]
+    }
+  } else {
+    day = NA
+  }
+  day
+}
+
 #' Generates MELD score
 #' @param bil serum bilirubin in mg/dL
 #' @param inr INR
