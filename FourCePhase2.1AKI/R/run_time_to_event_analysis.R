@@ -283,7 +283,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   try({
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ severe")
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
     plot_recover_summ_table <- plot_recover$data.survtable
     write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
@@ -297,7 +297,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   try({
     recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ aki_kdigo_final")
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+    plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
     write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_PlotSummStats.csv")),row.names=TRUE)
     write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_Plot.csv")),row.names=FALSE)
@@ -323,7 +323,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       # Kaplan Meier plot for CKD
       recoverPlotFormula <- as.formula("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ckd")
       fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
-      plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
+      plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
       plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
       write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD_PlotSummStats.csv")),row.names=TRUE)
       write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD_Plot.csv")),row.names=FALSE)
