@@ -7,8 +7,7 @@
 submitAnalysis <- function () 
 {
     workDirectory = FourCePhase2.1Data::getContainerScratchDirectory()
-    projectOutputFiles = list.files(getProjectOutputDirectory(), 
-        full.names = TRUE)
+    projectOutputFiles = list.files(getProjectOutputDirectory(), full.names = TRUE,recursive = TRUE,include.dirs = TRUE)
     if (length(projectOutputFiles) == 0) {
         stop("There are no files present in ", getProjectOutputDirectory())
     }
@@ -31,6 +30,14 @@ submitAnalysis <- function ()
             getProjectOutputDirectory())
     }
     siteId = unique(siteIds)
+    
+    # Recreate the output file names to include subfolder "<siteId>_Cirrhosis")
+    outputFileNames = unlist(lapply(X = fileNameParse, FUN = function(v) {
+        if(v[length(v)-1] == paste0(siteId,"_Cirrhosis")) {
+            return(paste0(v[length(v)-1],"/",v[length(v)]))
+        }
+        return(v[length(v)])
+    }))
     originalDirectory = getwd()
     credentials = FourCePhase2.1Utilities::getGitCredentials(protocol = "https", 
         host = "github.com")
@@ -47,12 +54,18 @@ submitAnalysis <- function ()
     branchName = paste0("topic-", siteId)
     system(paste0("git branch ", branchName))
     system(paste0("git checkout ", branchName))
+    
+    # Update existing branch
+    system(paste0("git pull --rebase origin ", branchName))
+    
     for (i in 1:length(projectOutputFiles)) {
         system(paste0("cp ", projectOutputFiles[i], " ./", outputFileNames[i]))
         system(paste0("git add ", outputFileNames[i]))
     }
     system(paste0("git -c user.email=\"4CE@i2b2transmart.org\" -c user.name=\"4CE Consortium\" commit -m \"added ", 
         siteId, " result files \""))
-    system(paste0("git push --set-upstream origin ", branchName))
+    # system(paste0("git push --set-upstream origin ", branchName))
+    # Force push after --rebase
+    system(paste0("git push -f --set-upstream origin ", branchName))
     setwd(originalDirectory)
 }
