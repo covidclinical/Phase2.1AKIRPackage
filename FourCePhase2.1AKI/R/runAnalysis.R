@@ -1014,6 +1014,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_grade)
     
+    # In the rare circumstance where a non-AKI patient gets mistakenly detected as a KDIGO 3 AKI patient (when the sCr gradually increases to >= 4mg/dL but does not fulfill AKI criteria), this line will help reset the non-AKI patients to KDIGO 0
+    kdigo_grade$aki_kdigo_grade[(kdigo_grade$patient_id %in% unique(no_aki_index$patient_id))] <- 0
+    
+    
     # If patient received RRT in the index admission, the AKI is likely to be KDIGO 3 grade but this would not necessarily
     # be captured in the serum creatinine trends
     # Hence will need to check back against the rrt_index_admit list and replace the grading with 3
