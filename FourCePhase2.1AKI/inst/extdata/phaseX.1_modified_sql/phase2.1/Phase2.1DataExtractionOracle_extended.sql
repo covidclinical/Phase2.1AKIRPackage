@@ -88,10 +88,10 @@ insert INTO patientsummary (
         race_collected
     )
 	select '@', c.patient_num, c.admission_date, 
-		round(sysdate - c.admission_date) ,
-		(case when trunc(a.last_discharge_date) = trunc(sysdate)  then TO_DATE('01/01/1900','mm/dd/rrrr') 
+		round(TO_DATE('09/10/2021','mm/dd/rrrr') - c.admission_date) ,
+		(case when trunc(a.last_discharge_date) = trunc(TO_DATE('09/10/2021','mm/dd/rrrr'))  then TO_DATE('01/01/1900','mm/dd/rrrr') 
           else a.last_discharge_date end),
-		(case when trunc(a.last_discharge_date) = trunc(sysdate) then 1 else 0 end),
+		(case when trunc(a.last_discharge_date) = trunc(TO_DATE('09/10/2021','mm/dd/rrrr')) then 1 else 0 end),
 		nvl (c.severe_date,TO_DATE('01/01/1900','mm/dd/rrrr')  ),
 		c.severe, 
 		nvl(c.death_date,TO_DATE('01/01/1900','mm/dd/rrrr') ),
@@ -192,6 +192,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		inner join covid_cohort p 
         on f.patient_num=p.patient_num 
         and f.start_date >= (p.admission_date -365)
+		and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
     where concept_cd like code_prefix_icd9cm||'%' and  code_prefix_icd9cm is not null;
     commit;
     
@@ -208,6 +209,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
                 and f.start_date >= (p.admission_date -365)
+				and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
     where concept_cd like code_prefix_icd10cm||'%' ; --and code_prefix_icd10cm is not null;
     
     commit;
@@ -222,7 +224,8 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 	from observation_fact f
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
-                and f.start_date >= ( p.admission_date -365)
+                and f.start_date >= (p.admission_date -365)
+				and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 		inner join covid_med_map m
 			on f.concept_cd = m.local_med_code;
  commit;
@@ -244,6 +247,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		and f.nval_num is not null
 		and f.nval_num >= 0
         and f.start_date >= (p.admission_date -365)
+		and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
         and l.scale_factor is not null
     group by f.patient_num, trunc(f.start_date) - trunc(p.admission_date) , l.loinc;
  commit;   
@@ -260,6 +264,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= p.admission_date
+				and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
     where concept_cd like code_prefix_icd9proc||'%' and code_prefix_icd9proc is not null
 		and (
 			-- Insertion of endotracheal tube
@@ -281,6 +286,7 @@ insert into PatientObservations (siteid, patient_num, days_since_admission, conc
 		inner join covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= p.admission_date
+				and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 	where concept_cd like code_prefix_icd10pcs||'%'  and code_prefix_icd10pcs is not null
 		and (
 			-- Insertion of endotracheal tube

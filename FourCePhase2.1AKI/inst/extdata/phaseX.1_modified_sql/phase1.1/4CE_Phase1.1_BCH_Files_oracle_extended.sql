@@ -93,7 +93,7 @@ create table covid_admissions (
 );
 
 insert into covid_admissions
-	select distinct v.patient_num, cast(start_date as date), cast(coalesce(end_date,current_date) as date)
+	select distinct v.patient_num, cast(start_date as date), cast(coalesce(end_date,TO_DATE('09/10/2021','mm/dd/rrrr')) as date)
 	from visit_dimension v
 		inner join covid_pos_patients p
 			on v.patient_num=p.patient_num 
@@ -149,7 +149,7 @@ insert into covid_severe_patients
 	select f.patient_num, min(start_date) start_date
 	from observation_fact f
 		inner join covid_cohort c
-			on f.patient_num = c.patient_num and f.start_date >= c.admission_date
+			on f.patient_num = c.patient_num and f.start_date >= c.admission_date and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 		cross apply covid_config x
 	where 
 		-- Any PaCO2 or PaO2 lab test
@@ -244,7 +244,7 @@ from (
     from (select min(admission_date) s from covid_cohort) p
         cross join n a cross join n b cross join n c
 ) l
-where d<=current_timestamp;
+where d<=TO_DATE('09/10/2021','mm/dd/rrrr');
 
 alter table covid_date_list_temp add constraint temp_datelist_pk primary key (d);
 
@@ -287,15 +287,15 @@ insert into covid_demographics_temp (patient_num, age_group)
 			when age_in_years_num >= 80 then '80plus'
 			else 'other' end) age*/
         (case
-			when floor(months_between(sysdate, birth_date)/12) between 0 and 2 then '00to02'
-			when floor(months_between(sysdate, birth_date)/12) between 3 and 5 then '03to05'
-			when floor(months_between(sysdate, birth_date)/12) between 6 and 11 then '06to11'
-			when floor(months_between(sysdate, birth_date)/12) between 12 and 17 then '12to17'
-			when floor(months_between(sysdate, birth_date)/12) between 18 and 25 then '18to25'
-			when floor(months_between(sysdate, birth_date)/12) between 26 and 49 then '26to49'
-			when floor(months_between(sysdate, birth_date)/12) between 50 and 69 then '50to69'
-			when floor(months_between(sysdate, birth_date)/12) between 70 and 79 then '70to79'
-			when floor(months_between(sysdate, birth_date)/12) >= 80 then '80plus'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 0 and 2 then '00to02'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 3 and 5 then '03to05'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 6 and 11 then '06to11'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 12 and 17 then '12to17'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 18 and 25 then '18to25'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 26 and 49 then '26to49'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 50 and 69 then '50to69'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) between 70 and 79 then '70to79'
+			when floor(months_between(TO_DATE('09/10/2021','mm/dd/rrrr'), birth_date)/12) >= 80 then '80plus'
 			else 'other' end) age
 	from patient_dimension
 	where patient_num in (select patient_num from covid_cohort);
@@ -525,6 +525,7 @@ insert into covid_labs
 				and f.nval_num is not null
 				and f.nval_num >= 0
 				and f.start_date >= (p.admission_date -365)   -- Modified 09/10/2021
+				and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 				and l.loinc not in ('2019-8','2703-7')
 		) t
 		group by loinc, lab_units, patient_num, severe, days_since_admission
@@ -568,6 +569,7 @@ insert into covid_diagnoses
 			inner join covid_cohort p 
 				on f.patient_num=p.patient_num 
 					and f.start_date >= (trunc(p.admission_date)-365)
+					and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 		where concept_cd like x.code_prefix_icd9cm||'%' and length(x.code_prefix_icd9cm)>0
 		-- ICD10
 		union all
@@ -580,6 +582,7 @@ insert into covid_diagnoses
 			inner join covid_cohort p 
 				on f.patient_num=p.patient_num 
 					and f.start_date >= (trunc(p.admission_date)-365)
+					and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 		where concept_cd like x.code_prefix_icd10cm||'%' and length(x.code_prefix_icd10cm)>0
 	) t
 	group by icd_code_3chars, icd_version;
@@ -613,6 +616,7 @@ insert into covid_medications
 			inner join covid_cohort p 
 				on f.patient_num=p.patient_num 
 					and f.start_date >= (trunc(p.admission_date)-365)
+					and f.start_date <= TO_DATE('09/10/2021','mm/dd/rrrr')
 			inner join covid_med_map m
 				on f.concept_cd = m.local_med_code
 	) t

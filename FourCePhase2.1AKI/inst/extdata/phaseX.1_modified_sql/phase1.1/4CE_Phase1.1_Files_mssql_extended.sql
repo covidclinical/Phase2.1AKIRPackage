@@ -299,7 +299,7 @@ create table #admissions (
 )
 alter table #admissions add primary key (patient_num, admission_date, discharge_date)
 insert into #admissions
-	select distinct v.patient_num, cast(start_date as date), cast(isnull(end_date,GetDate()) as date)
+	select distinct v.patient_num, cast(start_date as date), cast(isnull(end_date,convert(DATETIME,'09/10/2021',103)) as date)
 	from visit_dimension v
 		inner join #covid_pos_patients p
 			on v.patient_num=p.patient_num 
@@ -348,7 +348,7 @@ insert into #severe_patients
 	select f.patient_num, min(start_date) start_date
 	from observation_fact f
 		inner join #covid_cohort c
-			on f.patient_num = c.patient_num and f.start_date >= c.admission_date
+			on f.patient_num = c.patient_num and f.start_date >= c.admission_date and f.start_date <= convert(DATETIME,'09/10/2021',103)
 		cross apply #config x
 	where 
 		-- Any PaCO2 or PaO2 lab test
@@ -429,7 +429,7 @@ insert into #date_list
 		from (select min(admission_date) s from #covid_cohort) p
 			cross join n a cross join n b cross join n c
 	) l
-	where d<=GetDate()
+	where d<=convert(DATETIME,'09/10/2021',103)
 
 --------------------------------------------------------------------------------
 -- Create a table with patient demographics.
@@ -669,6 +669,7 @@ insert into #Labs
 				and f.nval_num >= 0
 				and f.start_date >= dateadd(dd, -365, p.admission_date)
 				and l.loinc not in ('2019-8','2703-7')
+				and f.start_date <= convert(DATETIME,'09/10/2021',103)
 		) t
 		group by loinc, lab_units, patient_num, severe, days_since_admission
 	) t
@@ -707,6 +708,7 @@ insert into #Diagnoses
 			inner join #covid_cohort p 
 				on f.patient_num=p.patient_num 
 					and f.start_date >= dateadd(dd,-365,p.admission_date)
+					and f.start_date <= convert(DATETIME,'09/10/2021',103)
 		where concept_cd like code_prefix_icd9cm+'%' and code_prefix_icd9cm<>''
 		-- ICD10
 		union all
@@ -719,6 +721,7 @@ insert into #Diagnoses
 			inner join #covid_cohort p 
 				on f.patient_num=p.patient_num 
 					and f.start_date >= dateadd(dd,-365,p.admission_date)
+					and f.start_date <= convert(DATETIME,'09/10/2021',103)
 		where concept_cd like code_prefix_icd10cm+'%' and code_prefix_icd10cm<>''
 	) t
 	group by icd_code_3chars, icd_version
@@ -749,6 +752,7 @@ insert into #Medications
 			inner join #covid_cohort p 
 				on f.patient_num=p.patient_num 
 					and f.start_date >= dateadd(dd,-365,p.admission_date)
+					and f.start_date <= convert(DATETIME,'09/10/2021',103)
 			inner join #med_map m
 				on f.concept_cd = m.local_med_code
 	) t

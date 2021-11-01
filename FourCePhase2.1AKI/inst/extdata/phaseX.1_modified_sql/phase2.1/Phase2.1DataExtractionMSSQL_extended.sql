@@ -64,9 +64,9 @@ alter table #LocalPatientSummary add primary key (patient_num)
 
 insert into #LocalPatientSummary (siteid, patient_num, admission_date, days_since_admission, last_discharge_date, still_in_hospital, severe_date, severe, death_date, deceased, sex, age_group, race, race_collected)
 	select '', c.patient_num, c.admission_date, 
-		datediff(dd,c.admission_date,GetDate()),
-		(case when a.last_discharge_date = cast(GetDate() as date) then '1/1/1900' else a.last_discharge_date end),
-		(case when a.last_discharge_date = cast(GetDate() as date) then 1 else 0 end),
+		datediff(dd,c.admission_date,convert(DATETIME,'09/10/2021',103)),
+		(case when a.last_discharge_date = convert(DATETIME,'09/10/2021',103) then '1/1/1900' else a.last_discharge_date end),
+		(case when a.last_discharge_date = convert(DATETIME,'09/10/2021',103) then 1 else 0 end),
 		isnull(c.severe_date,'1/1/1900'),
 		c.severe, 
 		isnull(c.death_date,'1/1/1900'),
@@ -152,6 +152,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 		inner join #covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= dateadd(dd,-365,p.admission_date)
+				and f.start_date <= convert(DATETIME,'09/10/2021',103)
 	where concept_cd like code_prefix_icd9cm+'%' and code_prefix_icd9cm<>''
 
 -- Diagnoses (3 character ICD10 codes) since 365 days before COVID
@@ -167,6 +168,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 		inner join #covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= dateadd(dd,-365,p.admission_date)
+				and f.start_date <= convert(DATETIME,'09/10/2021',103)
 	where concept_cd like code_prefix_icd10cm+'%' and code_prefix_icd10cm<>''
 
 -- Medications (Med Class) since 365 days before COVID
@@ -181,6 +183,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 		inner join #covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= dateadd(dd,-365,p.admission_date)
+				and f.start_date <= convert(DATETIME,'09/10/2021',103)
 		inner join #med_map m
 			on f.concept_cd = m.local_med_code
 
@@ -201,6 +204,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 		and f.nval_num is not null
 		and f.nval_num >= 0
 		and f.start_date >= dateadd(dd,-365,p.admission_date)
+		and f.start_date <= convert(DATETIME,'09/10/2021',103)
 	group by f.patient_num, datediff(dd,p.admission_date,f.start_date), l.loinc
 
 -- Procedures (ICD9) each day since COVID (only procedures used in 4CE Phase 1.1 to determine severity)
@@ -216,6 +220,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 		inner join #covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= p.admission_date
+				and f.start_date <= convert(DATETIME,'09/10/2021',103)
 	where concept_cd like code_prefix_icd9proc+'%' and code_prefix_icd9proc<>''
 		and (
 			-- Insertion of endotracheal tube
@@ -237,6 +242,7 @@ insert into #LocalPatientObservations (siteid, patient_num, days_since_admission
 		inner join #covid_cohort p 
 			on f.patient_num=p.patient_num 
 				and f.start_date >= p.admission_date
+				and f.start_date <= convert(DATETIME,'09/10/2021',103)
 	where concept_cd like code_prefix_icd10pcs+'%' and code_prefix_icd10pcs<>''
 		and (
 			-- Insertion of endotracheal tube
