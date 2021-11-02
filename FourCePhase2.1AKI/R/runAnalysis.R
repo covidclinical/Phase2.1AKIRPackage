@@ -6,6 +6,13 @@
 
 runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = TRUE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-09-10",lab_date_cutoff = "2021-09-10") {
     
+    error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_error.log")))
+    sink(error_log,append=TRUE,split=TRUE)
+    if(isTRUE(debug_on)) {
+        cat("\n===================\nYou have enabled debugging for this session. Warnings and messages will be redirected to the error log.\nDue to the nature of error handling in R, this output will not be displayed on the console.\nOutput via the cat() or print() functions will still be visible.\n===================\n")
+        sink(error_log,append=TRUE,type="message")
+    }
+    
     cat("\n4CE AKI Analysis\n======================\nVersion ",packageVersion("FourCePhase2.1AKI"),"\n\n")
     
     if(isFALSE(offline)) {
@@ -36,14 +43,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         demographics <- FourCePhase2.1Data::getLocalPatientSummary_nodocker(currSiteId,input)
         observations <- FourCePhase2.1Data::getLocalPatientObservations_nodocker(currSiteId,input)
         course <- FourCePhase2.1Data::getLocalPatientClinicalCourse_nodocker(currSiteId,input)
-    }
-    
-    error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_error.log")))
-    sink(error_log,append=TRUE,split=TRUE)
-    
-    if(isTRUE(debug_on)) {
-        cat("\n===================\nYou have enabled debugging for this session. Warnings and messages will be redirected to the error log.\nDue to the nature of error handling in R, this output will not be displayed on the console.\nOutput via the cat() or print() functions will still be visible.\n===================\n")
-        sink(error_log,append=TRUE,type="message")
     }
     
     # Detects if there are issues with site data extraction being inadequate for study.
