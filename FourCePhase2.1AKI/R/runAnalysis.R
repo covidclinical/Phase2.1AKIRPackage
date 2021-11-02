@@ -1725,7 +1725,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # writeLines(capture.output(summary(aki_thromb_logit)),con=file.path(getProjectOutputDirectory(), paste0(currSiteId,"_ThrombGLMSummary.txt"))
     # aki_thromb_logit_tidy <- aki_thromb_logit %>% broom::tidy(exponentiate=T,conf.int=T) %>% knitr::kable(align="l")
     # 
-    cat("\n\n========================================\nAnalysis complete.")
+    cat("\n\n========================================\nAnalysis complete.\n")
     if(isTRUE(print_rrt_surrogate)) {
         message("Final reminder:\nYou have opted to print patient-level data files for the purposes of manual chart review for RRT procedures.")
         message("The files are located at ",getProjectOutputDirectory(), " and are named as:")
