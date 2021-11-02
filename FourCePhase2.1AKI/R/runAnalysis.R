@@ -1739,5 +1739,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         cat("\n\nPlease check the error log in the project output folder for details.\n")
     }
     closeAllConnections()
+    invisible(gc())
 }
 
