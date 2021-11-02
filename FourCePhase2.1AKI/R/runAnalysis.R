@@ -4,7 +4,7 @@
 #' @keywords 4CE
 #' @export
 
-runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = TRUE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-12-31") {
+runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = TRUE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-09-10",lab_date_cutoff = "2021-09-10") {
     
     if(isFALSE(offline)) {
         ## make sure this instance has the latest version of the quality control and data wrangling code available
@@ -15,7 +15,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     ## PART 1: Read in Data Tables
     ## ========================================
     cat("\nPlease ensure that your working directory is set to /4ceData")
-    cat("\nReading in Input/LocalPatientSummary.csv and Input/LocalPatientObservations.csv...")
+    cat("\nReading in Input/LocalPatientSummary.csv and Input/LocalPatientObservations.csv...\n")
     
     if(isTRUE(docker)) {
         ## get the site identifier associated with the files stored in the /4ceData/Input directory that 
@@ -43,6 +43,28 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         cat("\n===================\nYou have enabled debugging for this session. Warnings and messages will be redirected to the error log.\nDue to the nature of error handling in R, this output will not be displayed on the console.\nOutput via the cat() or print() functions will still be visible.\n===================\n")
         sink(error_log,append=TRUE,type="message")
     }
+    
+    # Detects if there are issues with site data extraction being inadequate for study.
+    try({
+        data_date_offset <- demographics %>% dplyr::group_by(patient_num) %>% dplyr::mutate(offset = as.Date(admission_date) + days_since_admission)
+        data_date_offset <- unlist(min(data_date_offset$offset))
+        lab_date_cutoff <- as.Date(lab_date_cutoff)
+        if(data_date_offset > lab_date_cutoff) {
+            gap <- as.numeric(data_date_offset - lab_date_cutoff)
+            cat("Data exceeds required date of ",as.character(lab_date_cutoff)," by ",gap," days.\n")
+            demographics <- demographics %>% dplyr::group_by(patient_num) %>% dplyr::mutate(days_since_admission = days_since_admission - gap)
+            date_offset <- demographics[,c("patient_num","days_since_admission")]
+            colnames(date_offset)[2] <- "max_days"
+            observations <- merge(observations,date_offset,by="patient_num",all.x=TRUE) %>% dplyr::group_by(patient_num) %>% dplyr::filter(days_since_admission <= max_days) %>% dplyr::ungroup()
+            course <- course %>% dplyr::filter(calendar_date <= lab_date_cutoff)
+            invisible(gc())
+        } else if(data_date_offset == lab_date_cutoff) {
+            cat("Date of extraction matches ",lab_date_cutoff, " exactly.\n")
+        } else {
+            message("Warning: please see below (INCOMPLETE DATA)\n")
+            cat("Warning: time-to-event data may be inaccurate as last lab values were before ",lab_date_cutoff," as extraction date was ",data_date_offset,".\nPlease ensure that the correct duration of patient data was extracted - modify and re-run any custom SQL scripts to fit the date criteria.\n")
+        }
+    })
     
     obfuscation_value = as.numeric(FourCePhase2.1Data::getObfuscation(currSiteId))
     cat(paste0(c("\nObfuscation level set to ",obfuscation_value)))
@@ -253,6 +275,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx)
     }
     
+    invisible(gc())
+    
     # ====================
     # PART 2: AKI Detection Code
     # ====================
@@ -421,6 +445,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     cr_90d_range <- 10 # means that the 90-day creatinine will be in the interval [80,100]
     cr_180d_range <- 30 # means that the 180-day creatinine will be in the interval [150,210]
     cr_365d_range <- 35 # means that the 365-day creatinine will be in the interval [330,400]
+    
+    invisible(gc())
+    
     message("Warning: the package may appear to freeze at this stage. Do NOT stop the package!")
     # First find the nearest retrospective value to 90,180 and 365 days
     labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1),cr_180d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
