@@ -36,6 +36,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         course <- FourCePhase2.1Data::getLocalPatientClinicalCourse_nodocker(currSiteId,input)
     }
     
+    error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_error.log")))
+    sink(error_log,append=TRUE,split=TRUE)
+    if(isTRUE(debug_on)) {
+        cat("\n===================\nYou have enabled debugging for this session. Warnings and messages will be redirected to the error log.\nDue to the nature of error handling in R, this output will not be displayed on the console.\nOutput via the cat() or print() functions will still be visible.\n===================\n")
+        sink(error_log,append=TRUE,type="message")
+    }
+    
+    cat("\n4CE AKI Analysis\n======================\nVersion",paste0(packageVersion("FourCePhase2.1AKI")),"\n\n")
+    
     # Detects if there are issues with site data extraction being inadequate for study.
     try({
         data_date_offset <- demographics %>% dplyr::group_by(patient_num) %>% dplyr::mutate(offset = as.Date(admission_date) + days_since_admission)
@@ -57,15 +66,6 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
             cat("Warning: time-to-event data may be inaccurate as last lab values were before ",lab_date_cutoff," as extraction date was ",data_date_offset,".\nPlease ensure that the correct duration of patient data was extracted - modify and re-run any custom SQL scripts to fit the date criteria.\n")
         }
     })
-    
-    error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_error.log")))
-    sink(error_log,append=TRUE,split=TRUE)
-    if(isTRUE(debug_on)) {
-        cat("\n===================\nYou have enabled debugging for this session. Warnings and messages will be redirected to the error log.\nDue to the nature of error handling in R, this output will not be displayed on the console.\nOutput via the cat() or print() functions will still be visible.\n===================\n")
-        sink(error_log,append=TRUE,type="message")
-    }
-    
-    cat("\n4CE AKI Analysis\n======================\nVersion ",packageVersion("FourCePhase2.1AKI"),"\n\n")
     
     obfuscation_value = as.numeric(FourCePhase2.1Data::getObfuscation(currSiteId))
     cat(paste0(c("\nObfuscation level set to ",obfuscation_value)))
