@@ -6,6 +6,8 @@
 
 runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25, restrict_models = FALSE, docker = TRUE, input = "/4ceData/Input", siteid_nodocker = "", skip_qc = FALSE, offline = FALSE, use_rrt_surrogate = TRUE,print_rrt_surrogate = FALSE,debug_on=FALSE,date_cutoff = "2020-09-10",lab_date_cutoff = "2021-09-10") {
     
+    cat("\n4CE AKI Analysis\n======================\nVersion ",packageVersion("FourCePhase2.1AKI"),"\n\n")
+    
     if(isFALSE(offline)) {
         ## make sure this instance has the latest version of the quality control and data wrangling code available
         devtools::install_github("https://github.com/covidclinical/Phase2.1DataRPackage", subdir="FourCePhase2.1Data", upgrade=FALSE)
@@ -577,6 +579,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     #write.csv(labs_aki_summ,"PatientAKIEvents.csv",row.names=FALSE)
     #write.csv(labs_aki_severe,"PatientAKIEvents_Severe.csv",row.names=FALSE)
     
+    invisible(gc())
     
     ## ==================================================================================
     ## PART 2: Serum Creatinine Trends - Plots against Time from Peak Serum Creatinine
@@ -711,6 +714,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # peak_trend <- peak_trend %>% dplyr::group_by(patient_id) %>% dplyr::arrange(severe,first_baseline_cr) %>% tidyr::fill(severe,first_baseline_cr) %>% dplyr::mutate(ratio = value/first_baseline_cr, ratio_prioronly = value/min_cr_365d) %>% dplyr::ungroup() %>% dplyr::distinct()
     cat("\nFinal table of peak Cr for all patients - peak_trend - created.")
     # peak_trend will now be a common table to plot from the selected AKI peak
+    
+    invisible(gc())
     
     # =======================================================================================
     # Filter the demographics, peak_trend, comorbid, meds tables to remove those patients who 
@@ -1025,6 +1030,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         baseline_shift150_index_admit_lowest_summ$n_shift_90d[baseline_shift150_index_admit_lowest_summ$n_shift_90d < obfuscation_value] <- NA
     }
     write.csv(baseline_shift150_index_admit_lowest_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_BaselineShift150_Counts_IndexAdmitLowestCr.csv")),row.names=FALSE)
+    
+    invisible(gc())
     
     # =======================================================================================
     # Figure 1(a): Cr trends from start of AKI / after peak Cr for severe vs non-severe groups
