@@ -169,7 +169,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # For debugging purposes
     cat(paste("\nNumber of patients on RRT in total: ",length(rrt$patient_id),"\nRRT previously: ",length(rrt_old),"\nFirst RRT during and/or after first admission: ",length(rrt_new),"\nFirst RRT during index admission: ",length(rrt_index_admit),"\nFirst RRT after index admission:",length(rrt_future_admit)))
-    readr::write_lines(paste0("Number of patients on RRT in total: ",length(rrt),"\nRRT previously: ",length(rrt_old),"\nFirst RRT during and/or after first admission: ",length(rrt_new),"\nFirst RRT during index admission: ",length(rrt_index_admit),"\nFirst RRT after index admission:",length(rrt_future_admit)),file="debug_rrt_numbers.txt")
+    # readr::write_lines(paste0("Number of patients on RRT in total: ",length(rrt),"\nRRT previously: ",length(rrt_old),"\nFirst RRT during and/or after first admission: ",length(rrt_new),"\nFirst RRT during index admission: ",length(rrt_index_admit),"\nFirst RRT after index admission:",length(rrt_future_admit)),file="debug_rrt_numbers.txt")
     
     # =============
     # Medications
