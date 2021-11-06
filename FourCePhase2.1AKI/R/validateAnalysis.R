@@ -150,6 +150,10 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   km_death_aki_vs_nonaki <- read.csv(file.path(output_folder,paste0(currSiteId,"_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")))
   km_death_all_kdigo <- read.csv(file.path(output_folder,paste0(currSiteId,"_TimeToEvent_Death_KDIGO_Plot.csv")))
   
+  km_death_stats <- km_death_aki_vs_nonaki %>% dplyr::group_by(is_aki) %>% dplyr::summarise(deceased = sum(n.event)) %>% dplyr::ungroup()
+  km_death_stats_nonakitotal <- as.numeric(km_death_stats$deceased[km_death_stats$is_aki == 0])
+  km_death_stats_akitotal <- as.numeric(km_death_stats$deceased[km_death_stats$is_aki == 1])
+  
   km_recover_aki_only_covidsevere <- km_recover_aki_only_covidsevere %>% dplyr::group_by(severe) %>% dplyr::filter(time == min(time)) %>% dplyr::select(n.risk) %>% dplyr::ungroup()
   km_recover_aki_only_kdigo <- km_recover_aki_only_kdigo %>% dplyr::group_by(aki_kdigo_final) %>% dplyr::filter(time == min(time)) %>% dplyr::select(n.risk) %>% dplyr::ungroup()
   km_death_aki_only_covidsevere <- km_death_aki_only_covidsevere %>% dplyr::group_by(severe) %>% dplyr::filter(time == min(time)) %>% dplyr::select(n.risk) %>% dplyr::ungroup()
@@ -265,22 +269,32 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   if(cr_graph_kdigo_1 == km_death_all_kdigo_1) {
     cat("KDIGO 1 match\n")
   } else {
-    cat("KDIGO 1 inconsistency: Recovery = ", cr_graph_kdigo_1,", Death = ",km_death_all_kdigo_1,"\n")
+    cat("KDIGO 1 inconsistency: sCr graph = ", cr_graph_kdigo_1,", KM curve = ",km_death_all_kdigo_1,"\n")
   }
   if(cr_graph_kdigo_2 == km_death_all_kdigo_2) {
     cat("KDIGO 2 match\n")
   } else {
-    cat("KDIGO 2 inconsistency: Recovery = ", cr_graph_kdigo_2,", Death = ",km_death_all_kdigo_2,"\n")
+    cat("KDIGO 2 inconsistency: sCr graph = ", cr_graph_kdigo_2,", KM curve = ",km_death_all_kdigo_2,"\n")
   }
   if(cr_graph_kdigo_3 == km_death_all_kdigo_3) {
     cat("KDIGO 3 match\n")
   } else {
-    cat("KDIGO 3 inconsistency: Recovery = ", cr_graph_kdigo_3,", Death = ",km_death_all_kdigo_3,"\n")
+    cat("KDIGO 3 inconsistency: sCr graph = ", cr_graph_kdigo_3,", KM curve = ",km_death_all_kdigo_3,"\n")
   }
   if(cr_graph_kdigo_akitotal == km_death_all_akitotal) {
     cat("KDIGO total match\n")
   } else {
-    cat("KDIGO total inconsistency: Recovery = ", cr_graph_kdigo_akitotal,", Death = ",km_death_all_akitotal,"\n")
+    cat("KDIGO total inconsistency: sCr graph = ", cr_graph_kdigo_akitotal,", KM curve = ",km_death_all_akitotal,"\n")
+  }
+  
+  demog_obf <- demog_obf[demog_obf$category %in% c("n","severe_Non-severe","severe_Severe","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),c("category","No_AKI","AKI")]
+  cr_demog_comparison_tmp <- data.frame(demog_obf$category,c(cr_graph_nonaki_total,cr_graph_nonsevere_with_nonaki,cr_graph_severe_with_nonaki,(cr_graph_nonaki_total - km_death_stats_nonakitotal),km_death_stats_nonakitotal,cr_graph_kdigo_0,0,0,0),c(cr_graph_aki_total,cr_graph_nonsevere_with_aki,cr_graph_severe_with_aki,(cr_graph_aki_total - km_death_stats_akitotal),km_death_stats_akitotal,0,cr_graph_kdigo_1,cr_graph_kdigo_2,cr_graph_kdigo_3))
+  colnames(cr_demog_comparison_tmp) <- c("category","No_AKI_graphs","AKI_graphs")
+  demog_obf <- merge(demog_obf,cr_demog_comparison_tmp,by="category",all.x=T)
+  demog_obf <- demog_obf %>% dplyr::mutate(diff_nonaki = No_AKI - No_AKI_graphs,diff_aki = AKI - AKI_graphs) %>% dplyr::filter(diff_aki != 0)
+  if(length(demog_obf$category) > 0) {
+    cat("\nMismatches found in counts between sCr graphs/KM curves and demographics tables.\nRefer to the specific counts below for details.\nIf the errors arise from NAs due to obfuscation, please ignore this message.\nUse this information to aid in debugging.\n")
+    print(data.table::as.data.table(demog_obf))
   }
 }
 
