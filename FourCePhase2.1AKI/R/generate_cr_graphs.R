@@ -98,7 +98,7 @@ generate_cr_graphs <- function(siteid,base_table,obfuscation,obfuscation_level,k
   try({
     # Stratify by KDIGO stage and COVID-19 severity
     peak_cr_kdigo_and_severe_summ <- peak_trend_severe %>% dplyr::group_by(aki_kdigo_grade,severe,time_from_peak) %>% dplyr::summarise(mean_ratio = mean(ratio,na.rm=TRUE),sem_ratio = sd(ratio,na.rm=TRUE)/sqrt(dplyr::n()),mean_value = mean(value,na.rm=TRUE),sem_value = sd(value,na.rm=TRUE)/sqrt(dplyr::n()),n=dplyr::n()) %>% dplyr::ungroup()
-    peak_cr_kdigo_and_severe_summ <- merge(peak_cr_kdigo_and_severe_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE) %>% dplyr::mutate(severe = ifelse(severe > 2,0,1))
+    peak_cr_kdigo_and_severe_summ <- merge(peak_cr_kdigo_and_severe_summ,kdigo_label,by="aki_kdigo_grade",all.x=TRUE) %>% dplyr::mutate(severe = ifelse(severe > 2,1,0))
     peak_cr_kdigo_and_severe_summ <- merge(peak_cr_kdigo_and_severe_summ,severe_simplified_label,by="severe",all.x=TRUE)
     if(isTRUE(is_obfuscated)) {
       # peak_cr_kdigo_summ <- peak_cr_kdigo_summ %>% dplyr::filter(n >= obfuscation_value)
