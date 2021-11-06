@@ -47,6 +47,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   comorbid <- comorbid_table
   comorbid_list <- comorbid_header
   kdigo_grade <- kdigo_grade_table
+  colnames(kdigo_grade)[2] <- "aki_kdigo_final"
   ckd_present <- ckd_valid
   coaga_present <- coaga_valid
   coagb_present <- coaga_valid
@@ -122,9 +123,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   colnames(time_to_ratio1.25)[2] <- "time_to_ratio1.25"
   
-  labs_aki_summ_index <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission))
+  # labs_aki_summ_index <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(days_since_admission == min(days_since_admission))
   # Get index AKI grade
-  index_aki_grade <- labs_aki_summ_index %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::group_by(patient_id) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::ungroup()
+  # index_aki_grade <- labs_aki_summ_index %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::group_by(patient_id) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final)) %>% dplyr::ungroup()
   cat("\nFiltering for AKI patients only...")
   # Filter for AKI cases only
   aki_index_recovery <- aki_index %>% dplyr::group_by(patient_id) %>% dplyr::filter(severe %in% c(2,4,5)) %>% dplyr::mutate(severe=ifelse(severe==2,0,1))
@@ -140,8 +141,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # Correct the death times for peak Cr
   aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = as.integer(time_to_death_km) - as.integer(peak_cr_time),time_adm_to_death = as.integer(time_to_death_km))
   
-  aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE)
-  
+  # aki_index_recovery <- merge(aki_index_recovery,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE)
+  aki_index_recovery <- merge(aki_index_recovery,kdigo_grade,by="patient_id",all.x=TRUE)
+
   cat("\nDoing initial filter for medications with more than one factor level.")
   med_recovery_list <- c("COAGA","COAGB","covid_rx","acei_arb_preexposure")
   med_recovery_list <- med_recovery_list[c(coaga_present,coagb_present,dplyr::if_else((isTRUE(covid19antiviral_present) | isTRUE(remdesivir_present)),TRUE,FALSE),dplyr::if_else((isTRUE(acei_present) | isTRUE(arb_present)),TRUE,FALSE))]
@@ -635,7 +637,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   aki_index_death <- merge(aki_index_death,discharge_day,by="patient_id",all.x=TRUE) # merge in time_to_death_km
   # Correct death times for peak sCr time
   aki_index_death <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(time_to_death_km = as.integer(time_to_death_km) - as.integer(peak_cr_time), time_adm_to_death = as.integer(time_to_death_km)) %>% dplyr::ungroup()
-  aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE) # AKI KDIGO grade
+  # aki_index_death <- merge(aki_index_death,labs_aki_summ_index[,c("patient_id","aki_kdigo_final")],by="patient_id",all.x=TRUE) # AKI KDIGO grade
+  
+  aki_index_death <- merge(aki_index_death,kdigo_grade,by="patient_id",all.x=TRUE) # AKI KDIGO grade
   
   cat("\nDoing initial filter for medications with more than one factor level.")
   med_death_list <- c("COAGA","COAGB","covid_rx","acei_arb_preexposure")

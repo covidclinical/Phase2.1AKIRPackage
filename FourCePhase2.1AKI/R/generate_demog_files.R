@@ -261,9 +261,9 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
       }
     },error = function(e) {
       cat("\nHaving issues generating demographic table for cirrhosis patients only. Check for any error messages that appear.")
-      cat("\nOriginal error message:\n",e,"\n")
+      cat("\nOriginal error message:\n",paste(e,sep='\n'),"\n")
       message("Having issues generating demographic table for cirrhosis patients only. Check for any error messages that appear.")
-      message("Original error message:\n",e)
+      message("Original error message:\n",paste(e,sep='\n'))
     })
     try({
       if(isTRUE(meld_analysis_valid)) {
@@ -409,9 +409,9 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
           lab_meld_stats <- mget(lab_meld_stats) %>% purrr::reduce(dplyr::full_join,by=c("meld_admit_severe","aki"))
         }, error = function(e) {
           message("\nError in processing labs. Check error messages.\n")
-          message("\nOriginal error:\n",e)
+          message("\nOriginal error:\n",paste(e,sep='\n'))
           cat("\nError in processing labs. Check error messages.\n")
-          cat("\nOriginal error:\n",e,"\n")
+          cat("\nOriginal error:\n",paste(e,sep='\n'),"\n")
         })
         try({
           demog_meld_obf$MELD_less20[demog_meld_obf$MELD_less20 < obfuscation_value] <- 0
