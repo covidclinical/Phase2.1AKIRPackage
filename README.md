@@ -12,7 +12,9 @@ Please ensure that the following is done prior to analysis:
 - You are running the R package in either the 4CE Docker environment v2.1.0 and above, or in an environment using R 4.0.\* (see below for issues with R 4.1.\*)
 
 We have provided modified SQL scripts for Phase 1.1/2.1 (MSSQL and Oracle) in `inst/extdata/phaseX.1_modified_sql`, which implement the longer durations of lab value extraction. 
+
 These scripts should also extract procedure codes (ICD9/ICD-10-CM) for renal replacement therapy (RRT) and kidney transplants across all time.
+
 Please modify these scripts if your site uses a different procedure code scheme as per Phase 1.2/2.2 guidelines, e.g. CPT4/CCAM/SNOMED-CT
 
 ## Installation
