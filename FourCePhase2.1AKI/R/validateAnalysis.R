@@ -5,12 +5,16 @@
 #' @export
 
 validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
+  error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_validation.log")))
+  sink(error_log,append=TRUE,split=TRUE)
+  
   if(isTRUE(docker)) {
     currSiteId = toupper(FourCePhase2.1Data::getSiteId())
   } else {
     currSiteId = siteid_nodocker
   }
   
+  cat("\nAKI Analysis Result Validation\n==================")
   output_folder = getProjectOutputDirectory()
   demog_obf <- read.csv(file.path(output_folder,paste0(currSiteId,"_TableOne_obfuscated.csv")))
   cr_graph_aki_vs_nonaki <- read.csv(file.path(output_folder,paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI.csv")))
@@ -296,5 +300,8 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
     cat("\nMismatches found in counts between sCr graphs/KM curves and demographics tables.\nRefer to the specific counts below for details.\nIf the errors arise from NAs due to obfuscation, please ignore this message.\nUse this information to aid in debugging.\n")
     print(data.table::as.data.table(demog_obf))
   }
+  sink()
+  closeAllConnections()
+  invisible(gc())
 }
 
