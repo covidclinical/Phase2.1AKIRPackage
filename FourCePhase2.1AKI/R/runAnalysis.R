@@ -1045,7 +1045,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     kdigo_grade <- labs_aki_summ %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission >= 0) %>% dplyr::filter(first_admit == 1) %>% dplyr::filter(days_since_admission == min(days_since_admission,na.rm=TRUE)) %>% dplyr::filter(aki_kdigo_final == max(aki_kdigo_final,na.rm=TRUE)) %>% dplyr::select(patient_id,aki_kdigo_final) %>% dplyr::distinct(patient_id,.keep_all = TRUE) %>% dplyr::ungroup()
     colnames(kdigo_grade)[2] <- "aki_kdigo_grade"
     kdigo_grade <- merge(kdigo_grade,demographics_filt[,c("patient_id","siteid")],by="patient_id",all=TRUE)
-    kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0
+    kdigo_grade$aki_kdigo_grade[is.na(kdigo_grade$aki_kdigo_grade)] <- 0 # the NAs are likely due to the AKIs occuring after first admission, so assign them to the KDIGO 0 group
     kdigo_grade <- kdigo_grade %>% dplyr::select(patient_id,aki_kdigo_grade)
     
     # In the rare circumstance where a non-AKI patient gets mistakenly detected as a KDIGO 3 AKI patient (when the sCr gradually increases to >= 4mg/dL but does not fulfill AKI criteria), this line will help reset the non-AKI patients to KDIGO 0
