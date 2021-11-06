@@ -5,7 +5,6 @@ R code to run, validate, and submit the analysis for the AKI project.
 
 ## Prerequisites
 Please ensure that the following is done prior to analysis:
-- Laboratory data dating to **365 days prior to admission** (as compared to the default -60 days) have been extracted.
 - Only patients admitted from Jan 1, 2020 to **Sep 10, 2020** are extracted **(no earlier than Sep 10, 2020)**
 - All lab data/diagnoses/procedures/medications are extracted from Jan 1, **2019** (-365 days) to Sep 10, **2021** (+365 days)
 - Procedure codes for RRT (hemodialysis + peritoneal dialysis) and kidney transplants are included as well, across **all** dates (i.e. even those before Jan 1, 2019 and after Sep 10, 2021)
