@@ -1,4 +1,5 @@
 # 4CE Phase 2.1 - AKI Analysis
+Last updated: Nov 6, 2021 (v0.1.6.3)
 R code to run, validate, and submit the analysis for the AKI project.
 
 ## Prerequisites
@@ -25,9 +26,17 @@ To run the package, run the following command:
 setwd("/4ceData")
 FourCePhase2.1AKI::runAnalysis()
 ```
+
+To validate results:
+```
+FourCePhase2.1AKI::validateAnalysis()
+```
+
 ## Arguments:
 By default, the analysis should not require any additional arguments.
-These arguments are only needed if your site is experiencing issues with generating results:
+These arguments are only needed if your site is experiencing issues with generating results.
+Note that the arguments apply for both `runAnalysis()` and `validateAnalysis()` functions.
+The `validateAnalysis()` function only has two arguments - `docker` and `siteid_nodocker`.
 | Argument              | Default Value    | Description                                                                                                                                                                                                                                                                                                                 |
 |-----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `is_obfuscated`       | TRUE             | Allows you to toggle obfuscation on and off                                                                                                                                                                                                                                                                                 |
