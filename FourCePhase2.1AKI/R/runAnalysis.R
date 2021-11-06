@@ -720,9 +720,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # Filter the demographics, peak_trend, comorbid, meds tables to remove those patients who 
     # do not have at least 1 measurement prior to peak Cr
     # =======================================================================================
-    cat("\nFiltering to exclude patients without at least 2 prior Cr values.\n")
+    cat("\nFiltering to exclude patients without at least 2 prior Cr values to peak / only one sCr value in first admission.\n")
     cat("No. of patients without at least 2 Cr values prior to peak: ",length(patients_no_prior_cr),"\n")
-    
+    cat("No. of patients with only one sCr in first admission: ",length(pts_insufficient_cr),"\n")
+    patients_no_prior_cr <- c(patients_no_prior_cr,pts_insufficient_cr)
     demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% patients_no_prior_cr),]
     observations <- observations[!(observations$patient_id %in% patients_no_prior_cr),]
     course <- course[!(course$patient_id %in% patients_no_prior_cr),]
