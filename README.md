@@ -35,8 +35,11 @@ FourCePhase2.1AKI::validateAnalysis()
 
 ## Arguments:
 By default, the analysis should not require any additional arguments.
+
 These arguments are only needed if your site is experiencing issues with generating results.
+
 Note that the arguments apply for both `runAnalysis()` and `validateAnalysis()` functions.
+
 The `validateAnalysis()` function only has two arguments - `docker` and `siteid_nodocker`.
 | Argument              | Default Value    | Description                                                                                                                                                                                                                                                                                                                 |
 |-----------------------|------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
