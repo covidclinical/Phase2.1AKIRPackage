@@ -5,14 +5,16 @@
 #' @export
 
 validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
-  error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_validation.log")))
-  sink(error_log,append=TRUE,split=TRUE)
-  
   if(isTRUE(docker)) {
     currSiteId = toupper(FourCePhase2.1Data::getSiteId())
   } else {
     currSiteId = siteid_nodocker
   }
+  
+  error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_validation.log")))
+  sink(error_log,append=TRUE,split=TRUE)
+  
+  
   
   cat("\nAKI Analysis Result Validation\n==================")
   output_folder = getProjectOutputDirectory()
