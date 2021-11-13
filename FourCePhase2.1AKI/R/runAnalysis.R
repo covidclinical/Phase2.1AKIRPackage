@@ -1059,9 +1059,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # If patient received RRT in the index admission, the AKI is likely to be KDIGO 3 grade but this would not necessarily
     # be captured in the serum creatinine trends
     # Hence will need to check back against the rrt_index_admit list and replace the grading with 3
-    if(!is.null(rrt_index_admit) | length(rrt_index_admit) > 0) {
-        kdigo_grade$aki_kdigo_grade[(kdigo_grade$patient_id %in% rrt_index_admit) & (kdigo_grade$patient_id %in% aki_only_index$patient_id)] <- 3
-    }
+    tryCatch({
+        if(!is.null(rrt_index_admit) | length(rrt_index_admit) > 0) {
+            kdigo_grade$aki_kdigo_grade[(kdigo_grade$patient_id %in% rrt_index_admit) & (kdigo_grade$patient_id %in% aki_only_index$patient_id)] <- 3
+        }
+    }, error = function(e) {
+        cat("\nIssue with re-assigning KDIGO grade for AKI patients who underwent RRT.\nError message:\n",e,"\n")
+    })
+    
     
     # Create the CKD table
     cat("\nNow checking if CKD is a comorbid present in the cohort...")
