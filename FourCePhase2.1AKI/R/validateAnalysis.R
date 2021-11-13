@@ -293,7 +293,7 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
     cat("KDIGO total inconsistency: sCr graph = ", cr_graph_kdigo_akitotal,", KM curve = ",km_death_all_akitotal,"\n")
   }
   
-  demog_obf <- demog_obf[demog_obf$category %in% c("n","severe_Non-severe","severe_Severe","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),c("category","No_AKI","AKI")] %>% dplyr::slice(match(c("n","severe_Non-severe","severe_Severe","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),category))
+  demog_obf <- demog_obf[demog_obf$category %in% c("n","severe_Non-severe","severe_Severe","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),c("category","No_AKI","AKI")] %>% dplyr::slice(match(c("n","severe_Non-severe","severe_Severe","deceased_Alive","deceased_Deceased","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3"),category))
   cr_demog_comparison_tmp <- data.frame(demog_obf$category,c(cr_graph_nonaki_total,cr_graph_nonsevere_with_nonaki,cr_graph_severe_with_nonaki,(cr_graph_nonaki_total - km_death_stats_nonakitotal),km_death_stats_nonakitotal,cr_graph_kdigo_0,0,0,0),c(cr_graph_aki_total,cr_graph_nonsevere_with_aki,cr_graph_severe_with_aki,(cr_graph_aki_total - km_death_stats_akitotal),km_death_stats_akitotal,0,cr_graph_kdigo_1,cr_graph_kdigo_2,cr_graph_kdigo_3))
   colnames(cr_demog_comparison_tmp) <- c("category","No_AKI_graphs","AKI_graphs")
   demog_obf <- merge(demog_obf,cr_demog_comparison_tmp,by="category",all.x=T)
