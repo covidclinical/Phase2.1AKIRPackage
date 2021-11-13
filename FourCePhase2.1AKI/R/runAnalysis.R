@@ -453,10 +453,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # First find the nearest retrospective value to 90,180 and 365 days
     labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d = tail(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1),cr_180d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+180,incbounds = TRUE)],1),cr_90d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+90,incbounds = TRUE)],1),cr_365d_day = tail(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission,days_since_admission+365,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
     
+    invisible(gc())
+    
     # Now find the nearest future value
     cat("\nNow finding the nearest future value closest to the 90,180 and 365-day mark...\n")
     message("Warning again: the package may appear to freeze at this stage. Do NOT stop the package!")
     labs_cr_aki <- eval(data.table::setDT(labs_cr_aki)[,':='(cr_180d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+180,days_since_admission+180+cr_180d_range,incbounds = TRUE)],1),cr_90d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+90,days_since_admission+90+cr_90d_range,incbounds = TRUE)],1),cr_365d_ul = head(labs_cr_aki$value[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+365,days_since_admission+365+cr_365d_range,incbounds = TRUE)],1),cr_180d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+180,days_since_admission+180+cr_180d_range,incbounds = TRUE)],1),cr_90d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+90,days_since_admission+90+cr_90d_range,incbounds = TRUE)],1),cr_365d_ul_day = head(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id][data.table::between(labs_cr_aki$days_since_admission[labs_cr_aki$patient_id==patient_id],days_since_admission+365,days_since_admission+365+cr_365d_range,incbounds = TRUE)],1)),by=c('patient_id','days_since_admission')][],envir = globalenv())
+    
+    invisible(gc())
     
     cat("\nNow getting the closest possible value to each of the time points...")
     # 
@@ -1056,7 +1060,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # be captured in the serum creatinine trends
     # Hence will need to check back against the rrt_index_admit list and replace the grading with 3
     if(!is.null(rrt_index_admit) | length(rrt_index_admit) > 0) {
-        kdigo_grade$aki_kdigo_grade[kdigo_grade$patient_id %in% rrt_index_admit] <- 3
+        kdigo_grade$aki_kdigo_grade[(kdigo_grade$patient_id %in% rrt_index_admit) & (kdigo_grade$patient_id %in% aki_only_index$patient_id)] <- 3
     }
     
     # Create the CKD table
