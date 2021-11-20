@@ -182,7 +182,7 @@ which.peaks <- function(x,partial=TRUE,decreasing=FALSE) {
 #' @param target Threshold of interest, default = 1.25
 #' @noRd
 get_day <- function(ratio,time_from_peak,target=1.25) {
-  index = purrr::detect_index(ratio,function(x) x <= 1.25)
+  index = purrr::detect_index(ratio,function(x) {if(!is.na(x)) {return(x <= target)} else { return(FALSE)}})
   if(index > 0) {
     day = time_from_peak[index]
   } else {
@@ -201,7 +201,7 @@ get_day <- function(ratio,time_from_peak,target=1.25) {
 get_day_sustained_recovery <- function(ratio,time_from_peak,target=1.25,window=2) {
   if(length(ratio) > 1){
     ratio_mean <- zoo::rollapply(ratio,window,max,fill=NA,align="left",partial=TRUE)
-    index = purrr::detect_index(ratio_mean,function(x) x <= target)
+    index = purrr::detect_index(ratio_mean,function(x) {if(!is.na(x)) {return(x <= target)} else { return(FALSE)}})
     if(index >= 0) {
       day = time_from_peak[index]
     } else {
