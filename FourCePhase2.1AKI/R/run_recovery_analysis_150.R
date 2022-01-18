@@ -37,7 +37,8 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
                                        med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,
                                        preadmit_cr_list = NULL,preadmit_only_analysis = FALSE,
                                        obfuscation,obfuscation_level,
-                                       restrict_model_corr, factor_threshold = 5) {
+                                       restrict_model_corr, factor_threshold = 5,
+                                      use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
   currSiteId <- siteid
   peak_trend <- base_table
   aki_index <- aki_episodes
@@ -61,12 +62,16 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   med_covid19_new <- med_covid19
   med_acearb_chronic <- med_acearb
   factor_cutoff <- factor_threshold
-  
   patients_with_preadmit_cr <- preadmit_cr_list
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
-  
   restrict_models <- restrict_model_corr
+  
+  if(isTRUE(use_custom_output)) {
+    dir.output <- use_custom_output_dir
+  } else {
+    dir.output <- getProjectOutputDirectory()
+  }
   
   file_prefix <- ""
   cat("\n============================\nSet-up for Time-to-Event Analysis\n============================")
@@ -274,7 +279,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     cat(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
   }
   variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
-  readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation_150.txt")),append=F)
+  readr::write_lines(variable_list_output,file.path(dir.output, paste0(currSiteId, "_custom_equation_150.txt")),append=F)
   
   cat("\nNow proceeding to time-to-Cr recovery analysis...")
   # Now run the actual time-to-event analysis
@@ -288,11 +293,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
     plot_recover_summ_table <- plot_recover$data.survtable
-    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe_PlotSummStats.csv")),row.names=TRUE)
-    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe_Plot.csv")),row.names=FALSE)
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=plot_recover$plot,width=12,height=12,units="cm")
+    write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_Severe_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_Severe_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=plot_recover$plot,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_Severe.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
   })
  
   # Kaplan Meier plot for KDIGO grades
@@ -302,11 +307,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_PlotSummStats.csv")),row.names=TRUE)
-    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_Plot.csv")),row.names=FALSE)
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
+    write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_KDIGO.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
   })
  
   if(isTRUE(ckd_present)) {
@@ -317,11 +322,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
       fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
       plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
       plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-      write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD_PlotSummStats.csv")),row.names=TRUE)
-      write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD_Plot.csv")),row.names=FALSE)
-      # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD.png")),plot=plot_recover,width=12,height=12,units="cm")
+      write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CKD_PlotSummStats.csv")),row.names=TRUE)
+      write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CKD_Plot.csv")),row.names=FALSE)
+      # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CKD.png")),plot=plot_recover,width=12,height=12,units="cm")
       plot.new()
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CKD.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
+      ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CKD.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
     })
   }
   
@@ -349,7 +354,7 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
     univ_results_recover <- do.call("rbind",univ_results)
-    write.csv(univ_results_recover,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Univariate.csv")),row.names=TRUE)
+    write.csv(univ_results_recover,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
   cat("\nGenerating Model 1 (time to recovery, AKI patients only)...")
@@ -364,11 +369,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     coxph_recover1_hr <- cbind(coxph_recover1_summ$coefficients,coxph_recover1_summ$conf.int)[,-c(6,7)]
     coxph_recover1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover1_summ$logtest,coxph_recover1_summ$sctest,coxph_recover1_summ$waldtest))
     coxph_recover1_stats2 <- rbind(data.table::as.data.table(coxph_recover1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover1_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.csv")),row.names=TRUE)
-    write.csv(coxph_recover1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover1_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.csv")),row.names=TRUE)
+    write.csv(coxph_recover1_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover1_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover1_plot <- survminer::ggforest(coxph_recover1,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
   })
 
   cat("\nGenerating Model 2 (time to recovery, AKI patients only)...")
@@ -383,11 +388,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     coxph_recover2_hr <- cbind(coxph_recover2_summ$coefficients,coxph_recover2_summ$conf.int)[,-c(6,7)]
     coxph_recover2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover2_summ$logtest,coxph_recover2_summ$sctest,coxph_recover2_summ$waldtest))
     coxph_recover2_stats2 <- rbind(data.table::as.data.table(coxph_recover2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover2_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.csv")),row.names=TRUE)
-    write.csv(coxph_recover2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover2_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.csv")),row.names=TRUE)
+    write.csv(coxph_recover2_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover2_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover2_plot <- survminer::ggforest(coxph_recover2,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
   })
   
   cat("\nGenerating Model 3 (time to recovery, AKI patients only)...")
@@ -402,11 +407,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     coxph_recover3_hr <- cbind(coxph_recover3_summ$coefficients,coxph_recover3_summ$conf.int)[,-c(6,7)]
     coxph_recover3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover3_summ$logtest,coxph_recover3_summ$sctest,coxph_recover3_summ$waldtest))
     coxph_recover3_stats2 <- rbind(data.table::as.data.table(coxph_recover3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover3_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.csv")),row.names=TRUE)
-    write.csv(coxph_recover3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover3_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.csv")),row.names=TRUE)
+    write.csv(coxph_recover3_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover3_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover3_plot <- survminer::ggforest(coxph_recover3,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
   })
   cat("\nGenerating Model 4 with ACE-i/ARBs (time to recovery, AKI patients only)...")
   try({
@@ -420,11 +425,11 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
     coxph_recover4_hr <- cbind(coxph_recover4_summ$coefficients,coxph_recover4_summ$conf.int)[,-c(6,7)]
     coxph_recover4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover4_summ$logtest,coxph_recover4_summ$sctest,coxph_recover4_summ$waldtest))
     coxph_recover4_stats2 <- rbind(data.table::as.data.table(coxph_recover4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover4_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.csv")),row.names=TRUE)
-    write.csv(coxph_recover4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover4_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.csv")),row.names=TRUE)
+    write.csv(coxph_recover4_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover4_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover4_plot <- survminer::ggforest(coxph_recover4,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover150_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
   })
   
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")

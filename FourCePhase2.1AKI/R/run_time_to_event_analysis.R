@@ -36,7 +36,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
                                        med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,
                                        preadmit_cr_list = NULL,preadmit_only_analysis = FALSE,
                                        obfuscation,obfuscation_level,
-                                       restrict_model_corr, factor_threshold = 5) {
+                                       restrict_model_corr, factor_threshold = 5,
+                                       use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
   currSiteId <- siteid
   peak_trend <- base_table
   aki_index <- aki_episodes
@@ -60,12 +61,16 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   med_covid19_new <- med_covid19
   med_acearb_chronic <- med_acearb
   factor_cutoff <- factor_threshold
-  
   patients_with_preadmit_cr <- preadmit_cr_list
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
-  
   restrict_models <- restrict_model_corr
+  
+  if(isTRUE(use_custom_output)) {
+    dir.output <- use_custom_output_dir
+  } else {
+    dir.output <- getProjectOutputDirectory()
+  }
   
   file_prefix <- ""
   
@@ -276,7 +281,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,sep = " "))
   }
   variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
-  readr::write_lines(variable_list_output,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=F)
+  readr::write_lines(variable_list_output,file.path(dir.output, paste0(currSiteId, "_custom_equation.txt")),append=F)
   
   cat("\nNow proceeding to time-to-Cr recovery analysis...")
   # Now run the actual time-to-event analysis
@@ -289,11 +294,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
     plot_recover_summ_table <- plot_recover$data.survtable
-    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
-    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
+    write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_Severe_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_Severe_Plot.csv")),row.names=FALSE)
     plot.new()
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=12,height=12,units="cm")
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=plot_recover,width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_Severe.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
   })
     
   # Kaplan Meier plot for KDIGO grades
@@ -302,11 +307,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
     plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
     plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-    write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_PlotSummStats.csv")),row.names=TRUE)
-    write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_Plot.csv")),row.names=FALSE)
+    write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO_Plot.csv")),row.names=FALSE)
     plot.new()
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=plot_recover,width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO.png")),plot=print(plot_recover,newpage=FALSE),width=12,height=12,units="cm")
   })
   
   # # Kaplan Meier plot for KDIGO grades - collapsing KDIGO2/3 into one group
@@ -316,9 +321,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery_collapse)
   # plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery_collapse,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,90),break.x.by=30)
   # plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery_collapse)
-  # write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_PlotSummStats.csv")),row.names=TRUE)
-  # write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3.png")),plot=print(plot_recover),width=12,height=12,units="cm")
+  # write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_PlotSummStats.csv")),row.names=TRUE)
+  # write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_Plot.csv")),row.names=FALSE)
+  # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3.png")),plot=print(plot_recover),width=12,height=12,units="cm")
   # 
   
   if(isTRUE(ckd_present)) {
@@ -328,11 +333,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       fit_km_recover <- survminer::surv_fit(recoverPlotFormula, data=aki_index_recovery)
       plot_recover <- survminer::ggsurvplot(fit_km_recover,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),fun="event",xlim=c(0,365),break.x.by=30)
       plot_recover_summ <- survminer::surv_summary(fit_km_recover,data=aki_index_recovery)
-      write.csv(fit_km_recover$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD_PlotSummStats.csv")),row.names=TRUE)
-      write.csv(plot_recover_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD_Plot.csv")),row.names=FALSE)
+      write.csv(fit_km_recover$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CKD_PlotSummStats.csv")),row.names=TRUE)
+      write.csv(plot_recover_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CKD_Plot.csv")),row.names=FALSE)
       plot.new()
-      # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=plot_recover,width=12,height=12,units="cm")
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
+      # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=plot_recover,width=12,height=12,units="cm")
+      ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CKD.png")),plot=print(plot_recover,newpage=F),width=12,height=12,units="cm")
     })
   }
   
@@ -360,7 +365,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
     univ_results_recover <- do.call("rbind",univ_results)
-    write.csv(univ_results_recover,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
+    write.csv(univ_results_recover,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
   cat("\nGenerating Model 1 (time to recovery, AKI patients only)...")
@@ -375,11 +380,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_recover1_hr <- cbind(coxph_recover1_summ$coefficients,coxph_recover1_summ$conf.int)[,-c(6,7)]
     coxph_recover1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover1_summ$logtest,coxph_recover1_summ$sctest,coxph_recover1_summ$waldtest))
     coxph_recover1_stats2 <- rbind(data.table::as.data.table(coxph_recover1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover1_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.csv")),row.names=TRUE)
-    write.csv(coxph_recover1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover1_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.csv")),row.names=TRUE)
+    write.csv(coxph_recover1_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover1_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover1_plot <- survminer::ggforest(coxph_recover1,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model1.png")),plot=print(coxph_recover1_plot),width=20,height=20,units="cm")
   })
   
   # cat("\nGenerating Model 1B - collapsing KDIGO 2/3 to single group (time to recovery, AKI patients only)...")
@@ -392,11 +397,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   #   coxph_recovery1b_hr <- cbind(coxph_recovery1b_summ$coefficients,coxph_recovery1b_summ$conf.int)[,-c(6,7)]
   #   coxph_recovery1b_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recovery1b_summ$logtest,coxph_recovery1b_summ$sctest,coxph_recovery1b_summ$waldtest))
   #   coxph_recovery1b_stats2 <- rbind(data.table::as.data.table(coxph_recovery1b_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recovery1b_summ$rsq,keep.rownames = T))
-  #   write.csv(coxph_recovery1b_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1.csv")),row.names=TRUE)
-  #   write.csv(coxph_recovery1b_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-  #   write.csv(coxph_recovery1b_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+  #   write.csv(coxph_recovery1b_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1.csv")),row.names=TRUE)
+  #   write.csv(coxph_recovery1b_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+  #   write.csv(coxph_recovery1b_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
   #   coxph_recovery1b_plot <- survminer::ggforest(coxph_recovery1b,data=aki_index_recovery_collapse)
-  #   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_recovery1b_plot),width=20,height=20,units="cm")
+  #   ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_recovery1b_plot),width=20,height=20,units="cm")
   # })
   
   
@@ -412,11 +417,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_recover2_hr <- cbind(coxph_recover2_summ$coefficients,coxph_recover2_summ$conf.int)[,-c(6,7)]
     coxph_recover2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover2_summ$logtest,coxph_recover2_summ$sctest,coxph_recover2_summ$waldtest))
     coxph_recover2_stats2 <- rbind(data.table::as.data.table(coxph_recover2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover2_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.csv")),row.names=TRUE)
-    write.csv(coxph_recover2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover2_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.csv")),row.names=TRUE)
+    write.csv(coxph_recover2_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover2_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover2_plot <- survminer::ggforest(coxph_recover2,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model2.png")),plot=print(coxph_recover2_plot),width=20,height=20,units="cm")
   })
   
   cat("\nGenerating Model 3 (time to recovery, AKI patients only)...")
@@ -439,11 +444,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_recover3_hr <- cbind(coxph_recover3_summ$coefficients,coxph_recover3_summ$conf.int)[,-c(6,7)]
     coxph_recover3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover3_summ$logtest,coxph_recover3_summ$sctest,coxph_recover3_summ$waldtest))
     coxph_recover3_stats2 <- rbind(data.table::as.data.table(coxph_recover3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover3_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.csv")),row.names=TRUE)
-    write.csv(coxph_recover3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover3_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.csv")),row.names=TRUE)
+    write.csv(coxph_recover3_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover3_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover3_plot <- survminer::ggforest(coxph_recover3,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model3.png")),plot=print(coxph_recover3_plot),width=20,height=20,units="cm")
   })
   cat("\nGenerating Model 4 with ACE-i/ARBs (time to recovery, AKI patients only)...")
   try({
@@ -457,11 +462,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_recover4_hr <- cbind(coxph_recover4_summ$coefficients,coxph_recover4_summ$conf.int)[,-c(6,7)]
     coxph_recover4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover4_summ$logtest,coxph_recover4_summ$sctest,coxph_recover4_summ$waldtest))
     coxph_recover4_stats2 <- rbind(data.table::as.data.table(coxph_recover4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover4_summ$rsq,keep.rownames = T))
-    write.csv(coxph_recover4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4.csv")),row.names=TRUE)
-    write.csv(coxph_recover4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_recover4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover4_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4.csv")),row.names=TRUE)
+    write.csv(coxph_recover4_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_recover4_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_recover4_plot <- survminer::ggforest(coxph_recover4,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Model4.png")),plot=print(coxph_recover4_plot),width=20,height=20,units="cm")
   })
   
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
@@ -473,12 +478,12 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
     plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
     plot_death_aki_only_summ_table <- plot_death_aki_only$data.survtable
-    write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_PlotSummStats.csv")),row.names=TRUE)
-    write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
-    write.csv(plot_death_aki_only_summ_table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
+    write.csv(fit_death_aki_only$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_death_aki_only_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Plot.csv")),row.names=FALSE)
+    write.csv(plot_death_aki_only_summ_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe_Table.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_Severe.png")),plot=print(plot_death_aki_only),width=12,height=12,units="cm")
   })
   
   try({
@@ -486,11 +491,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
     plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
     plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
-    write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_PlotSummStats.csv")),row.names=TRUE)
-    write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_Plot.csv")),row.names=FALSE)
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
+    write.csv(fit_death_aki_only$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_PlotSummStats.csv")),row.names=TRUE)
+    write.csv(plot_death_aki_only_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=plot_death_aki_only,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
   })
   
   if(isTRUE(ckd_present)) {
@@ -499,10 +504,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       fit_death_aki_only <- survminer::surv_fit(deathPlotFormula, data=aki_index_recovery)
       plot_death_aki_only <- survminer::ggsurvplot(fit_death_aki_only,data=aki_index_recovery,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw(),xlim=c(0,365),break.x.by=30)
       plot_death_aki_only_summ <- survminer::surv_summary(fit_death_aki_only,data=aki_index_recovery)
-      write.csv(fit_death_aki_only$table,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD_PlotSummStats.csv")),row.names=TRUE)
-      write.csv(plot_death_aki_only_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD_Plot.csv")),row.names=FALSE)
+      write.csv(fit_death_aki_only$table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD_PlotSummStats.csv")),row.names=TRUE)
+      write.csv(plot_death_aki_only_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD_Plot.csv")),row.names=FALSE)
       plot.new()
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
+      ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CKD.png")),plot=print(plot_death_aki_only,newpage=F),width=12,height=12,units="cm")
       
     })
   }
@@ -528,7 +533,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
     univ_results_death_akionly <- do.call("rbind",univ_results)
-    write.csv(univ_results_death_akionly,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
+    write.csv(univ_results_death_akionly,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
   cat("\nGenerating Model 1 (Time to death, AKI patients only)...")
@@ -543,11 +548,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_akionly1_hr <- cbind(coxph_death_akionly1_summ$coefficients,coxph_death_akionly1_summ$conf.int)[,-c(6,7)]
     coxph_death_akionly1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly1_summ$logtest,coxph_death_akionly1_summ$sctest,coxph_death_akionly1_summ$waldtest))
     coxph_death_akionly1_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly1_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_akionly1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.csv")),row.names=TRUE)
-    write.csv(coxph_death_akionly1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_akionly1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly1_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.csv")),row.names=TRUE)
+    write.csv(coxph_death_akionly1_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly1_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_akionly1_plot <- survminer::ggforest(coxph_death_akionly1,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.png")),plot=print(coxph_death_akionly1_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model1.png")),plot=print(coxph_death_akionly1_plot),width=20,height=20,units="cm")
   })
   # cat("\nGenerating Model 1b - collapsing KDIGO2/3 into single group (Time to death, AKI patients only)...")
   # try({
@@ -557,11 +562,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   #   coxph_death_akionly1b_hr <- cbind(coxph_death_akionly1b_summ$coefficients,coxph_death_akionly1b_summ$conf.int)[,-c(6,7)]
   #   coxph_death_akionly1b_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly1b_summ$logtest,coxph_death_akionly1b_summ$sctest,coxph_death_akionly1b_summ$waldtest))
   #   coxph_death_akionly1b_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly1b_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly1b_summ$rsq,keep.rownames = T))
-  #   write.csv(coxph_death_akionly1b_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1.csv")),row.names=TRUE)
-  #   write.csv(coxph_death_akionly1b_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-  #   write.csv(coxph_death_akionly1b_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+  #   write.csv(coxph_death_akionly1b_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1.csv")),row.names=TRUE)
+  #   write.csv(coxph_death_akionly1b_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+  #   write.csv(coxph_death_akionly1b_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
   #   coxph_death_akionly1b_plot <- survminer::ggforest(coxph_death_akionly1b,data=aki_index_recovery)
-  #   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_death_akionly1b_plot),width=20,height=20,units="cm")
+  #   ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_death_akionly1b_plot),width=20,height=20,units="cm")
   # })
   
   cat("\nGenerating Model 2 (Time to death, AKI patients only)...")
@@ -576,11 +581,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_akionly2_hr <- cbind(coxph_death_akionly2_summ$coefficients,coxph_death_akionly2_summ$conf.int)[,-c(6,7)]
     coxph_death_akionly2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly2_summ$logtest,coxph_death_akionly2_summ$sctest,coxph_death_akionly2_summ$waldtest))
     coxph_death_akionly2_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly2_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_akionly2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.csv")),row.names=TRUE)
-    write.csv(coxph_death_akionly2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_akionly2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly2_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.csv")),row.names=TRUE)
+    write.csv(coxph_death_akionly2_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly2_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_akionly2_plot <- survminer::ggforest(coxph_death_akionly2,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.png")),plot=print(coxph_death_akionly2_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model2.png")),plot=print(coxph_death_akionly2_plot),width=20,height=20,units="cm")
   })
   
   cat("\nGenerating Model 3 (Time to death, AKI patients only)...")
@@ -602,11 +607,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_akionly3_hr <- cbind(coxph_death_akionly3_summ$coefficients,coxph_death_akionly3_summ$conf.int)[,-c(6,7)]
     coxph_death_akionly3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly3_summ$logtest,coxph_death_akionly3_summ$sctest,coxph_death_akionly3_summ$waldtest))
     coxph_death_akionly3_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly3_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_akionly3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.csv")),row.names=TRUE)
-    write.csv(coxph_death_akionly3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_akionly3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly3_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.csv")),row.names=TRUE)
+    write.csv(coxph_death_akionly3_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly3_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_akionly3_plot <- survminer::ggforest(coxph_death_akionly3,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_akionly3_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model3.png")),plot=print(coxph_death_akionly3_plot),width=20,height=20,units="cm")
   })
   
   cat("\nGenerating Model 4 (Time to death, AKI patients only)...")
@@ -621,11 +626,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_akionly4_hr <- cbind(coxph_death_akionly4_summ$coefficients,coxph_death_akionly4_summ$conf.int)[,-c(6,7)]
     coxph_death_akionly4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_akionly4_summ$logtest,coxph_death_akionly4_summ$sctest,coxph_death_akionly4_summ$waldtest))
     coxph_death_akionly4_stats2 <- rbind(data.table::as.data.table(coxph_death_akionly4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_akionly4_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_akionly4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4.csv")),row.names=TRUE)
-    write.csv(coxph_death_akionly4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_akionly4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly4_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4.csv")),row.names=TRUE)
+    write.csv(coxph_death_akionly4_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_akionly4_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_akionly4_plot <- survminer::ggforest(coxph_death_akionly4,data=aki_index_recovery)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4.png")),plot=print(coxph_death_akionly4_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Model4.png")),plot=print(coxph_death_akionly4_plot),width=20,height=20,units="cm")
   })
   
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
@@ -765,7 +770,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,sep = " "))
   }
   variable_list_death <- paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list),collapse=" ")
-  # readr::write_lines(variable_list_death,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_custom_equation.txt")),append=T)
+  # readr::write_lines(variable_list_death,file.path(dir.output, paste0(currSiteId, "_custom_equation.txt")),append=T)
   
   # 4) Run analysis
   cat("\nNow proceeding with time-to-event analysis...")
@@ -777,10 +782,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
     plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
     plot_death_summ_table <- plot_death$data.survtable
-    write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=plot_death,width=12,height=12,units="cm")
+    write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=plot_death,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
   })
   
   # Survival curves stratified by KDIGO stage
@@ -791,10 +796,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
     plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
     plot_death_summ_table <- plot_death$data.survtable
-    write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO_Plot.csv")),row.names=FALSE)
-    # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=plot_death,width=12,height=12,units="cm")
+    write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO_Plot.csv")),row.names=FALSE)
+    # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=plot_death,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
   })
   
   # # Collapse KDIGO2/3 into single group
@@ -804,8 +809,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death_collapse,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
   # plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death_collapse)
   # plot_death_summ_table <- plot_death$data.survtable
-  # write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO1vs2+3_Plot.csv")),row.names=FALSE)
-  # ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_KDIGO1vs2+3.png")),plot=print(plot_death),width=12,height=12,units="cm")
+  # write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO1vs2+3_Plot.csv")),row.names=FALSE)
+  # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO1vs2+3.png")),plot=print(plot_death),width=12,height=12,units="cm")
   # 
   
   if(isTRUE(ckd_present)) {
@@ -816,9 +821,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
       plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
       plot_death_summ_table <- plot_death$data.survtable
-      write.csv(plot_death_summ,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD_Plot.csv")),row.names=FALSE)
+      write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_CKD_Plot.csv")),row.names=FALSE)
       plot.new()
-      ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_CKD.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+      ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_CKD.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
     })
   }
   
@@ -843,8 +848,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
     univ_results_death_all <- do.call("rbind",univ_results)
-    write.csv(univ_results_death_all,file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
-    # save(univ_results_death_all,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.rdata")))
+    write.csv(univ_results_death_all,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.csv")),row.names=TRUE)
+    # save(univ_results_death_all,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Univariate.rdata")))
   })
   
   cat("\nGenerating Model 1 (Time to death, all patients)...")
@@ -859,11 +864,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_all1_hr <- cbind(coxph_death_all1_summ$coefficients,coxph_death_all1_summ$conf.int)[,-c(6,7)]
     coxph_death_all1_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all1_summ$logtest,coxph_death_all1_summ$sctest,coxph_death_all1_summ$waldtest))
     coxph_death_all1_stats2 <- rbind(data.table::as.data.table(coxph_death_all1_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all1_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_all1_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.csv")),row.names=TRUE)
-    write.csv(coxph_death_all1_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_all1_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all1_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.csv")),row.names=TRUE)
+    write.csv(coxph_death_all1_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all1_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_all1_plot <- survminer::ggforest(coxph_death_all1,data=aki_index_death)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model1.png")),plot=print(coxph_death_all1_plot),width=20,height=20,units="cm")
   })
   # 
   # cat("\nGenerating Model 1b - collapsing KDIGO2/3 into single group (Time to death, all patients)...")
@@ -878,11 +883,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   #   coxph_death_all1b_hr <- cbind(coxph_death_all1b_summ$coefficients,coxph_death_all1b_summ$conf.int)[,-c(6,7)]
   #   coxph_death_all1b_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all1b_summ$logtest,coxph_death_all1b_summ$sctest,coxph_death_all1b_summ$waldtest))
   #   coxph_death_all1b_stats2 <- rbind(data.table::as.data.table(coxph_death_all1b_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all1b_summ$rsq,keep.rownames = T))
-  #   write.csv(coxph_death_all1b_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1.csv")),row.names=TRUE)
-  #   write.csv(coxph_death_all1b_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
-  #   write.csv(coxph_death_all1b_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+  #   write.csv(coxph_death_all1b_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1.csv")),row.names=TRUE)
+  #   write.csv(coxph_death_all1b_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1_teststats.csv")),row.names=FALSE,col.names = FALSE)
+  #   write.csv(coxph_death_all1b_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
   #   coxph_death_all1b_plot <- survminer::ggforest(coxph_death_all1b,data=aki_index_death)
-  #   ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_death_all1b_plot),width=20,height=20,units="cm")
+  #   ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO1vs2+3_CoxPH_Model1.png")),plot=print(coxph_death_all1b_plot),width=20,height=20,units="cm")
   # })
   
   cat("\nGenerating Model 2 (Time to death, all patients)...")
@@ -897,11 +902,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_all2_hr <- cbind(coxph_death_all2_summ$coefficients,coxph_death_all2_summ$conf.int)[,-c(6,7)]
     coxph_death_all2_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all2_summ$logtest,coxph_death_all2_summ$sctest,coxph_death_all2_summ$waldtest))
     coxph_death_all2_stats2 <- rbind(data.table::as.data.table(coxph_death_all2_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all2_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_all2_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.csv")),row.names=TRUE)
-    write.csv(coxph_death_all2_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_all2_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all2_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.csv")),row.names=TRUE)
+    write.csv(coxph_death_all2_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all2_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_all2_plot <- survminer::ggforest(coxph_death_all2,data=aki_index_death)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_all2_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model2.png")),plot=print(coxph_death_all2_plot),width=20,height=20,units="cm")
   })
   
   cat("\nGenerating Model 3 (Time to death, all patients)...")
@@ -916,11 +921,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_all3_hr <- cbind(coxph_death_all3_summ$coefficients,coxph_death_all3_summ$conf.int)[,-c(6,7)]
     coxph_death_all3_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all3_summ$logtest,coxph_death_all3_summ$sctest,coxph_death_all3_summ$waldtest))
     coxph_death_all3_stats2 <- rbind(data.table::as.data.table(coxph_death_all3_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all3_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_all3_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.csv")),row.names=TRUE)
-    write.csv(coxph_death_all3_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_all3_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all3_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.csv")),row.names=TRUE)
+    write.csv(coxph_death_all3_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all3_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_all3_plot <- survminer::ggforest(coxph_death_all3,data=aki_index_death)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_all3_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model3.png")),plot=print(coxph_death_all3_plot),width=20,height=20,units="cm")
   })
   
   cat("\nGenerating Model 4 (Time to death, all patients)...")
@@ -935,11 +940,11 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     coxph_death_all4_hr <- cbind(coxph_death_all4_summ$coefficients,coxph_death_all4_summ$conf.int)[,-c(6,7)]
     coxph_death_all4_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_all4_summ$logtest,coxph_death_all4_summ$sctest,coxph_death_all4_summ$waldtest))
     coxph_death_all4_stats2 <- rbind(data.table::as.data.table(coxph_death_all4_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_all4_summ$rsq,keep.rownames = T))
-    write.csv(coxph_death_all4_hr,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.csv")),row.names=TRUE)
-    write.csv(coxph_death_all4_stats1,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
-    write.csv(coxph_death_all4_stats2,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all4_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.csv")),row.names=TRUE)
+    write.csv(coxph_death_all4_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_teststats.csv")),row.names=FALSE,col.names = FALSE)
+    write.csv(coxph_death_all4_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
     coxph_death_all4_plot <- survminer::ggforest(coxph_death_all4,data=aki_index_death)
-    ggplot2::ggsave(filename=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.png")),plot=print(coxph_death_all4_plot),width=20,height=20,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Model4.png")),plot=print(coxph_death_all4_plot),width=20,height=20,units="cm")
   })
   
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")

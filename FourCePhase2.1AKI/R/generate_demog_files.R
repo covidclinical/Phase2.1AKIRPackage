@@ -37,7 +37,8 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
                                  med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,
                                  cirrhosis_valid,
                                  preadmit_cr_list = NULL,preadmit_only_analysis = FALSE,
-                                 obfuscation,obfuscation_level,aki_first_visit_list) {
+                                 obfuscation,obfuscation_level,aki_first_visit_list,
+                                 use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
   currSiteId <- siteid
   demographics_filt <- demog_table
   labs_aki_summ <- aki_labs
@@ -61,6 +62,12 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
   aki_list_first_admit <- aki_first_visit_list
+  
+  if(isTRUE(use_custom_output)) {
+    dir.output <- use_custom_output_dir
+  } else {
+    dir.output <- getProjectOutputDirectory()
+  }
   
   file_suffix <- ".csv"
   if(isTRUE(preadmit_only_analysis)) {
@@ -162,7 +169,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   if(isTRUE(meld_analysis_valid)) {
     table_one_meld_vars <- c("sex","age_group","race","aki","meld_admit_severe","deceased","aki_kdigo_grade","preadmit_cr",comorbid_demog_summ,med_summ)
   }
-  #capture.output(summary(table_one),file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_Missingness.txt")))
+  #capture.output(summary(table_one),file=file.path(dir.output, paste0(currSiteId, "_TableOne_Missingness.txt")))
   demog_meld_files <- NULL
   if(isTRUE(cirrhosis_present)) {
     demog_cld_summ <- demog_summ %>% dplyr::filter(cld == 1)
@@ -209,7 +216,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     aki_total <- demog_obf$AKI[1]
     total_pop <- demog_obf$total[1]
     demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop) %>% dplyr::ungroup()
-    write.csv(demog_obf,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne_obfuscated",file_suffix)),row.names=F,na="NA")
+    write.csv(demog_obf,file=file.path(dir.output, paste0(currSiteId, "_TableOne_obfuscated",file_suffix)),row.names=F,na="NA")
     
     tryCatch({
       if(isTRUE(cirrhosis_present)) {
@@ -443,7 +450,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   if(obfuscation_value == 0 | isTRUE(!is_obfuscated)) {
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki")
     export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
-    write.csv(export_table_one,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_TableOne",file_suffix)))
+    write.csv(export_table_one,file=file.path(dir.output, paste0(currSiteId, "_TableOne",file_suffix)))
     try({
       if(isTRUE(cirrhosis_present)) {
         table_one_cld <- tableone::CreateTableOne(data=demog_cld_summ,vars=table_one_vars,strata="aki")
@@ -469,7 +476,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
       file_rda_suffix <- "_preadmit_cr_only.rdata"
     }
     try({
-      save(list=demog_meld_files,file=file.path(getProjectOutputDirectory(), paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")
+      save(list=demog_meld_files,file=file.path(dir.output, paste0(currSiteId, "_MELD_Cirrhosis",file_rda_suffix)),compress="bzip2")
     })
   }
   cat("\nTableOne with patient demographics should have been generated in CSV files at this point. Check for any errors.\n")
