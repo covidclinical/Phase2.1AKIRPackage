@@ -785,7 +785,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI_Plot.csv")),row.names=FALSE)
     # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=plot_death,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_AKIvsNonAKI.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
   })
   
   # Survival curves stratified by KDIGO stage
@@ -799,7 +799,22 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO_Plot.csv")),row.names=FALSE)
     # ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=plot_death,width=12,height=12,units="cm")
     plot.new()
-    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_KDIGO.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
+  })
+  
+  # Survival curves stratified by COVID-19 severity (ALL patients)
+  
+  cat("\nNow proceeding with time-to-event analysis...")
+  try({
+    cat("\n(c) by COVID-19 severity")
+    deathPlotFormula <- as.formula("survival::Surv(time=time_to_death_km,event=deceased) ~ severe")
+    fit_death <- survminer::surv_fit(deathPlotFormula, data=aki_index_death)
+    plot_death <- survminer::ggsurvplot(fit_death,data=aki_index_death,pval=TRUE,conf.int=TRUE,risk.table=TRUE,risk.table.col = "strata", linetype = "strata",surv.median.line = "hv",ggtheme = ggplot2::theme_bw())
+    plot_death_summ <- survminer::surv_summary(fit_death,data=aki_index_death)
+    plot_death_summ_table <- plot_death$data.survtable
+    write.csv(plot_death_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_Severe_Plot.csv")),row.names=FALSE)
+    plot.new()
+    ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_Severe.png")),plot=print(plot_death,newpage=F),width=12,height=12,units="cm")
   })
   
   # # Collapse KDIGO2/3 into single group

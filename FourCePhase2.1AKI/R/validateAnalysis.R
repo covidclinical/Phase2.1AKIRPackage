@@ -4,20 +4,23 @@
 #' @keywords 4CE
 #' @export
 
-validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
+validateAnalysis <- function(docker = TRUE, siteid_nodocker = "",custom_output = FALSE, custom_output_dir = "") {
   if(isTRUE(docker)) {
     currSiteId = toupper(FourCePhase2.1Data::getSiteId())
   } else {
     currSiteId = siteid_nodocker
   }
   
-  error_log <- file(file.path(getProjectOutputDirectory(),paste0("/",currSiteId,"_validation.log")))
+  cat("\nAKI Analysis Result Validation\n==================")
+  if(isTRUE(custom_output)) {
+    output_folder = custom_output_dir
+  } else {
+    output_folder = getProjectOutputDirectory()
+  }
+  
+  error_log <- file(file.path(output_folder,paste0("/",currSiteId,"_validation.log")))
   sink(error_log,append=TRUE,split=TRUE)
   
-  
-  
-  cat("\nAKI Analysis Result Validation\n==================")
-  output_folder = getProjectOutputDirectory()
   demog_obf <- read.csv(file.path(output_folder,paste0(currSiteId,"_TableOne_obfuscated.csv")))
   cr_graph_aki_vs_nonaki <- read.csv(file.path(output_folder,paste0(currSiteId,"_PeakCr_AKI_vs_NonAKI.csv")))
   cr_graph_aki_covidsevere <- read.csv(file.path(output_folder,paste0(currSiteId,"_PeakCr_Severe_AKI.csv")))
@@ -38,8 +41,12 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   cr_graph_severe_with_nonaki <- as.numeric(cr_graph_aki_covidsevere$n[cr_graph_aki_covidsevere$severe == 3])
   cr_graph_severe_with_aki <- as.numeric(cr_graph_aki_covidsevere$n[cr_graph_aki_covidsevere$severe == 4])
   
-  cr_graph_nonsevere_total <- cr_graph_nonsevere_with_nonaki + cr_graph_nonsevere_with_aki
-  cr_graph_severe_total <- cr_graph_severe_with_nonaki + cr_graph_severe_with_aki
+  cr_graph_nonsevere_total <- sum(cr_graph_nonsevere_with_nonaki, cr_graph_nonsevere_with_aki,na.rm=T)
+  cr_graph_severe_total <- sum(cr_graph_severe_with_nonaki, cr_graph_severe_with_aki, na.rm=T)
+
+  if(length(cr_graph_nonsevere_with_aki) == 0) {
+    cr_graph_nonsevere_with_aki <- 0
+  }
   
   cat("\nComparing AKI vs Non-AKI graph with AKI + COVID-19 severity graph...\n")
   if(cr_graph_aki_total == (cr_graph_nonsevere_with_aki + cr_graph_severe_with_aki)) {
@@ -140,11 +147,13 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
     cat("\nInconsistent KDIGO Stage 2 counts:\nKDIGO Stage graph: ",cr_graph_kdigo_2,"\nKDIGO Stage + COVID-19 severity graph: ",cr_graph_kdigo_covid_2,"\n")
   }
   
-  if(cr_graph_kdigo_3 == cr_graph_kdigo_covid_3) {
-    cat("\nKDIGO Stage 3 match\n")
-  } else {
-    cat("\nInconsistent KDIGO Stage 3 counts:\nKDIGO Stage graph: ",cr_graph_kdigo_3,"\nKDIGO Stage + COVID-19 severity graph: ",cr_graph_kdigo_covid_3,"\n")
-  }
+  try({
+    if(cr_graph_kdigo_3 == cr_graph_kdigo_covid_3) {
+      cat("\nKDIGO Stage 3 match\n")
+    } else {
+      cat("\nInconsistent KDIGO Stage 3 counts:\nKDIGO Stage graph: ",cr_graph_kdigo_3,"\nKDIGO Stage + COVID-19 severity graph: ",cr_graph_kdigo_covid_3,"\n")
+    }
+  })
 
   cat("\n===========================================\n")
   cat("\nNow checking for consistency within the Kaplan-Meier curves.\n\n")
@@ -172,7 +181,7 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   km_death_aki_only_kdigo_1 <- as.numeric(km_death_aki_only_kdigo$n.risk[km_death_aki_only_kdigo$aki_kdigo_final == 1])
   km_death_aki_only_kdigo_2 <- as.numeric(km_death_aki_only_kdigo$n.risk[km_death_aki_only_kdigo$aki_kdigo_final == 2])
   km_death_aki_only_kdigo_3 <- as.numeric(km_death_aki_only_kdigo$n.risk[km_death_aki_only_kdigo$aki_kdigo_final == 3])
-  km_death_aki_only_kdigo_total <- km_death_aki_only_kdigo_1 + km_death_aki_only_kdigo_2 + km_death_aki_only_kdigo_3
+  km_death_aki_only_kdigo_total <- sum(km_death_aki_only_kdigo_1, km_death_aki_only_kdigo_2, km_death_aki_only_kdigo_3, na.rm=TRUE)
   
   km_death_aki_vs_nonaki_akitotal <- as.numeric(km_death_aki_vs_nonaki$n.risk[km_death_aki_vs_nonaki$is_aki == 1])
   km_death_aki_vs_nonaki_nonakitotal <- as.numeric(km_death_aki_vs_nonaki$n.risk[km_death_aki_vs_nonaki$is_aki == 0])
@@ -181,14 +190,14 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   km_death_all_kdigo_1 <- as.numeric(km_death_all_kdigo$n.risk[km_death_all_kdigo$aki_kdigo_final == 1])
   km_death_all_kdigo_2 <- as.numeric(km_death_all_kdigo$n.risk[km_death_all_kdigo$aki_kdigo_final == 2])
   km_death_all_kdigo_3 <- as.numeric(km_death_all_kdigo$n.risk[km_death_all_kdigo$aki_kdigo_final == 3])
-  km_death_all_akitotal <- km_death_all_kdigo_1 + km_death_all_kdigo_2 + km_death_all_kdigo_3
+  km_death_all_akitotal <- sum(km_death_all_kdigo_1, km_death_all_kdigo_2, km_death_all_kdigo_3, na.rm=TRUE)
   
   km_recover_aki_only_severetotal <- as.numeric(km_recover_aki_only_covidsevere$n.risk[km_recover_aki_only_covidsevere$severe == 1])
   km_recover_aki_only_nonseveretotal <- as.numeric(km_recover_aki_only_covidsevere$n.risk[km_recover_aki_only_covidsevere$severe == 0])
   km_recover_aki_only_kdigo_1 <- as.numeric(km_recover_aki_only_kdigo$n.risk[km_recover_aki_only_kdigo$aki_kdigo_final == 1])
   km_recover_aki_only_kdigo_2 <- as.numeric(km_recover_aki_only_kdigo$n.risk[km_recover_aki_only_kdigo$aki_kdigo_final == 2])
   km_recover_aki_only_kdigo_3 <- as.numeric(km_recover_aki_only_kdigo$n.risk[km_recover_aki_only_kdigo$aki_kdigo_final == 3])
-  km_recover_aki_only_kdigo_total <- km_recover_aki_only_kdigo_1 + km_recover_aki_only_kdigo_2 + km_recover_aki_only_kdigo_3
+  km_recover_aki_only_kdigo_total <- sum(km_recover_aki_only_kdigo_1, km_recover_aki_only_kdigo_2, km_recover_aki_only_kdigo_3, na.rm=TRUE)
   
   cat("Comparing KDIGO patients from Mortality (AKI only) and Mortality (All) graphs...\n")
   if(km_death_aki_only_kdigo_1 == km_death_all_kdigo_1) {
@@ -201,11 +210,14 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   } else {
     cat("KDIGO 2 inconsistency: AKI only = ", km_death_aki_only_kdigo_2,", All = ",km_death_all_kdigo_2,"\n")
   }
-  if(km_death_aki_only_kdigo_3 == km_death_all_kdigo_3) {
-    cat("KDIGO 3 match\n")
-  } else {
-    cat("KDIGO 3 inconsistency: AKI only = ", km_death_aki_only_kdigo_3,", All = ",km_death_all_kdigo_3,"\n")
-  }
+  try({
+    if(km_death_aki_only_kdigo_3 == km_death_all_kdigo_3) {
+      cat("KDIGO 3 match\n")
+    } else {
+      cat("KDIGO 3 inconsistency: AKI only = ", km_death_aki_only_kdigo_3,", All = ",km_death_all_kdigo_3,"\n")
+    }
+  })
+  
   if(km_death_aki_only_kdigo_total == km_death_all_akitotal) {
     cat("KDIGO total match\n")
   } else {
@@ -223,11 +235,14 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   } else {
     cat("KDIGO 2 inconsistency: Recovery = ", km_recover_aki_only_kdigo_2,", Death = ",km_death_all_kdigo_2,"\n")
   }
-  if(km_recover_aki_only_kdigo_3 == km_death_all_kdigo_3) {
-    cat("KDIGO 3 match\n")
-  } else {
-    cat("KDIGO 3 inconsistency: Recovery = ", km_recover_aki_only_kdigo_3,", Death = ",km_death_all_kdigo_3,"\n")
-  }
+  try({
+    if(km_recover_aki_only_kdigo_3 == km_death_all_kdigo_3) {
+      cat("KDIGO 3 match\n")
+    } else {
+      cat("KDIGO 3 inconsistency: Recovery = ", km_recover_aki_only_kdigo_3,", Death = ",km_death_all_kdigo_3,"\n")
+    }
+  })
+  
   if(km_recover_aki_only_kdigo_total == km_death_all_akitotal) {
     cat("KDIGO total match\n")
   } else {
@@ -282,25 +297,48 @@ validateAnalysis <- function(docker = TRUE, siteid_nodocker = "") {
   } else {
     cat("KDIGO 2 inconsistency: sCr graph = ", cr_graph_kdigo_2,", KM curve = ",km_death_all_kdigo_2,"\n")
   }
-  if(cr_graph_kdigo_3 == km_death_all_kdigo_3) {
-    cat("KDIGO 3 match\n")
-  } else {
-    cat("KDIGO 3 inconsistency: sCr graph = ", cr_graph_kdigo_3,", KM curve = ",km_death_all_kdigo_3,"\n")
-  }
+  try({
+    if(cr_graph_kdigo_3 == km_death_all_kdigo_3) {
+      cat("KDIGO 3 match\n")
+    } else {
+      cat("KDIGO 3 inconsistency: sCr graph = ", cr_graph_kdigo_3,", KM curve = ",km_death_all_kdigo_3,"\n")
+    }
+  })
+  
   if(cr_graph_kdigo_akitotal == km_death_all_akitotal) {
     cat("KDIGO total match\n")
   } else {
     cat("KDIGO total inconsistency: sCr graph = ", cr_graph_kdigo_akitotal,", KM curve = ",km_death_all_akitotal,"\n")
   }
+  cat("\nNow comparing demographics tables with sCr/KM graphs...\n")
+  demog_cr <- demog_obf[demog_obf$category %in% c("n","severe_Non-severe","severe_Severe","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),c("category","No_AKI","AKI")] %>% dplyr::slice(match(c("n","severe_Non-severe","severe_Severe","deceased_Alive","deceased_Deceased","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3"),category))
   
-  demog_obf <- demog_obf[demog_obf$category %in% c("n","severe_Non-severe","severe_Severe","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),c("category","No_AKI","AKI")] %>% dplyr::slice(match(c("n","severe_Non-severe","severe_Severe","deceased_Alive","deceased_Deceased","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3"),category))
-  cr_demog_comparison_tmp <- data.frame(demog_obf$category,c(cr_graph_nonaki_total,cr_graph_nonsevere_with_nonaki,cr_graph_severe_with_nonaki,(cr_graph_nonaki_total - km_death_stats_nonakitotal),km_death_stats_nonakitotal,cr_graph_kdigo_0,0,0,0),c(cr_graph_aki_total,cr_graph_nonsevere_with_aki,cr_graph_severe_with_aki,(cr_graph_aki_total - km_death_stats_akitotal),km_death_stats_akitotal,0,cr_graph_kdigo_1,cr_graph_kdigo_2,cr_graph_kdigo_3))
+  cr_demog_comparison_tmp <- data.frame(demog_cr$category,c(cr_graph_nonaki_total,cr_graph_nonsevere_with_nonaki,cr_graph_severe_with_nonaki,(cr_graph_nonaki_total - km_death_stats_nonakitotal),km_death_stats_nonakitotal,cr_graph_kdigo_0,0,0,0),c(cr_graph_aki_total,cr_graph_nonsevere_with_aki,cr_graph_severe_with_aki,(cr_graph_aki_total - km_death_stats_akitotal),km_death_stats_akitotal,0,cr_graph_kdigo_1,cr_graph_kdigo_2,cr_graph_kdigo_3))
   colnames(cr_demog_comparison_tmp) <- c("category","No_AKI_graphs","AKI_graphs")
-  demog_obf <- merge(demog_obf,cr_demog_comparison_tmp,by="category",all.x=T)
-  demog_obf <- demog_obf %>% dplyr::mutate(diff_nonaki = No_AKI - No_AKI_graphs,diff_aki = AKI - AKI_graphs) %>% dplyr::filter(diff_aki != 0)
-  if(length(demog_obf$category) > 0) {
-    cat("\nMismatches found in counts between sCr graphs/KM curves and demographics tables.\nRefer to the specific counts below for details.\nIf the errors arise from NAs due to obfuscation, please ignore this message.\nUse this information to aid in debugging.\n")
-    print(data.table::as.data.table(demog_obf))
+  
+  demog_km <- demog_obf[demog_obf$category %in% c("n","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3","deceased_Alive","deceased_Deceased"),c("category","No_AKI","AKI")] %>% dplyr::slice(match(c("n","deceased_Alive","deceased_Deceased","aki_kdigo_grade_No AKI","aki_kdigo_grade_Stage 1","aki_kdigo_grade_Stage 2","aki_kdigo_grade_Stage 3"),category))
+  
+  km_demog_comparison_tmp <- data.frame(demog_km$category,c(km_death_all_kdigo_0,(km_death_all_kdigo_0 - km_death_stats_nonakitotal),km_death_stats_nonakitotal,km_death_all_kdigo_0,0,0,0),c(km_death_all_akitotal,(km_death_all_akitotal - km_death_stats_akitotal),km_death_stats_akitotal,0,km_death_aki_only_kdigo_1,km_death_aki_only_kdigo_2,km_death_aki_only_kdigo_3))
+  colnames(km_demog_comparison_tmp) <- c("category","No_AKI_graphs","AKI_graphs")
+  
+  demog_cr <- merge(demog_cr,cr_demog_comparison_tmp,by="category",all.x=T)
+  demog_cr <- demog_cr %>% dplyr::mutate(diff_nonaki = No_AKI - No_AKI_graphs,diff_aki = AKI - AKI_graphs) %>% dplyr::filter(diff_aki != 0)
+  
+  demog_km <- merge(demog_km,km_demog_comparison_tmp,by="category",all.x=T)
+  demog_km <- demog_km %>% dplyr::mutate(diff_nonaki = No_AKI - No_AKI_graphs,diff_aki = AKI - AKI_graphs) %>% dplyr::filter(diff_aki != 0)
+  
+  if(length(demog_cr$category) > 0) {
+    cat("\nMismatches found in counts between sCr graphs and demographics tables.\nRefer to the specific counts below for details.\nIf the errors arise from NAs due to obfuscation, please ignore this message.\nUse this information to aid in debugging.\n")
+    print(data.table::as.data.table(demog_cr))
+  } else {
+    cat("\nNo issues found with the demographics tables and sCr graphs.\n")
+  }
+  
+  if(length(demog_km$category) > 0) {
+    cat("\nMismatches found in counts between KM graphs and demographics tables.\nRefer to the specific counts below for details.\nIf the errors arise from NAs due to obfuscation, please ignore this message.\nUse this information to aid in debugging.\n")
+    print(data.table::as.data.table(demog_km))
+  } else {
+    cat("\nNo issues found with the demographics tables and KM graphs.\n")
   }
   sink()
   closeAllConnections()
