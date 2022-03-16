@@ -156,6 +156,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     demographics <- merge(demographics[,c("patient_id","siteid","admission_date","days_since_admission","last_discharge_date","still_in_hospital","severe_date","death_date","deceased","sex","age_group","race","race_collected")],demographics_filt[,c("patient_id","severe")],by="patient_id",all.x=T)
     demographics <- demographics %>% dplyr::select(patient_id,siteid,admission_date,days_since_admission,last_discharge_date,still_in_hospital,severe_date,severe,death_date,deceased,sex,age_group,race,race_collected)
     
+    invisible(gc())
     # Time to RRT
     # ==================
     cat("\nCreating table for RRT/Kidney transplant...")
