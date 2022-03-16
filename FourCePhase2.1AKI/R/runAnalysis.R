@@ -143,15 +143,21 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Now we need to fix a bug in the labeling of severe patients
     # The problem with the original approach of labeling a patient as severe (0,1) as per Griffin's SQL scripts is that
-    # the presence of any of the markers beyond the first admission would automically confer severe status to a patient
+    # the presence of any of the markers beyond the first admission would automatically confer severe status to a patient
     # even if the corresponding markers appear at a significant period of time post-COVID-19 infection (e.g. patient 
     # admitted for appendicitis requiring ICU admission a year after a clinically mild COVID-19 infection).
     # The following lines attempt to correct the labeling using the severe dates instead as a marker
     demographics_filt <- merge(demographics_filt,first_discharge,by="patient_id",all.x=T)
     demographics_filt <- demographics_filt %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_not_on_first_admit = dplyr::if_else( !is.na(time_to_severe)| (time_to_severe > first_discharge_day),1,0)) %>% dplyr::ungroup()
-    cat("No. of patients with severe markers past index admission:",sum(demographics_filt$severe_not_on_first_admit,na.rm=T),"\n")
+    cat("No. of patients with severe markers past index admission (demographics_filt):",sum(demographics_filt$severe_not_on_first_admit,na.rm=T),"\n")
     demographics_filt <- demographics_filt %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(severe == 0,0,dplyr::if_else(time_to_severe > first_discharge_day,0,1))) %>% dplyr::ungroup()
     demographics_filt <- demographics_filt %>% dplyr::select(patient_id,siteid,sex,age_group,race,length_stay,severe,time_to_severe,deceased,time_to_death)
+    
+    demographics <- merge(demographics,first_discharge,by="patient_id",all.x=T)
+    demographics <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_not_on_first_admit = dplyr::if_else( !is.na(time_to_severe)| (time_to_severe > first_discharge_day),1,0)) %>% dplyr::ungroup()
+    cat("No. of patients with severe markers past index admission (demographics):",sum(demographics$severe_not_on_first_admit,na.rm=T),"\n")
+    demographics <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(severe == 0,0,dplyr::if_else(time_to_severe > first_discharge_day,0,1))) %>% dplyr::ungroup()
+    demographics <- demographics %>% dplyr::select(patient_id,siteid,admission_date,days_since_admission,last_discharge_date,still_in_hospital,severe_date,severe,death_date,deceased,sex,age_group,race,race_collected)
     
     # Time to RRT
     # ==================
