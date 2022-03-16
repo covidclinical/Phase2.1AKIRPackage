@@ -153,10 +153,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     demographics_filt <- demographics_filt %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(severe == 0,0,dplyr::if_else(time_to_severe > first_discharge_day,0,1))) %>% dplyr::ungroup()
     demographics_filt <- demographics_filt %>% dplyr::select(patient_id,siteid,sex,age_group,race,length_stay,severe,time_to_severe,deceased,time_to_death)
     
-    demographics <- merge(demographics,first_discharge,by="patient_id",all.x=T)
-    demographics <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe_not_on_first_admit = dplyr::if_else( !is.na(time_to_severe)| (time_to_severe > first_discharge_day),1,0)) %>% dplyr::ungroup()
-    cat("No. of patients with severe markers past index admission (demographics):",sum(demographics$severe_not_on_first_admit,na.rm=T),"\n")
-    demographics <- demographics %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(severe == 0,0,dplyr::if_else(time_to_severe > first_discharge_day,0,1))) %>% dplyr::ungroup()
+    demographics <- merge(demographics[,c("patient_id","siteid","admission_date","days_since_admission","last_discharge_date","still_in_hospital","severe_date","death_date","deceased","sex","age_group","race","race_collected")],demographics_filt[,c("patient_id","severe")],by="patient_id",all.x=T)
     demographics <- demographics %>% dplyr::select(patient_id,siteid,admission_date,days_since_admission,last_discharge_date,still_in_hospital,severe_date,severe,death_date,deceased,sex,age_group,race,race_collected)
     
     # Time to RRT
