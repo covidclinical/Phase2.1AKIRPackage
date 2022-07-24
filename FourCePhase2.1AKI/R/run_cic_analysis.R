@@ -1,7 +1,7 @@
 #' Generated cumulative incidence curves and Fine-Gray models for competing risks of either recovery / new onset CKD (event of interest) against mortality
 #' 
 run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly,
-                             med_recovery_list, comorbid_recovery_list, demog_recovery_list,earliest_cr_recovery_list,
+                             var_list_recovery_all,
                              var_list_new_ckd_nonckd_akionly,
                              var_list_recovery_nonckd_akionly,
                              var_list_new_ckd_nonckd,
@@ -34,10 +34,33 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   model_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
   model_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
   
-  models <- list(model1,model2,model3,model4,model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c)
-  models_labels <- c("Model1","Model2","Model3","Model4","Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C")
+  model_1d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld")
+  model_2d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
+  model_3d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
   
-  var_list_recovery_all_aki <- c(med_recovery_list, comorbid_recovery_list, demog_recovery_list,earliest_cr_recovery_list)
+  models <- list(model1,model2,model3,model4,model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c,model_1d,model_2d,model_3d,model_4d)
+  models_labels <- c("Model1","Model2","Model3","Model4","Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C","Model_1D","Model_2D","Model_3D","Model_4D")
+  
+  # Now create a new list where the models are modified to not include ckd
+  model1 <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld")
+  model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
+  model3 <- c("age_group","sex","severe","COAGA","COAGB","covid_rx")
+  model4 <- c("age_group","sex","severe","aki_kdigo_final","acei_arb_preexposure")
+  model_2a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
+  model_3a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_3b <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral")
+  model_4b <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_1c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld")
+  model_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
+  model_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  
+  models_nockd <- list(model1,model2,model3,model4,model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c)
+  models_nockd_labels <- c("Model1","Model2","Model3","Model4","Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C")
+  
+  var_list_recovery_all_aki <- var_list_recovery_all
   
   cat("\nProceeding to transforming tables\n")
   recovery_all_cic <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
@@ -102,6 +125,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   # ===============
   recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ aki_kdigo_final")
   cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
+  # cuminc_recovery_all %>% tidycmprsk::autoplot(conf.int=T)
   cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
   cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
   
@@ -173,7 +197,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   
   # ==================
   
-  for(i in 1:13) {
+  for(i in 1:length(models_labels)) {
     cat(paste0("\nGenerating Fine-Gray models (", models_labels[i], ") (time to recovery, Non-CKD + CKD, AKI patients only)..."))
     try({
       recovery_model <- c("severe","aki_kdigo_final",var_list_recovery_all_aki)
@@ -182,7 +206,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
       message(paste("Formula for ", models_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
       FineGray_recovery <- tidycmprsk::crr(recoveryFineGrayFormula, data=recovery_all_cic,failcode = "Recovery")
       
-      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,conf.int=T) 
+      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
       FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
       write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_All_AKI_FineGray_",models_labels[i],".csv")),row.names=F)
       write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_All_AKI_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
@@ -190,66 +214,66 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
     })
   }
   
-  for(i in 1:length(models_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models (", models_labels[i], ") (time to recovery, Non-CKD Only, AKI patients only)..."))
+  for(i in 1:length(models_nockd_labels)) {
+    cat(paste0("\nGenerating Fine-Gray models (", models_nockd_labels[i], ") (time to recovery, Non-CKD Only, AKI patients only)..."))
     try({
       recovery_model <- c("severe","aki_kdigo_final",var_list_recovery_nonckd_akionly)
-      recovery_model <- recovery_model[recovery_model %in% models[[i]]]
+      recovery_model <- recovery_model[recovery_model %in% models_nockd[[i]]]
       recoveryFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
-      message(paste("Formula for ", models_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
+      message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
       FineGray_recovery <- tidycmprsk::crr(recoveryFineGrayFormula, data=recovery_nonckd_cic,failcode = "Recovery")
-      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,conf.int=T) 
+      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
       FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
+      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
       invisible(gc())
     })
   }
   
-  for(i in 1:length(models_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models (", models_labels[i], ") (time to recovery, CKD Only, AKI patients only)..."))
+  for(i in 1:length(models_nockd_labels)) {
+    cat(paste0("\nGenerating Fine-Gray models (", models_nockd_labels[i], ") (time to recovery, CKD Only, AKI patients only)..."))
     try({
       recovery_model <- c("severe","aki_kdigo_final",var_list_recovery_ckdonly_akionly)
-      recovery_model <- recovery_model[recovery_model %in% models[[i]]]
+      recovery_model <- recovery_model[recovery_model %in% models_nockd[[i]]]
       recoveryFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
-      message(paste("Formula for ", models_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
+      message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
       FineGray_recovery <- tidycmprsk::crr(recoveryFineGrayFormula, data=recovery_ckd_cic,failcode = "Recovery")
-      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,conf.int=T) 
+      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
       FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
+      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
       invisible(gc())
     })
   }
   
-  for(i in 1:length(models_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models (", models_labels[i], ") (time to New Onset CKD, Non-CKD Only, All)..."))
+  for(i in 1:length(models_nockd_labels)) {
+    cat(paste0("\nGenerating Fine-Gray models_nockd (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, All)..."))
     try({
       newckd_model <- c("severe","aki_kdigo_final",var_list_new_ckd_nonckd_akionly)
-      newckd_model <- newckd_model[newckd_model %in% models[[i]]]
+      newckd_model <- newckd_model[newckd_model %in% models_nockd[[i]]]
       newckdFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
-      message(paste("Formula for ", models_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
+      message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
       FineGray_newckd <- tidycmprsk::crr(newckdFineGrayFormula, data=new_ckd_nonckd_cic,failcode = "CKD Onset")
-      FineGray_newckd_summ <- tidycmprsk::tidy(FineGray_newckd,conf.int=T) 
+      FineGray_newckd_summ <- tidycmprsk::tidy(FineGray_newckd,exponentiate=T,conf.int=T) 
       FineGray_newckd_stats <- tidycmprsk::glance(FineGray_newckd)
-      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
+      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
       invisible(gc())
     })
   }
   
-  for(i in 1:length(models_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models (", models_labels[i], ") (time to New Onset CKD, Non-CKD Only, AKI patients only)..."))
+  for(i in 1:length(models_nockd_labels)) {
+    cat(paste0("\nGenerating Fine-Gray models_nockd (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, AKI patients only)..."))
     try({
       newckd_model <- c("severe","aki_kdigo_final",var_list_new_ckd_nonckd_akionly)
-      newckd_model <- newckd_model[newckd_model %in% models[[i]]]
+      newckd_model <- newckd_model[newckd_model %in% models_nockd[[i]]]
       newckdFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
-      message(paste("Formula for ", models_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
+      message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
       FineGray_newckd <- tidycmprsk::crr(newckdFineGrayFormula, data=new_ckd_nonckd_akionly_cic,failcode = "CKD Onset")
-      FineGray_newckd_summ <- tidycmprsk::tidy(FineGray_newckd,conf.int=T) 
+      FineGray_newckd_summ <- tidycmprsk::tidy(FineGray_newckd,exponentiate=T,conf.int=T) 
       FineGray_newckd_stats <- tidycmprsk::glance(FineGray_newckd)
-      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
+      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
       invisible(gc())
     })
   }

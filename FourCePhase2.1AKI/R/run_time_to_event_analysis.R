@@ -30,7 +30,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
                                        coaga_valid,coagb_valid,
                                        covid_valid,remdesivir_valid,
                                        acei_valid,arb_valid,
-                                       med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,earliest_cr_table=NULL,
+                                       med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,earliest_cr_table=NULL,ckd_staging,
                                        obfuscation,obfuscation_level,
                                        restrict_model_corr, factor_threshold = 5,
                                        use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
@@ -102,9 +102,17 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   model_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
   model_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
   model_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  
+  # D: Include serum creatinine cutoffs (CKD diagnosis coding may be defined using urine criteria as well)
+  model_1d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld")
+  model_2d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
+  model_3d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
 
-  supp_models <- list(model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c)
-  supp_models_labels <- c("Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C")
+  supp_models <- list(model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c,
+                      model_1d,model_2d,model_3d,model_4d)
+  supp_models_labels <- c("Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C"
+                          ,"Model_1D","Model_2D","Model_3D","Model_4D")
   
   restrict_list <- ""
   if(isTRUE(restrict_models)) {
@@ -142,6 +150,8 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(recover_1.25x = ifelse(is.na(time_to_ratio1.25),0,1))
   aki_index_recovery <- merge(aki_index_recovery,time_to_ckd,by="patient_id",all.x=TRUE)
   aki_index_recovery <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(new_ckd = ifelse(is.na(time_to_new_ckd),0,1))
+  
+  
   
   cat("\nComputing death and recovery times...")
   # Get death times/censor times
@@ -220,6 +230,19 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     cat("\nInsufficient levels for pre-admission sCr time bins. Will be excluding from analyses")
   }
   
+  # Adding baseline sCr stratum ("CKD staging") as another factor, but first need to run through same checks
+  cat("\nLANCET REVIEWER EDIT: Filtering the pre-admission sCr value bins...")
+  ckd_staging_recovery_tmp <- merge(aki_index_recovery,ckd_staging,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+  # Since this is just a single variable, a simple check will do
+  ckd_staging_recovery_tmp$ckd_stage[is.na(ckd_staging_recovery_tmp$ckd_stage)] <- 0
+  ckd_staging_recovery_tmp$ckd_stage <- factor(ckd_staging_recovery_tmp$ckd_stage,levels=c(0,1,2),labels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
+  ckd_staging_recovery_list <- NULL
+  if(nlevels(ckd_staging_recovery_tmp$ckd_stage) > 1) {
+    ckd_staging_recovery_list <- "ckd_stage"
+  } else {
+    cat("\nInsufficient levels for pre-admission sCr time bins. Will be excluding from analyses")
+  }
+  
   # Then run the actual merging
   aki_index_recovery <- merge(aki_index_recovery,comorbid[c("patient_id",comorbid_recovery_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
   aki_index_recovery <- merge(aki_index_recovery,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
@@ -235,22 +258,29 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   if(isTRUE(acei_present) | isTRUE(arb_present)) {
     aki_index_recovery <- merge(aki_index_recovery,med_acearb_chronic,by="patient_id",all.x=TRUE)
   }
+  
   if(!is.null(earliest_cr_recovery_list)) {
     aki_index_recovery <- merge(aki_index_recovery,earliest_cr,by="patient_id",all.x=T)
     aki_index_recovery$preadmit_cr_period[is.na(aki_index_recovery$preadmit_cr_period)] <- "zero_to_90_days"
     aki_index_recovery$preadmit_cr_period <- factor(aki_index_recovery$preadmit_cr_period,levels=c("zero_to_90_days","91_to_180_days","181_to_365_days"))
   }
+  if(!is.null(ckd_staging_recovery_list)) {
+    aki_index_recovery <- merge(aki_index_recovery,ckd_staging,by="patient_id",all.x=T)
+    aki_index_recovery$ckd_stage[is.na(aki_index_recovery$ckd_stage)] <- 0
+    aki_index_recovery$ckd_stage <- factor(aki_index_recovery$ckd_stage,levels=c(0,1,2),labels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
+  }
+  
   aki_index_recovery[is.na(aki_index_recovery)] <- 0
   aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list,med_recovery_list)] <- lapply(aki_index_recovery[c("severe","aki_kdigo_final",demog_list,comorbid_recovery_list,med_recovery_list)],factor)
   
-  cat("\nCurrent factor list for recovery: ",paste(c(demog_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list),collapse=", "))
+  cat("\nCurrent factor list for recovery: ",paste(c(demog_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list),collapse=", "))
   
   cat("\nFiltering factor list down further for CoxPH models...")
   # This portion of code deals with the issue of Cox PH models generating large coefficients and/or overfitting
   # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
   # We will then modify comorbid_recovery_list to only include variable names where this criteria is fulfilled
   # This does NOT require the aki_index_recovery table to be modified
-  recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",demog_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)] %>% as.data.frame()
+  recovery_tmp <- aki_index_recovery[,c("patient_id","recover_1.25x",demog_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)] %>% as.data.frame()
   
   if(length(comorbid_recovery_list) > 0) {
     comorbid_recovery_list_tmp <- vector(mode="list",length=length(comorbid_recovery_list))
@@ -311,15 +341,28 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(preadmit_cr_period,recover_1.25x)
     recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
     if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
-      message(paste0(c("Including preadmit_cr_period into the earliest_cr_recovery list...")))
+      message("Including preadmit_cr_period into the earliest_cr_recovery list...")
     } else {
       earliest_cr_recovery_list <- NULL # make this null or else you will get this causing errors
     }
     rm(recovery_tmp1,recovery_tmp2,recovery_tmp3)
     invisible(gc())
   }
+  
+  if(!is.null(ckd_staging_recovery_list)) {
+    recovery_tmp1 <- recovery_tmp[,c("patient_id","ckd_stage","recover_1.25x")]
+    recovery_tmp2 <- recovery_tmp1 %>% dplyr::count(ckd_stage,recover_1.25x)
+    recovery_tmp3 <- recovery_tmp2 %>% dplyr::filter(recover_1.25x == 1)
+    if(min(recovery_tmp3$n) >= factor_cutoff & nrow(recovery_tmp3) > 1) {
+      message("Including preadmit_cr_period into the ckd_staging_recovery list...")
+    } else {
+      ckd_staging_recovery_list <- NULL # make this null or else you will get this causing errors
+    }
+    rm(recovery_tmp1,recovery_tmp2,recovery_tmp3)
+    invisible(gc())
+  }
 
-  cat("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list),collapse=" "))
+  cat("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list),collapse=" "))
   
   if(isTRUE(restrict_models)) {
     demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
@@ -330,10 +373,16 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     } else {
       earliest_cr_recovery_list <- NULL
     }
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,"\nPreadmit Cr Period:",earliest_cr_recovery_list,sep = " "))
+    if(ckd_staging_recovery_list %in% restrict_list) {
+      ckd_staging_recovery_list <- "ckd_stage"
+    } else {
+      ckd_staging_recovery_list <- NULL
+    }
+    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,"\nPreadmit Cr Period:",earliest_cr_recovery_list,"\nCKT Staging: ",ckd_staging_recovery_list,sep = " "))
   }
-  variable_list_output <- paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list),collapse=" ")
-  readr::write_lines(variable_list_output,file.path(dir.output, paste0(currSiteId, "_recovery_custom_equation.txt")),append=F)
+  variable_list_output <- message(paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list),collapse=" "))
+  
+  var_list_recovery_all <- c(demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
   
   cat("\nNow proceeding to time-to-Cr recovery analysis...")
   # Now run the actual time-to-event analysis
@@ -385,7 +434,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # Generate univariate analyses first
   cat("\nGenerating univariate Cox PH models (time to recovery, AKI patients only)...")
   univ_formulas <- tryCatch({
-    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
+    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
   },error = function(c) {
     cat("\nError running univariate formulae (univ_formulas).")
     return(NULL)
@@ -410,7 +459,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   cat("\nGenerating Model 1 (time to recovery, AKI patients only)...")
   try({
-    recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
     message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
@@ -429,7 +478,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
 
   cat("\nGenerating Model 2 (time to recovery, AKI patients only)...")
   try({
-    recovery_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    recovery_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
     message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
@@ -448,17 +497,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   cat("\nGenerating Model 3 (time to recovery, AKI patients only)...")
   try({
-    recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-    # if(("covid_rx" %in% recovery_model3) == TRUE) {
-    #     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
-    #     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(c(recovery_model3,"severe:covid_rx"),collapse="+")))
-    # } else {
-    #     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-    #     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
-    # }
     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
     coxph_recover3 <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
     coxph_recover3_summ <- summary(coxph_recover3) 
@@ -474,7 +516,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   })
   cat("\nGenerating Model 4 with ACE-i/ARBs (time to recovery, AKI patients only)...")
   try({
-    recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     recovery_model4 <- recovery_model4[recovery_model4 %in% model4]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model4,collapse="+")))
     message(paste("Formula for Model 4: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model4,collapse="+")))
@@ -493,10 +535,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   # Supplemental models
   cat("\n=================\nSupplemental Models\n==============\n")
-  for(i in 1:9) {
+  for(i in 1:length(supp_models_labels)) {
     cat(paste0("\nGenerating", supp_models_labels[i], "(time to recovery, AKI patients only)..."))
     try({
-      recovery_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+      recovery_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
       recovery_model <- recovery_model[recovery_model %in% supp_models[[i]]]
       recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model,collapse="+")))
       message(paste("Formula for ", supp_models_labels[i],": survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model,collapse="+")))
@@ -560,7 +602,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   cat("\nGenerating univariate Cox PH models (Time to death, AKI patients only)...")
   univ_formulas <- tryCatch({
-    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+    sapply(c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
   },error = function(c) {
     cat("\nError running univariate formulae (univ_formulas).")
     return(NULL)
@@ -584,7 +626,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   cat("\nGenerating Model 1 (Time to death, AKI patients only)...")
   try({
-    death_aki_only_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    death_aki_only_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     death_aki_only_model1 <- death_aki_only_model1[death_aki_only_model1 %in% model1]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
     cat("\nFormula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
@@ -603,7 +645,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
 
   cat("\nGenerating Model 2 (Time to death, AKI patients only)...")
   try({
-    death_aki_only_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    death_aki_only_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     death_aki_only_model2 <- death_aki_only_model2[death_aki_only_model2 %in% model2]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
     cat("\nFormula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
@@ -622,17 +664,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   cat("\nGenerating Model 3 (Time to death, AKI patients only)...")
   try({
-    death_aki_only_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    death_aki_only_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     death_aki_only_model3 <- death_aki_only_model3[death_aki_only_model3 %in% model3]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
     cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-    # if(("covid_rx" %in% death_aki_only_model3) == TRUE) {
-    #     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),collapse="+")))
-    #     cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(c(death_aki_only_model3,"severe * covid_rx"),death_aki_only_model3,collapse="+")))
-    # } else {
-    #     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-    #     cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
-    # }
     coxph_death_akionly3 <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
     coxph_death_akionly3_summ <- summary(coxph_death_akionly3) 
     print(coxph_death_akionly3_summ)
@@ -648,7 +683,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   cat("\nGenerating Model 4 (Time to death, AKI patients only)...")
   try({
-    death_aki_only_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+    death_aki_only_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
     death_aki_only_model4 <- death_aki_only_model4[death_aki_only_model4 %in% model4]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model4,collapse="+")))
     cat("\nFormula for Model 4: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model4,collapse="+")))
@@ -667,10 +702,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   # Supplemental models
   cat("\n=================\nSupplemental Models\n==============\n")
-  for(i in 1:9) {
+  for(i in 1:length(supp_models_labels)) {
     cat(paste0("\nGenerating", supp_models_labels[i], "(time to death, AKI patients only)..."))
     try({
-      death_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list)
+      death_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
       death_model <- death_model[death_model %in% supp_models[[i]]]
       deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
       message(paste("Formula for ", supp_models_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
@@ -767,10 +802,23 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     cat("\nInsufficient levels for pre-admission sCr time bins. Will be excluding from analyses")
   }
   
-  cat("\nFactor list for Death Analysis before filtering for CoxPH: ",paste(c(demog_list,comorbid_death_list,med_death_list,earliest_cr_death_list),collapse = " "))
+  # Adding baseline sCr stratum ("CKD staging") as another factor, but first need to run through same checks
+  cat("\nLANCET REVIEWER EDIT: Filtering the pre-admission sCr value bins...")
+  ckd_staging_death_tmp <- merge(aki_index_death,ckd_staging,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+  # Since this is just a single variable, a simple check will do
+  ckd_staging_death_tmp$ckd_stage[is.na(ckd_staging_death_tmp$ckd_stage)] <- 0
+  ckd_staging_death_tmp$ckd_stage <- factor(ckd_staging_death_tmp$ckd_stage,levels=c(0,1,2),labels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
+  ckd_staging_death_list <- NULL
+  if(nlevels(ckd_staging_death_tmp$ckd_stage) > 1) {
+    ckd_staging_death_list <- "ckd_stage"
+  } else {
+    cat("\nInsufficient levels for pre-admission sCr time bins. Will be excluding from analyses")
+  }
+  
+  cat("\nFactor list for Death Analysis before filtering for CoxPH: ",paste(c(demog_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list),collapse = " "))
   
   # 2) Create a new table with the cleaned up comorbids
-  aki_index_death <- merge(aki_index_death,comorbid[c("patient_id",comorbid_death_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
+  aki_index_death <- merge(aki_index_death,comorbid[,c("patient_id",comorbid_death_list)],by="patient_id",all.x=TRUE) %>% dplyr::distinct()
   aki_index_death <- merge(aki_index_death,demog_time_to_event,by="patient_id",all.x=TRUE) %>% dplyr::distinct()
   if(coaga_present == TRUE) {
     aki_index_death <- merge(aki_index_death,med_coaga_new,by="patient_id",all.x=TRUE)
@@ -784,9 +832,17 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   if(isTRUE(acei_present) | isTRUE(arb_present)) {
     aki_index_death <- merge(aki_index_death,med_acearb_chronic,by="patient_id",all.x=TRUE)
   }
+  
   if(!is.null(earliest_cr_death_list)) {
     aki_index_death$preadmit_cr_period[is.na(aki_index_death$preadmit_cr_period)] <- "zero_to_90_days"
     aki_index_death$preadmit_cr_period <- factor(aki_index_death$preadmit_cr_period,levels=c("zero_to_90_days","91_to_180_days","181_to_365_days"))
+  }
+  if(!is.null(ckd_staging_death_list)) {
+    cat("\nMerging CKD Stage\n")
+    aki_index_death <- merge(aki_index_death,ckd_staging,by="patient_id",all.x=T)
+    cat("\nFilling in NAs for CKD stage\n")
+    aki_index_death$ckd_stage[is.na(aki_index_death$ckd_stage)] <- 0
+    aki_index_death$ckd_stage <- factor(aki_index_death$ckd_stage,levels=c(0,1,2),labels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
   }
   
   aki_index_death[is.na(aki_index_death)] <- 0
@@ -797,7 +853,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
   # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
   # This does NOT require the aki_index_death table to be modified
-  death_tmp <- aki_index_death[,c("patient_id","deceased",demog_list,comorbid_death_list,med_death_list,earliest_cr_death_list)] %>% as.data.frame()
+  death_tmp <- aki_index_death[,c("patient_id","deceased",demog_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_recovery_list)] %>% as.data.frame()
   
   if(length(comorbid_death_list) > 0) {
     comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
@@ -863,7 +919,20 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     invisible(gc())
   }
   
-  cat("\nFinal factor list for death (before user customisation):",paste(c(demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list),collapse=" "))
+  if(!is.null(ckd_staging_death_list)) {
+    death_tmp1 <- death_tmp[,c("patient_id","ckd_stage","deceased")]
+    death_tmp2 <- death_tmp1 %>% dplyr::count(ckd_stage,deceased)
+    death_tmp3 <- death_tmp2 %>% dplyr::filter(deceased == 1)
+    if(min(death_tmp3$n) >= factor_cutoff & nrow(death_tmp3) > 1) {
+      message("Including preadmit_cr_period into the ckd_staging_death list...")
+    } else {
+      ckd_staging_death_list <- NULL # make this null or else you will get this causing errors
+    }
+    rm(death_tmp1,death_tmp2,death_tmp3)
+    invisible(gc())
+  }
+  
+  cat("\nFinal factor list for death (before user customisation):",paste(c(demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list),collapse=" "))
   
   if(isTRUE(restrict_models)) {
     demog_death_list <- demog_death_list[demog_death_list %in% restrict_list]
@@ -874,9 +943,15 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     } else {
       earliest_cr_death_list <- NULL
     }
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,"\nPreadmit Cr Period:",earliest_cr_death_list,sep = " "))
+    if(ckd_staging_death_list %in% restrict_list) {
+      ckd_staging_death_list <- "ckd_stage"
+    } else {
+      ckd_staging_death_list <- NULL
+    }
+    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,"\nPreadmit Cr Period:",earliest_cr_death_list,"\nCKD Staging:",ckd_staging_death_list,sep = " "))
   }
-  variable_list_death <- paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list),collapse=" ")
+  variable_list_death <- message(paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list),collapse=" "))
+  var_list_death_all <- c(demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list)
   # readr::write_lines(variable_list_death,file.path(dir.output, paste0(currSiteId, "_custom_equation.txt")),append=T)
   
   # 4) Run analysis
@@ -942,7 +1017,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nNow proceeding with Cox PH model time-to-event analysis...")
   cat("\nGenerating univariate Cox PH models (Time to death, all patients)...")
   univ_formulas <- tryCatch({ 
-    sapply(c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+    sapply(c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_recovery_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
   }, error = function(c) {
     cat("\nError running univariate formulae (univ_formulas).")
     return(NULL)
@@ -1043,10 +1118,10 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   # Supplemental models
   cat("\n=================\nSupplemental Models\n==============\n")
-  for(i in 1:9) {
+  for(i in 1:length(supp_models_labels)) {
     cat(paste0("\nGenerating", supp_models_labels[i], "(time to death, all patients)..."))
     try({
-      death_model <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list)
+      death_model <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_recovery_list)
       death_model <- death_model[death_model %in% supp_models[[i]]]
       deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
       message(paste("Formula for ", supp_models_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
@@ -1069,6 +1144,6 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   # =================================
   
-  return(list("aki_index_recovery" = aki_index_recovery,"aki_index_death" = aki_index_death, "med_recovery_list" = med_recovery_list, "comorbid_recovery_list" = comorbid_recovery_list, "demog_recovery_list" = demog_recovery_list,"earliest_cr_recovery_list" = earliest_cr_recovery_list,"med_death_list" = med_death_list, "comorbid_death_list" = comorbid_death_list, "demog_death_list" = demog_death_list,"earliest_cr_death_list" = earliest_cr_death_list))
+  return(list("aki_index_recovery" = aki_index_recovery,"aki_index_death" = aki_index_death, "med_recovery_list" = med_recovery_list, "comorbid_recovery_list" = comorbid_recovery_list, "demog_recovery_list" = demog_recovery_list,"earliest_cr_recovery_list" = earliest_cr_recovery_list,"med_death_list" = med_death_list, "comorbid_death_list" = comorbid_death_list, "demog_death_list" = demog_death_list,"earliest_cr_death_list" = earliest_cr_death_list,"var_list_death_all" = var_list_death_all,"var_list_recovery_all" = var_list_recovery_all))
 }
 

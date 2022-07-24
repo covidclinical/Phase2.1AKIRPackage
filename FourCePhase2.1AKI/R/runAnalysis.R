@@ -861,7 +861,11 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # eGFR 90 - 0.9206857472204mg/dL
     # eGFR 60 - 1.2875430484355mg/dL
     # =================================
-    ckd_staging <- first_baseline %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ckd_stage = dplyr::case_when(first_baseline_cr <= 0.92 ~ "egfr_90_and_above", first_baseline_cr <= 1.29 ~ "egfr_60_to_90", TRUE ~ "egfr_30_to_60")) %>% dplyr::ungroup()
+    ckd_staging <- first_baseline %>% dplyr::group_by(patient_id) %>% dplyr::mutate(ckd_stage = dplyr::case_when(
+      first_baseline_cr <= 0.92 ~ 0,
+      first_baseline_cr <= 1.29 ~ 1,
+      TRUE ~ 2
+    )) %>% dplyr::ungroup()
     
     # =======================================================================================
     # Filter the demographics, peak_trend, comorbid, meds tables to remove those patients who 
@@ -1431,7 +1435,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     cat("\nNow proceeding to time-to-event analysis. Ensure that the survival and survminer packages are installed in your R environment.")
     
-    main_analysis <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,labs_aki_summ,demographics,demog_time_to_event,demog_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,earliest_cr,is_obfuscated,obfuscation_value,restrict_models,factor_cutoff,custom_output,custom_output_dir)
+    ckd_staging <- ckd_staging[,c("patient_id","ckd_stage")]
+    
+    main_analysis <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,labs_aki_summ,demographics,demog_time_to_event,demog_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,earliest_cr,ckd_staging,is_obfuscated,obfuscation_value,restrict_models,factor_cutoff,custom_output,custom_output_dir)
     
     aki_index_recovery <- main_analysis$aki_index_recovery
     aki_index_death <- main_analysis$aki_index_death
@@ -1443,6 +1449,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     comorbid_death_list <- main_analysis$comorbid_death_list
     demog_death_list <- main_analysis$demog_death_list
     earliest_cr_death_list <- main_analysis$earliest_cr_death_list
+    
+    var_list_recovery_all <- main_analysis$var_list_recovery_all
+    var_list_death_all <- main_analysis$var_list_death_all
+    
     
     nonckd_analysis <- run_time_to_event_analysis_nonckd(currSiteId,
       aki_index_recovery,aki_index_death,
@@ -1460,13 +1470,11 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     var_list_death_nonckd <- nonckd_analysis$var_list_death_nonckd
     var_list_new_ckd_nonckd <- nonckd_analysis$var_list_new_ckd_nonckd
     
-    ckd_analysis <- run_time_to_event_analysis_ckdonly(currSiteId,
-                                                         aki_index_recovery,aki_index_death,
-                                                         med_recovery_list, comorbid_recovery_list, demog_recovery_list,earliest_cr_recovery_list,
-                                                         med_death_list, comorbid_death_list, demog_death_list,earliest_cr_death_list,
-                                                       is_obfuscated,obfuscation_value,
-                                                         restrict_models, factor_cutoff,
-                                                         custom_output,custom_output_dir)
+    ckd_analysis <- run_time_to_event_analysis_ckdonly(currSiteId,aki_index_recovery,aki_index_death,
+                                                      var_list_recovery_all, var_list_death_all,
+                                                      is_obfuscated,obfuscation_value,
+                                                      restrict_models, factor_cutoff,
+                                                      custom_output,custom_output_dir)
     aki_index_ckdonly <- ckd_analysis$aki_index_ckdonly
     aki_index_ckdonly_akionly <- ckd_analysis$aki_index_ckdonly_akionly
     var_list_recovery_ckdonly_akionly <- ckd_analysis$var_list_recovery_ckdonly_akionly
@@ -1475,7 +1483,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     generate_life_table_competing_risk(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly,custom_output,custom_output_dir)
     run_cic_analysis(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly,
-                     med_recovery_list, comorbid_recovery_list, demog_recovery_list,earliest_cr_recovery_list,
+                     var_list_recovery_all,
                      var_list_new_ckd_nonckd_akionly,
                      var_list_recovery_nonckd_akionly,
                      var_list_new_ckd_nonckd,

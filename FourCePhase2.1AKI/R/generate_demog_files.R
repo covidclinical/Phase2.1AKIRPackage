@@ -111,7 +111,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
   demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
   demog_summ$aki_kdigo_grade <- factor(demog_summ$aki_kdigo_grade,levels=c(0,1,2,3),labels=c("No AKI","Stage 1","Stage 2","Stage 3"))
-  demog_summ$ckd_stage <- factor(demog_summ$ckd_stage,levels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
+  demog_summ$ckd_stage <- factor(demog_summ$ckd_stage,levels=c(0,1,2),labels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
   demog_summ$preadmit_cr_period <- factor(demog_summ$preadmit_cr_period,levels=c("zero_to_90_days","91_to_180_days","181_to_365_days"))
   demog_summ[comorbid_list] <- lapply(demog_summ[comorbid_list],factor)
   demog_summ <- demog_summ %>% dplyr::distinct()
