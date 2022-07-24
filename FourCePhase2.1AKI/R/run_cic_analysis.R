@@ -5,7 +5,13 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
                              var_list_new_ckd_nonckd_akionly,
                              var_list_recovery_nonckd_akionly,
                              var_list_new_ckd_nonckd,
-                             var_list_recovery_ckdonly_akionly) {
+                             var_list_recovery_ckdonly_akionly,use_custom_output = FALSE,use_custom_output_dir = '/4ceData/Output') {
+  if(isTRUE(use_custom_output)) {
+    dir.output <- use_custom_output_dir
+  } else {
+    dir.output <- getProjectOutputDirectory()
+  }
+  
   cat("\nFirst listing models\n")
   model1 <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld")
   model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")

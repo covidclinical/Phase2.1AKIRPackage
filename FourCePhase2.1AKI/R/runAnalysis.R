@@ -1479,7 +1479,8 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                      var_list_new_ckd_nonckd_akionly,
                      var_list_recovery_nonckd_akionly,
                      var_list_new_ckd_nonckd,
-                     var_list_recovery_ckdonly_akionly)
+                     var_list_recovery_ckdonly_akionly,
+                     custom_output,custom_output_dir)
     # aki_index_recovery <- main_analysis$aki_index_recovery
     # med_recovery_list <- main_analysis$med_recovery_list
     # comorbid_recovery_list <- main_analysis$comorbid_recovery_list
