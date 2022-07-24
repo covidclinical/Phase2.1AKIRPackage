@@ -12,7 +12,9 @@ generate_cr_graphs_prioronly(
   kdigo_grade_table,
   ckd_valid,
   ckd_table,
-  labs_cr
+  labs_cr,
+  use_custom_output = FALSE,
+  use_custom_output_dir = "/4ceData/Output"
 )
 }
 \arguments{

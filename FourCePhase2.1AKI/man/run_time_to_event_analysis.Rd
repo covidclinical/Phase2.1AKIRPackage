@@ -2,8 +2,7 @@
 % Please edit documentation in R/run_time_to_event_analysis.R
 \name{run_time_to_event_analysis}
 \alias{run_time_to_event_analysis}
-\title{Runs time-to-event analysis for the 4 pre-defined models - Kaplan-Meier curves, Cox PH models.
-If specified, can also filter the output to pre-specified patients with pre-admission sCr values.}
+\title{Runs time-to-event analysis for the 4 pre-defined models - Kaplan-Meier curves, Cox PH models.}
 \usage{
 run_time_to_event_analysis(
   siteid,
@@ -27,12 +26,13 @@ run_time_to_event_analysis(
   med_coagb = NULL,
   med_covid19 = NULL,
   med_acearb = NULL,
-  preadmit_cr_list = NULL,
-  preadmit_only_analysis = FALSE,
+  earliest_cr_table = NULL,
   obfuscation,
   obfuscation_level,
   restrict_model_corr,
-  factor_threshold = 5
+  factor_threshold = 5,
+  use_custom_output = FALSE,
+  use_custom_output_dir = "/4ceData/Output"
 )
 }
 \arguments{
@@ -76,15 +76,10 @@ run_time_to_event_analysis(
 
 \item{med_acearb}{med_acearb_chronic (List of patients previously on ACE-inhibitors/ARBs)}
 
-\item{preadmit_cr_list}{Pre-specified patient list with pre-admission sCr labs. Default value is NULL}
-
-\item{preadmit_only_analysis}{Specifies whether demographics are to be narrowed down to list specified by preadmit_cr_list. Default is FALSE.}
-
 \item{obfuscation}{is_obfuscated}
 
 \item{obfuscation_level}{obfuscation_value}
 }
 \description{
 Runs time-to-event analysis for the 4 pre-defined models - Kaplan-Meier curves, Cox PH models.
-If specified, can also filter the output to pre-specified patients with pre-admission sCr values.
 }

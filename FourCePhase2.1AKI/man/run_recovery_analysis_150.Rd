@@ -28,12 +28,12 @@ run_recovery_analysis_150(
   med_coagb = NULL,
   med_covid19 = NULL,
   med_acearb = NULL,
-  preadmit_cr_list = NULL,
-  preadmit_only_analysis = FALSE,
   obfuscation,
   obfuscation_level,
   restrict_model_corr,
-  factor_threshold = 5
+  factor_threshold = 5,
+  use_custom_output = FALSE,
+  use_custom_output_dir = "/4ceData/Output"
 )
 }
 \arguments{
@@ -76,10 +76,6 @@ run_recovery_analysis_150(
 \item{med_covid19}{med_covid19_new (List of patients with Novel COVID-19 antiviral/remdesivir use)}
 
 \item{med_acearb}{med_acearb_chronic (List of patients previously on ACE-inhibitors/ARBs)}
-
-\item{preadmit_cr_list}{Pre-specified patient list with pre-admission sCr labs. Default value is NULL}
-
-\item{preadmit_only_analysis}{Specifies whether demographics are to be narrowed down to list specified by preadmit_cr_list. Default is FALSE.}
 
 \item{obfuscation}{is_obfuscated}
 

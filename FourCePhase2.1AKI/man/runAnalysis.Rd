@@ -14,10 +14,15 @@ runAnalysis(
   siteid_nodocker = "",
   skip_qc = FALSE,
   offline = FALSE,
+  allow_no_prior_cr = FALSE,
   use_rrt_surrogate = FALSE,
   print_rrt_surrogate = FALSE,
+  modified_severity = FALSE,
   debug_on = FALSE,
-  date_cutoff = "2020-07-31"
+  date_cutoff = "2020-09-10",
+  lab_date_cutoff = "2021-09-10",
+  custom_output = FALSE,
+  custom_output_dir = "/4ceData/Output"
 )
 }
 \description{

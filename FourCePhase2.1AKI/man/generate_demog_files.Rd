@@ -12,8 +12,6 @@ generate_demog_files(
   comorbid_table,
   comorbid_header,
   kdigo_grade_table,
-  meld_valid = FALSE,
-  labs_meld_admit = NULL,
   coaga_valid,
   coagb_valid,
   covid_valid,
@@ -25,11 +23,13 @@ generate_demog_files(
   med_covid19 = NULL,
   med_acearb = NULL,
   cirrhosis_valid,
-  preadmit_cr_list = NULL,
-  preadmit_only_analysis = FALSE,
   obfuscation,
   obfuscation_level,
-  aki_first_visit_list
+  aki_first_visit_list,
+  use_custom_output = FALSE,
+  use_custom_output_dir = "/4ceData/Output",
+  ckd_stage_table,
+  earliest_cr_table
 )
 }
 \arguments{
@@ -42,10 +42,6 @@ generate_demog_files(
 \item{comorbid_header}{The comorbid_list equivalent}
 
 \item{kdigo_grade_table}{kdigo_grade}
-
-\item{meld_valid}{meld_analysis_valid}
-
-\item{labs_meld_admit}{labs_meld_admission}
 
 \item{coaga_valid}{coaga_present}
 
@@ -68,10 +64,6 @@ generate_demog_files(
 \item{med_acearb}{med_acearb_chronic (List of patients previously on ACE-inhibitors/ARBs)}
 
 \item{cirrhosis_valid}{cirrhosis_present (Whether cirrhotic patients are in the cohort)}
-
-\item{preadmit_cr_list}{Pre-specified patient list with pre-admission sCr labs. Default value is NULL}
-
-\item{preadmit_only_analysis}{Specifies whether demographics are to be narrowed down to list specified by preadmit_cr_list. Default is FALSE.}
 
 \item{obfuscation}{is_obfuscated}
 

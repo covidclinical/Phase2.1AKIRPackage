@@ -1,6 +1,6 @@
 Package: FourCePhase2.1AKI
 Title: 4CE Consortium for COVID-19 - Acute Kidney Injury - Statistical Analysis Package
-Version: 0.1.7.0
+Version: 0.2.0.0
 Authors@R: 
     person(given = "Byorn",
            family = "Tan",
@@ -27,6 +27,11 @@ Imports:
     broom (>= 0.7.5),
     car,
     tableone,
-    magrittr
+    magrittr,
+    cmprsk,
+    tidycmprsk
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.1
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

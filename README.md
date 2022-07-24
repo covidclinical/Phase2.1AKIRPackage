@@ -1,7 +1,20 @@
 # 4CE Phase 2.1 - AKI Analysis
-Last updated: Nov 6, 2021 (v0.1.6.3)
+Last updated: July 24, 2022 (v0.2.0.0)
 
 R code to run, validate, and submit the analysis for the AKI project.
+
+## LATEST UPDATE (July 24, 2022)
+This package has a new dependency on the packages `tidycmprsk` which is only available in the CRAN repository but **not** in the MRAN repository referenced in the Docker image. Other new dependencies is the package `cmprsk` and its corresponding dependencies.
+
+Install `tidycmprsk` using the following commands in R prior to installing the package:
+```
+install.packages("tidycmprsk",repos = "https://cloud.r-project.org/")
+```
+
+Since the previous release (v0.1.7), there has been the release of R 4.2. This package has only been tested up to 4.1.3 with the caveat of blank plots being produced in R versions 4.1.* (see below).
+
+We still recommend the use of the default Docker image, but R versions up to 4.1.3 should be safe to use.
+Due to the differences in the way R 4.2.* handles certain situations, we **cannot guarantee** the package will work as intended on later versions.
 
 ## Prerequisites
 Please ensure that the following is done prior to analysis:
@@ -19,8 +32,10 @@ Please modify these scripts if your site uses a different procedure code scheme 
 ## Installation
 To install this package in R:
 ```
+install.packages("tidycmprsk",repos = "https://cloud.r-project.org/")
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
 ```
+An install script has been included under the `inst/extdata` folder.
 
 ## Running Analysis
 Please ensure that all input files are stored in `/4ceData/Input` before running the package!

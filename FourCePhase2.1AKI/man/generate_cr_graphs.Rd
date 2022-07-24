@@ -14,7 +14,9 @@ generate_cr_graphs(
   ckd_table,
   labs_cr,
   use_index_baseline = FALSE,
-  index_admit_baselines
+  index_admit_baselines,
+  use_custom_output = FALSE,
+  use_custom_output_dir = "/4ceData/Output"
 )
 }
 \arguments{

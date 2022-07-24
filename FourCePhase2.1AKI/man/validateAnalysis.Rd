@@ -4,7 +4,12 @@
 \alias{validateAnalysis}
 \title{Validates the results of the analytic workflow for the AKI project}
 \usage{
-validateAnalysis()
+validateAnalysis(
+  docker = TRUE,
+  siteid_nodocker = "",
+  custom_output = FALSE,
+  custom_output_dir = ""
+)
 }
 \description{
 Validates the results of the analytic workflow for the AKI project

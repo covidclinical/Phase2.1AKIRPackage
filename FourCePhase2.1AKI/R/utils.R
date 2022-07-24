@@ -214,6 +214,22 @@ get_day_sustained_recovery <- function(ratio,time_from_peak,target=1.25,window=2
   day
 }
 
+get_day_new_ckd <- function(cr,time_from_peak,abs_target = 1.288) {
+  if(length(cr) > 1) {
+    cr_smooth <- zoo::rollapply(cr,length(cr),max,fill=NA,align="left",partial=TRUE)
+    index = purrr::detect_index(cr_smooth,function(x) {if(!is.na(x)) {return(x >= abs_target)} else { return(FALSE)}})
+    if(index > 0) {
+      day = time_from_peak[index]
+    } else {
+      day = NA_integer_
+    }
+  } else {
+    day = NA_integer_
+  }
+  day
+}
+
+
 #' Generates MELD score
 #' @param bil serum bilirubin in mg/dL
 #' @param inr INR
@@ -244,6 +260,8 @@ detect_rrt_drop <- function(x,cr_abs_cutoff = 3,ratio = 0.75) {
   labs <- labs %>% dplyr::group_by(patient_id, days_since_admission) %>% dplyr::mutate(date_diff = days_since_admission - day_lag,proportion_cr_drop = value/cr_lag) %>% dplyr::filter(date_diff == 1) %>% dplyr::filter(proportion_cr_drop <= ratio & cr_lag >= cr_abs_cutoff) %>% dplyr::ungroup()
   labs
 }
+
+
 
 #' Computes t-test statistics from summary statistics
 #' @param m1 sample 1 mean

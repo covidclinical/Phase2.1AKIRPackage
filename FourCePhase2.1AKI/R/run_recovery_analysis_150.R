@@ -21,8 +21,6 @@
 #' @param med_coagb med_coagb_new (List of patients with COAGB)
 #' @param med_covid19 med_covid19_new (List of patients with Novel COVID-19 antiviral/remdesivir use)
 #' @param med_acearb med_acearb_chronic (List of patients previously on ACE-inhibitors/ARBs)
-#' @param preadmit_cr_list Pre-specified patient list with pre-admission sCr labs. Default value is NULL
-#' @param preadmit_only_analysis Specifies whether demographics are to be narrowed down to list specified by preadmit_cr_list. Default is FALSE.
 #' @param obfuscation is_obfuscated
 #' @param obfuscation_level obfuscation_value
 
@@ -35,7 +33,6 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
                                        covid_valid,remdesivir_valid,
                                        acei_valid,arb_valid,
                                        med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,
-                                       preadmit_cr_list = NULL,preadmit_only_analysis = FALSE,
                                        obfuscation,obfuscation_level,
                                        restrict_model_corr, factor_threshold = 5,
                                       use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
@@ -62,7 +59,6 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   med_covid19_new <- med_covid19
   med_acearb_chronic <- med_acearb
   factor_cutoff <- factor_threshold
-  patients_with_preadmit_cr <- preadmit_cr_list
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
   restrict_models <- restrict_model_corr
@@ -75,28 +71,8 @@ run_recovery_analysis_150 <- function(siteid, base_table, aki_episodes,aki_labs,
   
   file_prefix <- ""
   cat("\n============================\nSet-up for Time-to-Event Analysis\n============================")
-  if(isTRUE(preadmit_only_analysis)) {
-    file_prefix <- "_PreAdmitCrOnly"
-    currSiteId <- paste0(currSiteId,file_prefix)
-    peak_trend <- peak_trend[peak_trend$patient_id %in% patients_with_preadmit_cr,]
-    aki_index <- aki_index[aki_index$patient_id %in% patients_with_preadmit_cr,]
-    demographics <- demographics[demographics$patient_id %in% patients_with_preadmit_cr,]
-    try({comorbid <- comorbid[comorbid$patient_id %in% patients_with_preadmit_cr,]})
-    try({kdigo_grade <- kdigo_grade[kdigo_grade$patient_id %in% patients_with_preadmit_cr,]})
-    try({med_coaga_new <- med_coaga_new[med_coaga_new$patient_id %in% patients_with_preadmit_cr,]})
-    try({med_coagb_new <- med_coagb_new[med_coagb_new$patient_id %in% patients_with_preadmit_cr,]})
-    try({med_covid19_new <- med_covid19_new[med_covid19_new$patient_id %in% patients_with_preadmit_cr,]})
-    try({med_acearb_chronic <- med_acearb_chronic[med_acearb_chronic$patient_id %in% patients_with_preadmit_cr,]})
-    
-    # Set the ratio used for analysis to the ratio calculated from pre-admission Cr only
-    peak_trend$ratio <- peak_trend$ratio_prioronly
-    
-    cat("\nPerforming analysis for patients with pre-admission Cr only.")
-    cat("\nRecovery threshold: 150%")
-  } else {
-    cat("\nPerforming analysis for ALL patients.")
-    cat("\nRecovery threshold: 150%")
-  }
+  cat("\nPerforming analysis for ALL patients.")
+  cat("\nRecovery threshold: 150%")
   
   # If user wishes to customize the Cox PH equations used for recovery and death analysis, we will read in
   # custom files specifying the factors to restrict analyses to.
