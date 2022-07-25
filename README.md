@@ -4,7 +4,7 @@ Last updated: July 24, 2022 (v0.2.0.0)
 R code to run, validate, and submit the analysis for the AKI project.
 
 ## LATEST UPDATE (July 24, 2022)
-This package has a new dependency on the packages `tidycmprsk` which is only available in the CRAN repository but **not** in the MRAN repository referenced in the Docker image. Other new dependencies is the package `cmprsk` and its corresponding dependencies.
+This package has a new dependency on the package `tidycmprsk` which is only available in the CRAN repository but **not** in the MRAN repository referenced in the Docker image. Other new dependencies are the package `cmprsk` and its corresponding dependencies.
 
 Install `tidycmprsk` using the following commands in R prior to installing the package:
 ```
