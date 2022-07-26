@@ -3,8 +3,8 @@ Last updated: July 24, 2022 (v0.2.0.0)
 
 R code to run, validate, and submit the analysis for the AKI project.
 
-## LATEST UPDATE (July 24, 2022)
-This package has a new dependency on the package `tidycmprsk` which is only available in the CRAN repository but **not** in the MRAN repository referenced in the Docker image. Other new dependencies are the package `cmprsk` and its corresponding dependencies.
+## LATEST UPDATE (July 26, 2022)
+This package has a new dependency on the package `tidycmprsk` which is only available in the CRAN repository but **not** in the MRAN repository referenced in the Docker image. Other new dependencies include the packages `cmprsk`,`broom`, `ellipsis`, `xfun` and `rlang`, whose latest versions (required for the package to run) are **NOT** in MRAN!
 
 Install `tidycmprsk`, `cmprsk`, `broom`, `ellipsis`, `xfun` and `rlang` using the following commands in R prior to installing the package:
 ```
@@ -142,4 +142,8 @@ If `print_rrt_surrogate` is set to TRUE, please ensure that these files have bee
    - We are currently in the midst of attempting to fix this
    - As a workaround, try to run the package in the older R 4.0.2 environment instead
 
-Note that this package has **not** yet been tested on R 4.2.\*. **Use at your own risk!**
+## Work in Progress
+1) [x] Debugging v0.1.5.0 for any issues after extending baseline serum creatinine definitions to prior 365 days only
+2) [ ] Transitioning package to use Phase 2.2-formatted data when specified
+3) [ ] Modifying Phase 2.2 SQL scripts to incorporate missing procedure codes for RRT and kidney transplant (e.g. peritoneal dialysis codes not included in most cases)
+4) [ ] Implementing an age-based serum creatinine cutoff based on the CKD-EPI equation and using an assumed eGFR < 30mL/kg/1.73m2 cutoff (using lower limits of age groups as reference, given the obfuscation of age present in Phase 1.1/2.1)
