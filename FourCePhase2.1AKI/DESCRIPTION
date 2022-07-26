@@ -25,6 +25,8 @@ Imports:
     survival (>= 2.4-0),
     survminer (>= 0.4.8),
     broom (>= 0.7.5),
+	rlang (>= 1.0.0),
+	xfun (>= 0.29),
     car,
     tableone,
     magrittr,
