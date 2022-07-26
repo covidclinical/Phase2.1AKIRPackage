@@ -33,13 +33,13 @@ Please modify these scripts if your site uses a different procedure code scheme 
 ## Installation
 To install this package in R:
 
-#RStudio
+### RStudio
 ```
 utils::install.packages(c("tidycmprsk","cmprsk","broom","ellipsis","xfun","rlang"),repos = "https://cloud.r-project.org/")
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
 rstudioapi::restartSession()
 ```
-#R in console
+### R in console
 If you are running R from a console, you need to first install the dependencies from CRAN followed by the package:
 ```
 utils::install.packages(c("tidycmprsk","cmprsk","broom","ellipsis","xfun","rlang"),repos = "https://cloud.r-project.org/")
