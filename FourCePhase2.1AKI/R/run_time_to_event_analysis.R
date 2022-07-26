@@ -853,7 +853,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   # We are going to select for the variables where there are at least 5 occurrences of an event for each factor level
   # We will then modify comorbid_death_list to only include variable names where this criteria is fulfilled
   # This does NOT require the aki_index_death table to be modified
-  death_tmp <- aki_index_death[,c("patient_id","deceased",demog_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_recovery_list)] %>% as.data.frame()
+  death_tmp <- aki_index_death[,c("patient_id","deceased",demog_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list)] %>% as.data.frame()
   
   if(length(comorbid_death_list) > 0) {
     comorbid_death_list_tmp <- vector(mode="list",length=length(comorbid_death_list))
