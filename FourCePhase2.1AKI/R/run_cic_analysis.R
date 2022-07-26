@@ -249,7 +249,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   for(i in 1:length(models_nockd_labels)) {
     cat(paste0("\nGenerating Fine-Gray models_nockd (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, All)..."))
     try({
-      newckd_model <- c("severe","aki_kdigo_final",var_list_new_ckd_nonckd_akionly)
+      newckd_model <- c("severe","aki_kdigo_final",var_list_new_ckd_nonckd)
       newckd_model <- newckd_model[newckd_model %in% models_nockd[[i]]]
       newckdFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
       message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(newckd_model,collapse="+")))
