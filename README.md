@@ -12,10 +12,12 @@ utils::install.packages(c("tidycmprsk","cmprsk","broom","ellipsis","xfun","rlang
 ```
 You **MUST** restart your R session before the AKI package can run!
 
-Since the previous release (v0.1.7), there has been the release of R 4.2. This package has only been tested up to 4.1.3 with the caveat of blank plots being produced in R versions 4.1.* (see below).
+This package has also been tested in the following R versions:
+- R 4.2.1 (vanilla)
+- R 4.1.3 (vanilla)
+- Microsoft R Open 4.0.2 (Docker version)
 
-We still recommend the use of the default Docker image, but R versions up to 4.1.3 should be safe to use.
-Due to the differences in the way R 4.2.* handles certain situations, we **cannot guarantee** the package will work as intended on later versions.
+Only versions R 4.1.* and above may experience issues with generating blank plots (see below).
 
 ## Prerequisites
 Please ensure that the following is done prior to analysis:
@@ -137,7 +139,7 @@ If `print_rrt_surrogate` is set to TRUE, please ensure that these files have bee
 - `DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection.csv`
 - `DO_NOT_UPLOAD_PATIENT_LEVEL_DATA_RRT_Surrogate_Detection_ExcludeCrCutoff.csv`
 
-## Known Issues with R 4.1
+## Known Issues with R 4.1 and above
 1) If your site is running a non-Docker based environment running on R 4.1.\*, there is a known issue where the Kaplan-Meier plots produced may be blank
    - We are currently in the midst of attempting to fix this
    - As a workaround, try to run the package in the older R 4.0.2 environment instead
