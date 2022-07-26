@@ -20,7 +20,15 @@ message("Now we are going to force installation of the tidycmprsk package from C
 message("Please note: this will update several other packages which may cause packages to break.")
 message("(Case in point: portions of the AKI package had to be rewritten due to changes in rlang 1.0 causing errors when parsing object names in data.table objects within the package environment)")
 message("We will also install broom from CRAN as the version in MRAN will cause errors with the survminer functions.")
-utils::install.packages(c("tidycmprsk","cmprsk","broom"),repos = "https://cloud.r-project.org/")
+utils::install.packages(c("tidycmprsk","cmprsk","broom","ellipsis","xfun","rlang"),repos = "https://cloud.r-project.org/")
 
 message("Finally, install the AKI package itself.")
 devtools::install_github("https://github.com/covidclinical/Phase2.1AKIRPackage", subdir="FourCePhase2.1AKI", upgrade=FALSE, force = TRUE)
+
+if(Sys.getenv("RSTUDIO") == "1") { # Detects if the script is running within RStudio and restarts the R session if it does
+  rstudioapi::restartSession() # This step is necessary to ensure the new version of rlang (1.0) is loaded
+  message("Rstudio R session restarted. You may now run the AKI analysis with the updated dependencies.")
+} else {
+  message("Pre-requisites installed. Please restart your R session manually before running the analysis.\nDo NOT restart your Docker container or all updates will be lost!")
+}
+
