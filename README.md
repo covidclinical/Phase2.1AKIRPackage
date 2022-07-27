@@ -1,9 +1,9 @@
 # 4CE Phase 2.1 - AKI Analysis
-Last updated: July 24, 2022 (v0.2.0.0)
+Last updated: July 27, 2022 (v0.2.0.1)
 
 R code to run, validate, and submit the analysis for the AKI project.
 
-## LATEST UPDATE (July 26, 2022)
+## LATEST UPDATE (July 27, 2022)
 This package has a new dependency on the package `tidycmprsk` which is only available in the CRAN repository but **not** in the MRAN repository referenced in the Docker image. Other new dependencies include the packages `cmprsk`,`broom`, `ellipsis`, `xfun` and `rlang`, whose latest versions (required for the package to run) are **NOT** in MRAN!
 
 Install `tidycmprsk`, `cmprsk`, `broom`, `ellipsis`, `xfun` and `rlang` using the following commands in R prior to installing the package:
