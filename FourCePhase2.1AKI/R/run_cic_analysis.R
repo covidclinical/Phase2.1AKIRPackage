@@ -124,76 +124,109 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   cat("\nNow preparing plots\n")
   # ===============
   recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ aki_kdigo_final")
-  cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
-  # cuminc_recovery_all %>% tidycmprsk::autoplot(conf.int=T)
-  cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
-  cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
+  try({
+    cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
+    # cuminc_recovery_all %>% tidycmprsk::autoplot(conf.int=T)
+  })
   
-  cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
-  cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_KDIGO_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_KDIGO_stats.csv")),row.names=F)
+  try({
+    cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
+  })
   
-  cuminc_recovery_nonckd_tidy <- tidycmprsk::tidy(cuminc_recovery_nonckd)
-  cuminc_recovery_nonckd_stats <- tidycmprsk::glance(cuminc_recovery_nonckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_KDIGO_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_nonckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_KDIGO_Stats.csv")),row.names=F)
+  try({
+    cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
+  })
   
-  cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
-  cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Stats.csv")),row.names=F)
+  try({
+    cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
+    cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_KDIGO_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_KDIGO_stats.csv")),row.names=F)
+  })
+  
+  try({
+    cuminc_recovery_nonckd_tidy <- tidycmprsk::tidy(cuminc_recovery_nonckd)
+    cuminc_recovery_nonckd_stats <- tidycmprsk::glance(cuminc_recovery_nonckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_KDIGO_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_nonckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_KDIGO_Stats.csv")),row.names=F)
+  })
+  
+  try({
+    cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
+    cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Stats.csv")),row.names=F)
+  })
   
   # ===============
   recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ severe")
-  cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
-  cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
-  cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
   
-  cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
-  cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_Severe_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_Severe_stats.csv")),row.names=F)
+  try({
+    cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
+  })
+  try({
+    cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
+  })
+  try({
+    cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
+  })
   
-  cuminc_recovery_nonckd_tidy <- tidycmprsk::tidy(cuminc_recovery_nonckd)
-  cuminc_recovery_nonckd_stats <- tidycmprsk::glance(cuminc_recovery_nonckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_Severe_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_nonckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_Severe_Stats.csv")),row.names=F)
+  try({
+    cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
+    cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_Severe_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_Severe_stats.csv")),row.names=F)
+  })
   
-  cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
-  cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Stats.csv")),row.names=F)
+  try({
+    cuminc_recovery_nonckd_tidy <- tidycmprsk::tidy(cuminc_recovery_nonckd)
+    cuminc_recovery_nonckd_stats <- tidycmprsk::glance(cuminc_recovery_nonckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_Severe_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_nonckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_Severe_Stats.csv")),row.names=F)
+  })
+  
+  try({
+    cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
+    cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Stats.csv")),row.names=F)
+  })
   
   # ===============
   recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ ckd")
-  cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
+  try({
+    cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
+    cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
+    cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+    write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_Plot.csv")),row.names=F)
+    write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_stats.csv")),row.names=F)
+  })
   
-  cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
-  cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-  write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_Plot.csv")),row.names=F)
-  write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_stats.csv")),row.names=F)
   
   # ===============
   
   newckd_formula <- as.formula("survival::Surv(time_to_new_ckd,event) ~ aki_kdigo_final")
-  cuminc_new_ckd_nonckd <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_cic)
-  cuminc_new_ckd_nonckd_akionly <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_akionly_cic)
   
-  cuminc_new_ckd_nonckd_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd)
-  write.csv(cuminc_new_ckd_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_All_NonCKD_KDIGO_Plot.csv")),row.names=F)
-  cuminc_new_ckd_nonckd_akionly_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd_akionly)
-  write.csv(cuminc_new_ckd_nonckd_akionly_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_NonCKD_AKIOnly_KDIGO_Plot.csv")),row.names=F)
+  try({
+    cuminc_new_ckd_nonckd <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_cic)
+    cuminc_new_ckd_nonckd_akionly <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_akionly_cic)
+    cuminc_new_ckd_nonckd_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd)
+    write.csv(cuminc_new_ckd_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_All_NonCKD_KDIGO_Plot.csv")),row.names=F)
+    cuminc_new_ckd_nonckd_akionly_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd_akionly)
+    write.csv(cuminc_new_ckd_nonckd_akionly_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_NonCKD_AKIOnly_KDIGO_Plot.csv")),row.names=F)
+  })
   
   
-  newckd_formula <- as.formula("survival::Surv(time_to_new_ckd,event) ~ severe")
-  cuminc_new_ckd_nonckd <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_cic)
-  cuminc_new_ckd_nonckd_akionly <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_akionly_cic)
-  
-  cuminc_new_ckd_nonckd_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd)
-  write.csv(cuminc_new_ckd_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_All_NonCKD_Severe_Plot.csv")),row.names=F)
-  cuminc_new_ckd_nonckd_akionly_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd_akionly)
-  write.csv(cuminc_new_ckd_nonckd_akionly_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_NonCKD_AKIOnly_Severe_Plot.csv")),row.names=F)
+  try({
+    newckd_formula <- as.formula("survival::Surv(time_to_new_ckd,event) ~ severe")
+    cuminc_new_ckd_nonckd <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_cic)
+    cuminc_new_ckd_nonckd_akionly <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_akionly_cic)
+    
+    cuminc_new_ckd_nonckd_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd)
+    write.csv(cuminc_new_ckd_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_All_NonCKD_Severe_Plot.csv")),row.names=F)
+    cuminc_new_ckd_nonckd_akionly_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd_akionly)
+    write.csv(cuminc_new_ckd_nonckd_akionly_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_NewCKD_NonCKD_AKIOnly_Severe_Plot.csv")),row.names=F)
+  })
   
   # ==================
   
@@ -247,7 +280,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   }
   
   for(i in 1:length(models_nockd_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models_nockd (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, All)..."))
+    cat(paste0("\nGenerating Fine-Gray models (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, All)..."))
     try({
       newckd_model <- c("severe","aki_kdigo_final",var_list_new_ckd_nonckd)
       newckd_model <- newckd_model[newckd_model %in% models_nockd[[i]]]
@@ -263,7 +296,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   }
   
   for(i in 1:length(models_nockd_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models_nockd (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, AKI patients only)..."))
+    cat(paste0("\nGenerating Fine-Gray models (", models_nockd_labels[i], ") (time to New Onset CKD, Non-CKD Only, AKI patients only)..."))
     try({
       newckd_model <- c("severe","aki_kdigo_final",var_list_new_ckd_nonckd_akionly)
       newckd_model <- newckd_model[newckd_model %in% models_nockd[[i]]]

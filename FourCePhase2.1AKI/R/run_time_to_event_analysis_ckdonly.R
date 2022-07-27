@@ -64,7 +64,7 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
   
   # Generate tables intended to assess new onset of new CKD
   aki_index_ckdonly <- aki_index_death[aki_index_death$ckd == 1,]
-  aki_index_ckdonly_akionly <- aki_index_recovery[aki_index_death$ckd == 1,]
+  aki_index_ckdonly_akionly <- aki_index_recovery[aki_index_recovery$ckd == 1,]
   
   # Same workflow
   # 1) Filter for variables with enough levels
