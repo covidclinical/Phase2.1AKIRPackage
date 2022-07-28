@@ -124,7 +124,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
     recovery_nonckd_cic <- recovery_all_cic
     recovery_ckd_cic <- NULL
     
-    new_ckd_nonckd_cic <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+    new_ckd_nonckd_cic <- aki_index_nonckd %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
       new_ckd == 1 ~ 1,
       new_ckd == 0 & deceased == 1 ~ 2,
       TRUE ~ 0
