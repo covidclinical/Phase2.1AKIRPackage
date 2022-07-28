@@ -16,7 +16,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
                                               med_death_list, comorbid_death_list, demog_death_list,earliest_cr_death_list,
                                               obfuscation,obfuscation_level,
                                               restrict_model_corr, factor_threshold = 5,
-                                              use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
+                                              use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output",ckd_present = TRUE) {
   currSiteId <- siteid
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
@@ -55,8 +55,14 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   models_ckd_labels <- c("Model_NonCKD_Subgroup_1","Model_NonCKD_Subgroup_2","Model_NonCKD_Subgroup_3","Model_NonCKD_Subgroup_4","Model_NonCKD_Subgroup_1A","Model_NonCKD_Subgroup_2A","Model_NonCKD_Subgroup_3A","Model_NonCKD_Subgroup_4A","Model_NonCKD_Subgroup_3B","Model_NonCKD_Subgroup_4B","Model_NonCKD_Subgroup_1C","Model_NonCKD_Subgroup_2C","Model_NonCKD_Subgroup_3C","Model_NonCKD_Subgroup_4C")
   
   # Generate tables intended to assess new onset of new CKD
-  aki_index_nonckd <- aki_index_death[aki_index_death$ckd == 0,]
-  aki_index_nonckd_akionly <- aki_index_recovery[aki_index_recovery$ckd == 0,]
+  if(isTRUE(ckd_present)) {
+    aki_index_nonckd <- aki_index_death[aki_index_death$ckd == 0,]
+    aki_index_nonckd_akionly <- aki_index_recovery[aki_index_recovery$ckd == 0,]
+  } else {
+    aki_index_nonckd <- aki_index_death
+    aki_index_nonckd_akionly <- aki_index_recovery
+  }
+  
   
   # Same workflow
   # 1) Filter for variables with enough levels

@@ -4,7 +4,7 @@
 #' @param aki_index_nonckd_akionly The aki_index_nonckd_akionly table generated from run_time_to_event_analysis_nonckd()
 #' @param aki_index_ckdonly_akionly The aki_index_ckdonly_akionly table generated from run_time_to_event_analysis_nonckd()
 
-generate_life_table_competing_risk <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly, use_custom_output = FALSE,use_custom_output_dir = '/4ceData/Output') {
+generate_life_table_competing_risk <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly, use_custom_output = FALSE,use_custom_output_dir = '/4ceData/Output',ckd_present) {
   cat("\nGenerating preliminary tables for calculating the cause-specific cumulatic incidence curves for
       \n1) AKI recovery
       \n2) Time to New CKD")
@@ -21,7 +21,8 @@ generate_life_table_competing_risk <- function(currSiteId,aki_index_recovery,aki
   for(i in 1:4) {
     message(i)
     tmp <- data_list[[i]][,variables[variables %in% colnames(data_list[[i]])]]
-    if(i == 1) { # aki_index_recovery - recovery outcome
+    if(i == 1) { 
+      # aki_index_recovery - recovery outcome
       tmp <- tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
         recover_1.25x == 1 ~ 1,
         recover_1.25x == 0 & deceased == 1 ~ 2,
@@ -30,14 +31,25 @@ generate_life_table_competing_risk <- function(currSiteId,aki_index_recovery,aki
         event == 0 ~ time_to_death_km,
         event == 1 ~ time_to_ratio1.25,
         event == 2 ~ time_to_death_km
-      )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T) %>% dplyr::select(patient_id,aki_kdigo_final,severe,ckd,time_to_event,event)
+      )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T) 
+      
+      if(isTRUE(ckd_present)) {
+        tmp <- tmp %>% dplyr::select(patient_id,aki_kdigo_final,severe,ckd,time_to_event,event)
+      } else {
+        tmp <- tmp %>% dplyr::select(patient_id,aki_kdigo_final,severe,time_to_event,event)
+      }
+      
       tmp_table <- tmp %>% dplyr::group_by(time_to_event,aki_kdigo_final) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
       write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i],"_KDIGO.csv")),row.names=FALSE)
       tmp_table <- tmp %>% dplyr::group_by(time_to_event,severe) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
       write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i],"_Severe.csv")),row.names=FALSE)
-      tmp_table <- tmp %>% dplyr::group_by(time_to_event,ckd) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
-      write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i],"_CKD.csv")),row.names=FALSE)
-    } else if (i == 2) { #Non-CKD, All - New CKD outcome
+      
+      if(isTRUE(ckd_present)) {
+        tmp_table <- tmp %>% dplyr::group_by(time_to_event,ckd) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
+        write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i],"_CKD.csv")),row.names=FALSE)
+      }
+    } else if (i == 2) { 
+      #Non-CKD, All - New CKD outcome
       tmp <- tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
         new_ckd == 1 ~ 1,
         new_ckd == 0 & deceased == 1 ~ 2,
@@ -46,12 +58,18 @@ generate_life_table_competing_risk <- function(currSiteId,aki_index_recovery,aki
         event == 0 ~ time_to_death_km,
         event == 1 ~ time_to_new_ckd,
         event == 2 ~ time_to_death_km
-      )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T) %>% dplyr::select(patient_id,aki_kdigo_final,severe,ckd,time_to_event,event)
+      )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T) 
+      if(isTRUE(ckd_present)) {
+        tmp <- tmp %>% dplyr::select(patient_id,aki_kdigo_final,severe,ckd,time_to_event,event)
+      } else {
+        tmp <- tmp %>% dplyr::select(patient_id,aki_kdigo_final,severe,time_to_event,event)
+      }
       tmp_table <- tmp %>% dplyr::group_by(time_to_event,aki_kdigo_final) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
       write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i],"_KDIGO.csv")),row.names=FALSE)
       tmp_table <- tmp %>% dplyr::group_by(time_to_event,severe) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
       write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i],"_Severe.csv")),row.names=FALSE)
-    } else if(i == 3) { # Non-CKD, AKI Only - two outcomes, New CKD onset + AKI Recovery
+    } else if(i == 3) { 
+      # Non-CKD, AKI Only - two outcomes, New CKD onset + AKI Recovery
       tmp_1 <- tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
         new_ckd == 1 ~ 1,
         new_ckd == 0 & deceased == 1 ~ 2,
@@ -79,7 +97,7 @@ generate_life_table_competing_risk <- function(currSiteId,aki_index_recovery,aki
       write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i+1],"_KDIGO.csv")),row.names=FALSE)
       tmp_table <- tmp_2 %>% dplyr::group_by(time_to_event,severe) %>% dplyr::summarise(recover = length(event[event == 1]),deceased = length(event[event == 2]),censor = length(event[event == 0])) %>% dplyr::ungroup()
       write.csv(tmp_table,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_CIC_",table_names[i+1],"_Severe.csv")),row.names=FALSE)
-    } else {
+    } else if (i == 4 & isTRUE(ckd_present)){
       tmp <- tmp %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
         recover_1.25x == 1 ~ 1,
         recover_1.25x == 0 & deceased == 1 ~ 2,

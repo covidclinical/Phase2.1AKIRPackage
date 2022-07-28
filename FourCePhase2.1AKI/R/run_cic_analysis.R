@@ -5,7 +5,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
                              var_list_new_ckd_nonckd_akionly,
                              var_list_recovery_nonckd_akionly,
                              var_list_new_ckd_nonckd,
-                             var_list_recovery_ckdonly_akionly,use_custom_output = FALSE,use_custom_output_dir = '/4ceData/Output') {
+                             var_list_recovery_ckdonly_akionly,use_custom_output = FALSE,use_custom_output_dir = '/4ceData/Output',ckd_present=TRUE) {
   if(isTRUE(use_custom_output)) {
     dir.output <- use_custom_output_dir
   } else {
@@ -74,49 +74,79 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
   recovery_all_cic$event <- factor(recovery_all_cic$event,levels=c(0,1,2),labels = c("Censored","Recovery","Death"))
   
-  recovery_nonckd_cic <- aki_index_nonckd_akionly %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
-    recover_1.25x == 1 ~ 1,
-    recover_1.25x == 0 & deceased == 1 ~ 2,
-    TRUE ~ 0
-  )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
-    event == 0 ~ time_to_death_km,
-    event == 1 ~ time_to_ratio1.25,
-    event == 2 ~ time_to_death_km
-  )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
-  recovery_nonckd_cic$event <- factor(recovery_nonckd_cic$event,levels=c(0,1,2),labels = c("Censored","Recovery","Death"))
+  if(isTRUE(ckd_present)) {
+    recovery_nonckd_cic <- aki_index_nonckd_akionly %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+      recover_1.25x == 1 ~ 1,
+      recover_1.25x == 0 & deceased == 1 ~ 2,
+      TRUE ~ 0
+    )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
+      event == 0 ~ time_to_death_km,
+      event == 1 ~ time_to_ratio1.25,
+      event == 2 ~ time_to_death_km
+    )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
+    recovery_nonckd_cic$event <- factor(recovery_nonckd_cic$event,levels=c(0,1,2),labels = c("Censored","Recovery","Death"))
+    
+    recovery_ckd_cic <- aki_index_ckdonly_akionly %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+      recover_1.25x == 1 ~ 1,
+      recover_1.25x == 0 & deceased == 1 ~ 2,
+      TRUE ~ 0
+    )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
+      event == 0 ~ time_to_death_km,
+      event == 1 ~ time_to_ratio1.25,
+      event == 2 ~ time_to_death_km
+    )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
+    recovery_ckd_cic$event <- factor(recovery_ckd_cic$event,levels=c(0,1,2),labels = c("Censored","Recovery","Death"))
+    
+    new_ckd_nonckd_cic <- aki_index_nonckd %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+      new_ckd == 1 ~ 1,
+      new_ckd == 0 & deceased == 1 ~ 2,
+      TRUE ~ 0
+    )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
+      event == 0 ~ time_to_death_km,
+      event == 1 ~ time_to_new_ckd,
+      event == 2 ~ time_to_death_km
+    )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
+    new_ckd_nonckd_cic$event <- factor(new_ckd_nonckd_cic$event,levels=c(0,1,2),labels = c("Censored","CKD Onset","Death"))
+    
+    new_ckd_nonckd_akionly_cic <- aki_index_nonckd_akionly %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+      new_ckd == 1 ~ 1,
+      new_ckd == 0 & deceased == 1 ~ 2,
+      TRUE ~ 0
+    )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
+      event == 0 ~ time_to_death_km,
+      event == 1 ~ time_to_new_ckd,
+      event == 2 ~ time_to_death_km
+    )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
+    new_ckd_nonckd_akionly_cic$event <- factor(new_ckd_nonckd_akionly_cic$event,levels=c(0,1,2),labels = c("Censored","CKD Onset","Death"))
+    
+  } else { # the analysis is equivalent to a non-CKD subgroup already
+    
+    recovery_nonckd_cic <- recovery_all_cic
+    recovery_ckd_cic <- NULL
+    
+    new_ckd_nonckd_cic <- aki_index_death %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+      new_ckd == 1 ~ 1,
+      new_ckd == 0 & deceased == 1 ~ 2,
+      TRUE ~ 0
+    )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
+      event == 0 ~ time_to_death_km,
+      event == 1 ~ time_to_new_ckd,
+      event == 2 ~ time_to_death_km
+    )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
+    new_ckd_nonckd_cic$event <- factor(new_ckd_nonckd_cic$event,levels=c(0,1,2),labels = c("Censored","CKD Onset","Death"))
+    
+    new_ckd_nonckd_akionly_cic <- aki_index_recovery %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
+      new_ckd == 1 ~ 1,
+      new_ckd == 0 & deceased == 1 ~ 2,
+      TRUE ~ 0
+    )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
+      event == 0 ~ time_to_death_km,
+      event == 1 ~ time_to_new_ckd,
+      event == 2 ~ time_to_death_km
+    )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
+    new_ckd_nonckd_akionly_cic$event <- factor(new_ckd_nonckd_akionly_cic$event,levels=c(0,1,2),labels = c("Censored","CKD Onset","Death"))
+  }
   
-  recovery_ckd_cic <- aki_index_ckdonly_akionly %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
-    recover_1.25x == 1 ~ 1,
-    recover_1.25x == 0 & deceased == 1 ~ 2,
-    TRUE ~ 0
-  )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
-    event == 0 ~ time_to_death_km,
-    event == 1 ~ time_to_ratio1.25,
-    event == 2 ~ time_to_death_km
-  )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
-  recovery_ckd_cic$event <- factor(recovery_ckd_cic$event,levels=c(0,1,2),labels = c("Censored","Recovery","Death"))
-  
-  new_ckd_nonckd_cic <- aki_index_nonckd %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
-    new_ckd == 1 ~ 1,
-    new_ckd == 0 & deceased == 1 ~ 2,
-    TRUE ~ 0
-  )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
-    event == 0 ~ time_to_death_km,
-    event == 1 ~ time_to_new_ckd,
-    event == 2 ~ time_to_death_km
-  )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
-  new_ckd_nonckd_cic$event <- factor(new_ckd_nonckd_cic$event,levels=c(0,1,2),labels = c("Censored","CKD Onset","Death"))
-  
-  new_ckd_nonckd_akionly_cic <- aki_index_nonckd_akionly %>% dplyr::group_by(patient_id) %>% dplyr::mutate(event = dplyr::case_when(
-    new_ckd == 1 ~ 1,
-    new_ckd == 0 & deceased == 1 ~ 2,
-    TRUE ~ 0
-  )) %>% dplyr::mutate(time_to_event = dplyr::case_when(
-    event == 0 ~ time_to_death_km,
-    event == 1 ~ time_to_new_ckd,
-    event == 2 ~ time_to_death_km
-  )) %>% dplyr::ungroup() %>% dplyr::distinct(patient_id,.keep_all = T)
-  new_ckd_nonckd_akionly_cic$event <- factor(new_ckd_nonckd_akionly_cic$event,levels=c(0,1,2),labels = c("Censored","CKD Onset","Death"))
   
   # ==========================
   # Cumulative Incidence Plots
@@ -125,19 +155,9 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   # ===============
   recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ aki_kdigo_final")
   try({
+    cat("\nCreating CumInc curve for AKI Recovery (All) - KDIGO\n")
     cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
     # cuminc_recovery_all %>% tidycmprsk::autoplot(conf.int=T)
-  })
-  
-  try({
-    cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
-  })
-  
-  try({
-    cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
-  })
-  
-  try({
     cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
     cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
     write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_KDIGO_Plot.csv")),row.names=F)
@@ -145,69 +165,73 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   })
   
   try({
+    cat("\nCreating CumInc curve for AKI Recovery (Non-CKD only) - KDIGO\n")
+    cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
     cuminc_recovery_nonckd_tidy <- tidycmprsk::tidy(cuminc_recovery_nonckd)
     cuminc_recovery_nonckd_stats <- tidycmprsk::glance(cuminc_recovery_nonckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
     write.csv(cuminc_recovery_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_KDIGO_Plot.csv")),row.names=F)
     write.csv(cuminc_recovery_nonckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_KDIGO_Stats.csv")),row.names=F)
   })
-  
-  try({
-    cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
-    cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-    write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Plot.csv")),row.names=F)
-    write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Stats.csv")),row.names=F)
-  })
+  if(isTRUE(ckd_present)) {
+    try({
+      cat("\nCreating CumInc curve for AKI Recovery (CKD only) - KDIGO\n")
+      cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
+      cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
+      cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+      write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Plot.csv")),row.names=F)
+      write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_KDIGO_Stats.csv")),row.names=F)
+    })
+  }
   
   # ===============
   recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ severe")
   
   try({
+    cat("\nCreating CumInc curve for AKI Recovery (All) - COVID-19 Severity\n")
     cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
-  })
-  try({
-    cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
-  })
-  try({
-    cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
-  })
-  
-  try({
     cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
     cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
     write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_Severe_Plot.csv")),row.names=F)
     write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_Severe_stats.csv")),row.names=F)
   })
-  
   try({
+    cat("\nCreating CumInc curve for AKI Recovery (Non-CKD Only) - COVID-19 Severity\n")
+    cuminc_recovery_nonckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_nonckd_cic)
     cuminc_recovery_nonckd_tidy <- tidycmprsk::tidy(cuminc_recovery_nonckd)
     cuminc_recovery_nonckd_stats <- tidycmprsk::glance(cuminc_recovery_nonckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
     write.csv(cuminc_recovery_nonckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_Severe_Plot.csv")),row.names=F)
     write.csv(cuminc_recovery_nonckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_NonCKD_Severe_Stats.csv")),row.names=F)
   })
-  
-  try({
-    cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
-    cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-    write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Plot.csv")),row.names=F)
-    write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Stats.csv")),row.names=F)
-  })
+  if(isTRUE(ckd_present)) {
+    try({
+      cat("\nCreating CumInc curve for AKI Recovery (CKD Only) - COVID-19 Severity\n")
+      cuminc_recovery_ckd <- tidycmprsk::cuminc(recovery_formula,data=recovery_ckd_cic)
+      cuminc_recovery_ckd_tidy <- tidycmprsk::tidy(cuminc_recovery_ckd)
+      cuminc_recovery_ckd_stats <- tidycmprsk::glance(cuminc_recovery_ckd) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+      write.csv(cuminc_recovery_ckd_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Plot.csv")),row.names=F)
+      write.csv(cuminc_recovery_ckd_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_CKD_Severe_Stats.csv")),row.names=F)
+    })
+  }
   
   # ===============
-  recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ ckd")
-  try({
-    cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
-    cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
-    cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
-    write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_Plot.csv")),row.names=F)
-    write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_stats.csv")),row.names=F)
-  })
-  
+  if(isTRUE(ckd_present)) {
+    recovery_formula <- as.formula("survival::Surv(time_to_ratio1.25,event) ~ ckd")
+    try({
+      cat("\nCreating CumInc curve for AKI Recovery (All) - CKD\n")
+      cuminc_recovery_all <- tidycmprsk::cuminc(recovery_formula,data=recovery_all_cic)
+      cuminc_recovery_all_tidy <- tidycmprsk::tidy(cuminc_recovery_all)
+      cuminc_recovery_all_stats <- tidycmprsk::glance(cuminc_recovery_all) %>% tidyr::pivot_longer(tidyr::everything(),names_to = c(".value", "outcome_id"),names_pattern = "(.*)_(.*)")
+      write.csv(cuminc_recovery_all_tidy,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_Plot.csv")),row.names=F)
+      write.csv(cuminc_recovery_all_stats,file=file.path(dir.output, paste0(currSiteId, "_CumInc_Recovery_All_AKI_CKDvsNonCKD_stats.csv")),row.names=F)
+    })
+  }
   
   # ===============
   
   newckd_formula <- as.formula("survival::Surv(time_to_new_ckd,event) ~ aki_kdigo_final")
   
   try({
+    cat("\nCreating CumInc curve for Time to New CKD Onset (Non-CKD only) - KDIGO\n")
     cuminc_new_ckd_nonckd <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_cic)
     cuminc_new_ckd_nonckd_akionly <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_akionly_cic)
     cuminc_new_ckd_nonckd_tidy <- tidycmprsk::tidy(cuminc_new_ckd_nonckd)
@@ -218,6 +242,7 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   
   
   try({
+    cat("\nCreating CumInc curve for Time to New CKD Onset (Non-CKD only) - COVID-19 Severity\n")
     newckd_formula <- as.formula("survival::Surv(time_to_new_ckd,event) ~ severe")
     cuminc_new_ckd_nonckd <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_cic)
     cuminc_new_ckd_nonckd_akionly <- tidycmprsk::cuminc(newckd_formula,data=new_ckd_nonckd_akionly_cic)
@@ -263,20 +288,22 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
     })
   }
   
-  for(i in 1:length(models_nockd_labels)) {
-    cat(paste0("\nGenerating Fine-Gray models (", models_nockd_labels[i], ") (time to recovery, CKD Only, AKI patients only)..."))
-    try({
-      recovery_model <- c("severe","aki_kdigo_final",var_list_recovery_ckdonly_akionly)
-      recovery_model <- recovery_model[recovery_model %in% models_nockd[[i]]]
-      recoveryFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
-      message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
-      FineGray_recovery <- tidycmprsk::crr(recoveryFineGrayFormula, data=recovery_ckd_cic,failcode = "Recovery")
-      FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
-      FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
-      invisible(gc())
-    })
+  if(isTRUE(ckd_present)) {
+    for(i in 1:length(models_nockd_labels)) {
+      cat(paste0("\nGenerating Fine-Gray models (", models_nockd_labels[i], ") (time to recovery, CKD Only, AKI patients only)..."))
+      try({
+        recovery_model <- c("severe","aki_kdigo_final",var_list_recovery_ckdonly_akionly)
+        recovery_model <- recovery_model[recovery_model %in% models_nockd[[i]]]
+        recoveryFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
+        message(paste("Formula for ", models_nockd_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
+        FineGray_recovery <- tidycmprsk::crr(recoveryFineGrayFormula, data=recovery_ckd_cic,failcode = "Recovery")
+        FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
+        FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
+        write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
+        write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+        invisible(gc())
+      })
+    }
   }
   
   for(i in 1:length(models_nockd_labels)) {

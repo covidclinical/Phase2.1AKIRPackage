@@ -1453,14 +1453,15 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     var_list_recovery_all <- main_analysis$var_list_recovery_all
     var_list_death_all <- main_analysis$var_list_death_all
     
+    cat("\nProceeding to non-CKD subgroup analysis...\n")
     
     nonckd_analysis <- run_time_to_event_analysis_nonckd(currSiteId,
-      aki_index_recovery,aki_index_death,
-      med_recovery_list, comorbid_recovery_list, demog_recovery_list,earliest_cr_recovery_list,
-      med_death_list, comorbid_death_list, demog_death_list,earliest_cr_death_list,
-      is_obfuscated,obfuscation_value,
-      restrict_models, factor_cutoff,
-      custom_output,custom_output_dir)
+                                                         aki_index_recovery,aki_index_death,
+                                                         med_recovery_list, comorbid_recovery_list, demog_recovery_list,earliest_cr_recovery_list,
+                                                         med_death_list, comorbid_death_list, demog_death_list,earliest_cr_death_list,
+                                                         is_obfuscated,obfuscation_value,
+                                                         restrict_models, factor_cutoff,
+                                                         custom_output,custom_output_dir,ckd_present)
     
     aki_index_nonckd <- nonckd_analysis$aki_index_nonckd
     aki_index_nonckd_akionly <- nonckd_analysis$aki_index_nonckd_akionly
@@ -1470,25 +1471,38 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     var_list_death_nonckd <- nonckd_analysis$var_list_death_nonckd
     var_list_new_ckd_nonckd <- nonckd_analysis$var_list_new_ckd_nonckd
     
-    ckd_analysis <- run_time_to_event_analysis_ckdonly(currSiteId,aki_index_recovery,aki_index_death,
-                                                      var_list_recovery_all, var_list_death_all,
-                                                      is_obfuscated,obfuscation_value,
-                                                      restrict_models, factor_cutoff,
-                                                      custom_output,custom_output_dir)
-    aki_index_ckdonly <- ckd_analysis$aki_index_ckdonly
-    aki_index_ckdonly_akionly <- ckd_analysis$aki_index_ckdonly_akionly
-    var_list_recovery_ckdonly_akionly <- ckd_analysis$var_list_recovery_ckdonly_akionly
-    var_list_death_ckdonly_akionly <- ckd_analysis$var_list_death_ckdonly_akionly
-    var_list_death_ckdonly <- ckd_analysis$var_list_death_ckdonly
+    if(isTRUE(ckd_present)) {
+      cat("\nCKD present: ",ckd_present,"\nProceeding to CKD subgroup analysis")
+      
+      ckd_analysis <- run_time_to_event_analysis_ckdonly(currSiteId,aki_index_recovery,aki_index_death,
+                                                         var_list_recovery_all, var_list_death_all,
+                                                         is_obfuscated,obfuscation_value,
+                                                         restrict_models, factor_cutoff,
+                                                         custom_output,custom_output_dir)
+      aki_index_ckdonly <- ckd_analysis$aki_index_ckdonly
+      aki_index_ckdonly_akionly <- ckd_analysis$aki_index_ckdonly_akionly
+      var_list_recovery_ckdonly_akionly <- ckd_analysis$var_list_recovery_ckdonly_akionly
+      var_list_death_ckdonly_akionly <- ckd_analysis$var_list_death_ckdonly_akionly
+      var_list_death_ckdonly <- ckd_analysis$var_list_death_ckdonly
+    } else {
+      cat("\nNoted that no CKD comorbidities are present in the cohort. Will proceed to skip subgroup analyses since all patients are non-CKD.\n")
+      aki_index_ckdonly <- NULL
+      aki_index_ckdonly_akionly <- NULL
+      var_list_recovery_ckdonly_akionly <- NULL
+      var_list_death_ckdonly_akionly <- NULL
+      var_list_death_ckdonly <- NULL
+    }
     
-    generate_life_table_competing_risk(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly,custom_output,custom_output_dir)
+    cat("\nNow generating the life tables for competing risks...\n")
+    generate_life_table_competing_risk(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly,custom_output,custom_output_dir,ckd_present)
+    cat("\nNow running the competing risk analyses...\n")
     run_cic_analysis(currSiteId,aki_index_recovery,aki_index_nonckd,aki_index_nonckd_akionly,aki_index_ckdonly_akionly,
                      var_list_recovery_all,
                      var_list_new_ckd_nonckd_akionly,
                      var_list_recovery_nonckd_akionly,
                      var_list_new_ckd_nonckd,
                      var_list_recovery_ckdonly_akionly,
-                     custom_output,custom_output_dir)
+                     custom_output,custom_output_dir,ckd_present)
     # aki_index_recovery <- main_analysis$aki_index_recovery
     # med_recovery_list <- main_analysis$med_recovery_list
     # comorbid_recovery_list <- main_analysis$comorbid_recovery_list
