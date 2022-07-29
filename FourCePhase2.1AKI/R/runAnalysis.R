@@ -270,21 +270,21 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     med_covid19_new <- NULL
     if(isTRUE(covid19antiviral_present) && isTRUE(remdesivir_present)){
         cat("\nGenerating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR)")
-        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL),remdesivir=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0)),remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0)) %>% dplyr::ungroup()
         med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0 | remdesivir > 0,1,0)) %>% dplyr::ungroup()
         med_covid19_new_date <- med_covid19_new
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx,covidviral,remdesivir)
     } else if(isTRUE(covid19antiviral_present)){
         cat("\nGenerating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
-        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,COVIDVIRAL)) %>% dplyr::ungroup()
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0))) %>% dplyr::ungroup()
         med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0,1,0)) %>% dplyr::ungroup()
         med_covid19_new_date <- med_covid19_new
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
         med_covid19_new <- med_covid19_new %>% dplyr::select(patient_id,covid_rx,covidviral)
     } else if(isTRUE(remdesivir_present)){
         cat("\nGenerating table for experimental COVID-19 treatment... (REMDESIVIR only)")
-        med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(remdesivir=ifelse(is.na(REMDESIVIR),0,REMDESIVIR)) %>% dplyr::ungroup()
+        med_covid19_new <- med_new %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0)) %>% dplyr::ungroup()
         med_covid19_new <- med_covid19_new %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(remdesivir > 0,1,0)) %>% dplyr::ungroup()
         med_covid19_new_date <- med_covid19_new
         colnames(med_covid19_new_date)[2] <- "covid_rx_start"
