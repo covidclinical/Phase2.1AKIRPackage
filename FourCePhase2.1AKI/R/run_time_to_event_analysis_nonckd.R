@@ -16,7 +16,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
                                               med_death_list, comorbid_death_list, demog_death_list,earliest_cr_death_list,
                                               obfuscation,obfuscation_level,
                                               restrict_model_corr, factor_threshold = 5,
-                                              use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output",ckd_present = TRUE) {
+                                              use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output",ckd_present = TRUE,input='/4ceData/Input') {
   currSiteId <- siteid
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
@@ -31,7 +31,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   if(isTRUE(restrict_models)) {
     cat("\nWe notice that you are keen to restrict the models to certain variables.")
     cat("\nWe are now going to read in the file CustomModelVariables.txt...")
-    restrict_list <- scan("Input/CustomModelVariables.txt",what="")
+    restrict_list <- scan(file.path(input,"CustomModelVariables.txt"),what="")
     message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
   }
   
@@ -153,9 +153,9 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     } else {
       earliest_cr_new_ckd_list <- NULL
     }
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_new_ckd_list,"\nComorbidities:",comorbid_new_ckd_list,"\nMedications:",med_new_ckd_list,"\nPreadmit Cr Period:",earliest_cr_new_ckd_list,sep = " "))
+    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",paste(demog_new_ckd_list),"\nComorbidities:",paste(comorbid_new_ckd_list),"\nMedications:",paste(med_new_ckd_list),"\nPreadmit Cr Period:",paste(earliest_cr_new_ckd_list),sep = " "))
   }
-  variable_list_output <- paste(c("Final New Onset CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" ")
+  variable_list_output <- cat(paste(c("\nFinal New Onset CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
   var_list_new_ckd_nonckd <- c(demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
   
   # ===========
@@ -230,10 +230,13 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for New CKD onset on Non-CKD patients\n==============\n")
-  for(i in 1:14) {
+  for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating ", models_ckd_labels[i], " (Time to New Onset CKD, All Non-CKD patients)..."))
     try({
       new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+      if(isTRUE(restrict_models)) {
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+      }
       new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd[[i]]]
       newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
@@ -340,7 +343,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     }
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_new_ckd_list,"\nComorbidities:",comorbid_new_ckd_list,"\nMedications:",med_new_ckd_list,"\nPreadmit Cr Period:",earliest_cr_new_ckd_list,sep = " "))
   }
-  variable_list_output <- paste(c("Final Mortality In Non-CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" ")
+  variable_list_output <- cat(paste(c("\nFinal Mortality In Non-CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
   var_list_death_nonckd <- c(demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
   
   # Run analysis for Mortality
@@ -411,10 +414,13 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for New CKD onset on Non-CKD patients\n==============\n")
-  for(i in 1:14) {
+  for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to Death, Non-CKD patients)..."))
     try({
       new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+      if(isTRUE(restrict_models)) {
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+      }
       new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd[[i]]]
       newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
@@ -585,10 +591,13 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for New CKD onset on Non-CKD patients with AKI only\n==============\n")
-  for(i in 1:14) {
+  for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to New Onset CKD, Non-CKD patients with AKI only)..."))
     try({
       new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
+      if(isTRUE(restrict_models)) {
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+      }
       new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd[[i]]]
       newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
@@ -753,10 +762,13 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for Mortality (Non-CKD patients, AKI Only)\n==============\n")
-  for(i in 1:14) {
+  for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to Death, Non-CKD patients, AKI Only)..."))
     try({
       new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+      if(isTRUE(restrict_models)) {
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+      }
       new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd[[i]]]
       newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
@@ -922,10 +934,13 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for AKI Recovery onset (Non-CKD patients, AKI Only)\n==============\n")
-  for(i in 1:14) {
+  for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to AKI Recovery, Non-CKD patients, AKI Only)..."))
     try({
       new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+      if(isTRUE(restrict_models)) {
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+      }
       new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd[[i]]]
       newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(new_ckd_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(new_ckd_model,collapse="+")))

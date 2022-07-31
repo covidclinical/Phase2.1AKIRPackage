@@ -26,6 +26,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     if(isTRUE(docker)) {
         ## get the site identifier associated with the files stored in the /4ceData/Input directory that 
         ## is mounted to the container
+        input_dir <- FourCePhase2.1Data::getInputDataDirectoryName()
         currSiteId = toupper(FourCePhase2.1Data::getSiteId())
         ## run the quality control
         FourCePhase2.1Data::runQC(currSiteId)
@@ -33,13 +34,14 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         observations <- FourCePhase2.1Data::getLocalPatientObservations(currSiteId)
         course <- FourCePhase2.1Data::getLocalPatientClinicalCourse(currSiteId)
     } else {
+        input_dir <- input
         currSiteId = siteid_nodocker
         if(isFALSE(skip_qc)) {
-            FourCePhase2.1Data::runQC_nodocker(currSiteId,input)
+            FourCePhase2.1Data::runQC_nodocker(currSiteId,input_dir)
         }
-        demographics <- FourCePhase2.1Data::getLocalPatientSummary_nodocker(currSiteId,input)
-        observations <- FourCePhase2.1Data::getLocalPatientObservations_nodocker(currSiteId,input)
-        course <- FourCePhase2.1Data::getLocalPatientClinicalCourse_nodocker(currSiteId,input)
+        demographics <- FourCePhase2.1Data::getLocalPatientSummary_nodocker(currSiteId,input_dir)
+        observations <- FourCePhase2.1Data::getLocalPatientObservations_nodocker(currSiteId,input_dir)
+        course <- FourCePhase2.1Data::getLocalPatientClinicalCourse_nodocker(currSiteId,input_dir)
     }
     
     error_log <- file(file.path(dir.output,paste0("/",currSiteId,"_error.log")))
@@ -1437,7 +1439,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     ckd_staging <- ckd_staging[,c("patient_id","ckd_stage")]
     
-    main_analysis <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,labs_aki_summ,demographics,demog_time_to_event,demog_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,earliest_cr,ckd_staging,is_obfuscated,obfuscation_value,restrict_models,factor_cutoff,custom_output,custom_output_dir)
+    main_analysis <- run_time_to_event_analysis(currSiteId,peak_trend,aki_index,labs_aki_summ,demographics,demog_time_to_event,demog_list,comorbid,comorbid_list,kdigo_grade,ckd_present,coaga_present,coagb_present,covid19antiviral_present,remdesivir_present,acei_present,arb_present,med_coaga_new,med_coagb_new,med_covid19_new,med_acearb_chronic,earliest_cr,ckd_staging,is_obfuscated,obfuscation_value,restrict_models,factor_cutoff,custom_output,custom_output_dir,input_dir)
     
     aki_index_recovery <- main_analysis$aki_index_recovery
     aki_index_death <- main_analysis$aki_index_death
@@ -1461,7 +1463,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                                                          med_death_list, comorbid_death_list, demog_death_list,earliest_cr_death_list,
                                                          is_obfuscated,obfuscation_value,
                                                          restrict_models, factor_cutoff,
-                                                         custom_output,custom_output_dir,ckd_present)
+                                                         custom_output,custom_output_dir,ckd_present,input_dir)
     
     aki_index_nonckd <- nonckd_analysis$aki_index_nonckd
     aki_index_nonckd_akionly <- nonckd_analysis$aki_index_nonckd_akionly
@@ -1478,7 +1480,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
                                                          var_list_recovery_all, var_list_death_all,
                                                          is_obfuscated,obfuscation_value,
                                                          restrict_models, factor_cutoff,
-                                                         custom_output,custom_output_dir)
+                                                         custom_output,custom_output_dir,input_dir)
       aki_index_ckdonly <- ckd_analysis$aki_index_ckdonly
       aki_index_ckdonly_akionly <- ckd_analysis$aki_index_ckdonly_akionly
       var_list_recovery_ckdonly_akionly <- ckd_analysis$var_list_recovery_ckdonly_akionly

@@ -15,7 +15,7 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
                                               var_list_recovery,var_list_death,
                                               obfuscation,obfuscation_level,
                                               restrict_model_corr, factor_threshold = 5,
-                                              use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
+                                              use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output",input) {
   currSiteId <- siteid
   is_obfuscated <- obfuscation
   obfuscation_value <- obfuscation_level
@@ -33,7 +33,7 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
   if(isTRUE(restrict_models)) {
     cat("\nWe notice that you are keen to restrict the models to certain variables.")
     cat("\nWe are now going to read in the file CustomModelVariables.txt...")
-    restrict_list <- scan("Input/CustomModelVariables.txt",what="")
+    restrict_list <- scan(file.path(input,"CustomModelVariables.txt"),what="")
     message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
   }
   
@@ -168,6 +168,9 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to Death, CKD patients)..."))
     try({
       ckdonly_model <- c("severe","aki_kdigo_final",var_list_death_ckdonly)
+      if(isTRUE(restrict_models)) {
+        ckdonly_model <- ckdonly_model[ckdonly_model %in% restrict_list]
+      }
       ckdonly_model <- ckdonly_model[ckdonly_model %in% models_ckd[[i]]]
       ckdonlyCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(ckdonly_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(ckdonly_model,collapse="+")))
@@ -277,6 +280,9 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to Death, CKD patients, AKI Only)..."))
     try({
       ckdonly_model <- c("severe","aki_kdigo_final",var_list_death_ckdonly_akionly)
+      if(isTRUE(restrict_models)) {
+        ckdonly_model <- ckdonly_model[ckdonly_model %in% restrict_list]
+      }
       ckdonly_model <- ckdonly_model[ckdonly_model %in% models_ckd[[i]]]
       ckdonlyCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(ckdonly_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(ckdonly_model,collapse="+")))
@@ -385,6 +391,9 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to AKI Recovery, CKD patients, AKI Only)..."))
     try({
       ckdonly_model <- c("severe","aki_kdigo_final",var_list_recovery_ckdonly_akionly)
+      if(isTRUE(restrict_models)) {
+        ckdonly_model <- ckdonly_model[ckdonly_model %in% restrict_list]
+      }
       ckdonly_model <- ckdonly_model[ckdonly_model %in% models_ckd[[i]]]
       ckdonlyCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(ckdonly_model,collapse="+")))
       message(paste("Formula for ", models_ckd_labels[i],": survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(ckdonly_model,collapse="+")))

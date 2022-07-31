@@ -33,7 +33,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
                                        med_coaga = NULL,med_coagb = NULL,med_covid19 = NULL,med_acearb = NULL,earliest_cr_table=NULL,ckd_staging,
                                        obfuscation,obfuscation_level,
                                        restrict_model_corr, factor_threshold = 5,
-                                       use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output") {
+                                       use_custom_output = FALSE,use_custom_output_dir = "/4ceData/Output", input = "/4ceData/Input") {
   currSiteId <- siteid
   peak_trend <- base_table
   aki_index <- aki_episodes
@@ -118,7 +118,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   if(isTRUE(restrict_models)) {
     cat("\nWe notice that you are keen to restrict the models to certain variables.")
     cat("\nWe are now going to read in the file CustomModelVariables.txt...")
-    restrict_list <- scan("Input/CustomModelVariables.txt",what="")
+    restrict_list <- scan(file=file.path(input,"CustomModelVariables.txt"),what="")
     message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
   }
   
@@ -365,6 +365,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nFinal factor list for recovery (before user customisation): ",paste(c(demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list),collapse=" "))
   
   if(isTRUE(restrict_models)) {
+    cat("\nRestricting list now:\nRestrict list:",paste(restrict_list,sep = ","),"\n")
     demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
     comorbid_recovery_list <- comorbid_recovery_list[comorbid_recovery_list %in% restrict_list]
     med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
@@ -460,6 +461,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 1 (time to recovery, AKI patients only)...")
   try({
     recovery_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      recovery_model1 <- recovery_model1[recovery_model1 %in% restrict_list]
+    }
     recovery_model1 <- recovery_model1[recovery_model1 %in% model1]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
     message(paste("Formula for Model 1: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model1,collapse="+")))
@@ -479,6 +483,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 2 (time to recovery, AKI patients only)...")
   try({
     recovery_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      recovery_model2 <- recovery_model2[recovery_model2 %in% restrict_list]
+    }
     recovery_model2 <- recovery_model2[recovery_model2 %in% model2]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
     message(paste("Formula for Model 2: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model2,collapse="+")))
@@ -498,6 +505,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 3 (time to recovery, AKI patients only)...")
   try({
     recovery_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      recovery_model3 <- recovery_model3[recovery_model3 %in% restrict_list]
+    }
     recovery_model3 <- recovery_model3[recovery_model3 %in% model3]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
     message(paste("Formula for Model 3: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model3,collapse="+")))
@@ -517,6 +527,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 4 with ACE-i/ARBs (time to recovery, AKI patients only)...")
   try({
     recovery_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      recovery_model4 <- recovery_model4[recovery_model4 %in% restrict_list]
+    }
     recovery_model4 <- recovery_model4[recovery_model4 %in% model4]
     recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model4,collapse="+")))
     message(paste("Formula for Model 4: survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model4,collapse="+")))
@@ -539,6 +552,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     cat(paste0("\nGenerating", supp_models_labels[i], "(time to recovery, AKI patients only)..."))
     try({
       recovery_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+      if(isTRUE(restrict_models)) {
+        recovery_model <- recovery_model[recovery_model %in% restrict_list]
+      }
       recovery_model <- recovery_model[recovery_model %in% supp_models[[i]]]
       recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model,collapse="+")))
       message(paste("Formula for ", supp_models_labels[i],": survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model,collapse="+")))
@@ -627,6 +643,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 1 (Time to death, AKI patients only)...")
   try({
     death_aki_only_model1 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      death_aki_only_model1 <- death_aki_only_model1[death_aki_only_model1 %in% restrict_list]
+    }
     death_aki_only_model1 <- death_aki_only_model1[death_aki_only_model1 %in% model1]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
     cat("\nFormula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model1,collapse="+")))
@@ -646,6 +665,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 2 (Time to death, AKI patients only)...")
   try({
     death_aki_only_model2 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      death_aki_only_model2 <- death_aki_only_model2[death_aki_only_model2 %in% restrict_list]
+    }
     death_aki_only_model2 <- death_aki_only_model2[death_aki_only_model2 %in% model2]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
     cat("\nFormula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model2,collapse="+")))
@@ -665,6 +687,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 3 (Time to death, AKI patients only)...")
   try({
     death_aki_only_model3 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      death_aki_only_model3 <- death_aki_only_model3[death_aki_only_model3 %in% restrict_list]
+    }
     death_aki_only_model3 <- death_aki_only_model3[death_aki_only_model3 %in% model3]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
     cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model3,collapse="+")))
@@ -684,6 +709,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 4 (Time to death, AKI patients only)...")
   try({
     death_aki_only_model4 <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+    if(isTRUE(restrict_models)) {
+      death_aki_only_model4 <- death_aki_only_model4[death_aki_only_model4 %in% restrict_list]
+    }
     death_aki_only_model4 <- death_aki_only_model4[death_aki_only_model4 %in% model4]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model4,collapse="+")))
     cat("\nFormula for Model 4: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_aki_only_model4,collapse="+")))
@@ -706,6 +734,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     cat(paste0("\nGenerating", supp_models_labels[i], "(time to death, AKI patients only)..."))
     try({
       death_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+      if(isTRUE(restrict_models)) {
+        death_model <- death_model[death_model %in% restrict_list]
+      }
       death_model <- death_model[death_model %in% supp_models[[i]]]
       deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
       message(paste("Formula for ", supp_models_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
@@ -935,6 +966,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nFinal factor list for death (before user customisation):",paste(c(demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list),collapse=" "))
   
   if(isTRUE(restrict_models)) {
+    cat("\nRestricting models...\nRestrict list:",paste(restrict_list,sep=","),"\n")
     demog_death_list <- demog_death_list[demog_death_list %in% restrict_list]
     comorbid_death_list <- comorbid_death_list[comorbid_death_list %in% restrict_list]
     med_death_list <- med_death_list[med_death_list %in% restrict_list]
@@ -948,7 +980,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     } else {
       ckd_staging_death_list <- NULL
     }
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_death_list,"\nComorbidities:",comorbid_death_list,"\nMedications:",med_death_list,"\nPreadmit Cr Period:",earliest_cr_death_list,"\nCKD Staging:",ckd_staging_death_list,sep = " "))
+    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",paste(demog_death_list),"\nComorbidities:",paste(comorbid_death_list),"\nMedications:",paste(med_death_list),"\nPreadmit Cr Period:",paste(earliest_cr_death_list),"\nCKD Staging:",paste(ckd_staging_death_list),sep = " "))
   }
   variable_list_death <- message(paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list),collapse=" "))
   var_list_death_all <- c(demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list)
@@ -1043,6 +1075,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 1 (Time to death, all patients)...")
   try({
     death_model1 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
+    if(isTRUE(restrict_models)) {
+      death_model1 <- death_model1[death_model1 %in% restrict_list]
+    }
     death_model1 <- death_model1[death_model1 %in% model1]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
     cat("\nFormula for Model 1: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model1,collapse="+")))
@@ -1062,6 +1097,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 2 (Time to death, all patients)...")
   try({
     death_model2 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
+    if(isTRUE(restrict_models)) {
+      death_model2 <- death_model2[death_model2 %in% restrict_list]
+    }
     death_model2 <- death_model2[death_model2 %in% model2]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model2,collapse="+")))
     cat("\nFormula for Model 2: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model2,collapse="+")))
@@ -1081,6 +1119,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 3 (Time to death, all patients)...")
   try({
     death_model3 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
+    if(isTRUE(restrict_models)) {
+      death_model3 <- death_model3[death_model3 %in% restrict_list]
+    }
     death_model3 <- death_model3[death_model3 %in% model3]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
     cat("\nFormula for Model 3: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model3,collapse="+")))
@@ -1100,6 +1141,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   cat("\nGenerating Model 4 (Time to death, all patients)...")
   try({
     death_model4 <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list)
+    if(isTRUE(restrict_models)) {
+      death_model4 <- death_model4[death_model4 %in% restrict_list]
+    }
     death_model4 <- death_model4[death_model4 %in% model4]
     deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model4,collapse="+")))
     cat("\nFormula for Model 4: ",paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model4,collapse="+")))
@@ -1122,6 +1166,9 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     cat(paste0("\nGenerating", supp_models_labels[i], "(time to death, all patients)..."))
     try({
       death_model <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_recovery_list)
+      if(isTRUE(restrict_models)) {
+        death_model <- death_model[death_model %in% restrict_list]
+      }
       death_model <- death_model[death_model %in% supp_models[[i]]]
       deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
       message(paste("Formula for ", supp_models_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
