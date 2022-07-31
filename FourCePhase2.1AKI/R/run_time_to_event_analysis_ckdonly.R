@@ -164,7 +164,7 @@ run_time_to_event_analysis_ckdonly <- function(siteid,
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for Mortality on CKD patients\n==============\n")
-  for(i in 1:14) {
+  for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to Death, CKD patients)..."))
     try({
       ckdonly_model <- c("severe","aki_kdigo_final",var_list_death_ckdonly)
