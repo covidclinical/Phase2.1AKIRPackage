@@ -1,9 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
 # 4CE Phase 2.1 - AKI Analysis
 
 Last updated: July 27, 2022 (v0.2.0.1)
