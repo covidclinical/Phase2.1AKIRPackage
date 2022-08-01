@@ -974,16 +974,19 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     demog_death_list <- demog_death_list[demog_death_list %in% restrict_list]
     comorbid_death_list <- comorbid_death_list[comorbid_death_list %in% restrict_list]
     med_death_list <- med_death_list[med_death_list %in% restrict_list]
-    if(earliest_cr_death_list %in% restrict_list) {
-      earliest_cr_death_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_death_list <- NULL
+    if(!is.null(earliest_cr_death_list)) {
+      if(earliest_cr_death_list %in% restrict_list) {
+        earliest_cr_death_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_death_list <- NULL
+      }
+      if(ckd_staging_death_list %in% restrict_list) {
+        ckd_staging_death_list <- "ckd_stage"
+      } else {
+        ckd_staging_death_list <- NULL
+      }
     }
-    if(ckd_staging_death_list %in% restrict_list) {
-      ckd_staging_death_list <- "ckd_stage"
-    } else {
-      ckd_staging_death_list <- NULL
-    }
+    
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",paste(demog_death_list),"\nComorbidities:",paste(comorbid_death_list),"\nMedications:",paste(med_death_list),"\nPreadmit Cr Period:",paste(earliest_cr_death_list),"\nCKD Staging:",paste(ckd_staging_death_list),sep = " "))
   }
   variable_list_death <- message(paste(c("Final Death variable list: ",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list),collapse=" "))
