@@ -119,7 +119,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     cat("\nWe notice that you are keen to restrict the models to certain variables.")
     cat("\nWe are now going to read in the file CustomModelVariables.txt...")
     restrict_list <- scan(file=file.path(input,"CustomModelVariables.txt"),what="")
-    message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
+    cat(paste(c("\nVariables to restrict analyses to:",restrict_list,"\n"),collapse=" "))
   }
   
   cat("\n============================\nPart 1: Time to Recovery\n============================")
@@ -369,17 +369,21 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
     demog_recovery_list <- demog_recovery_list[demog_recovery_list %in% restrict_list]
     comorbid_recovery_list <- comorbid_recovery_list[comorbid_recovery_list %in% restrict_list]
     med_recovery_list <- med_recovery_list[med_recovery_list %in% restrict_list]
-    if(earliest_cr_recovery_list %in% restrict_list) {
-      earliest_cr_recovery_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_recovery_list <- NULL
+    if(!is.null(earliest_cr_recovery_list)) {
+      if(earliest_cr_recovery_list %in% restrict_list) {
+        earliest_cr_recovery_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_recovery_list <- NULL
+      }
     }
-    if(ckd_staging_recovery_list %in% restrict_list) {
-      ckd_staging_recovery_list <- "ckd_stage"
-    } else {
-      ckd_staging_recovery_list <- NULL
+    if(!is.null(ckd_staging_recovery_list)) {
+      if(ckd_staging_recovery_list %in% restrict_list) {
+        ckd_staging_recovery_list <- "ckd_stage"
+      } else {
+        ckd_staging_recovery_list <- NULL
+      }
     }
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,"\nPreadmit Cr Period:",earliest_cr_recovery_list,"\nCKT Staging: ",ckd_staging_recovery_list,sep = " "))
+    cat(paste(c("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_recovery_list,"\nComorbidities:",comorbid_recovery_list,"\nMedications:",med_recovery_list,"\nPreadmit Cr Period:",earliest_cr_recovery_list,"\nCKT Staging: ",ckd_staging_recovery_list),sep = " "))
   }
   variable_list_output <- message(paste(c("Final Recovery variable list:",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list),collapse=" "))
   

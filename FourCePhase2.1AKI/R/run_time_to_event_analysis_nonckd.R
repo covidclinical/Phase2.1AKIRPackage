@@ -32,7 +32,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     cat("\nWe notice that you are keen to restrict the models to certain variables.")
     cat("\nWe are now going to read in the file CustomModelVariables.txt...")
     restrict_list <- scan(file.path(input,"CustomModelVariables.txt"),what="")
-    message(paste("Variables to restrict analyses to :",restrict_list,collapse=" "))
+    message(paste(c("\nVariables to restrict analyses to:",restrict_list,"\n"),collapse=" "))
   }
   
   # CKD/Non-CKD subgroup
@@ -148,12 +148,14 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     demog_new_ckd_list <- demog_new_ckd_list[demog_new_ckd_list %in% restrict_list]
     comorbid_new_ckd_list <- comorbid_new_ckd_list[comorbid_new_ckd_list %in% restrict_list]
     med_new_ckd_list <- med_new_ckd_list[med_new_ckd_list %in% restrict_list]
-    if(earliest_cr_new_ckd_list %in% restrict_list) {
-      earliest_cr_new_ckd_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_new_ckd_list <- NULL
+    if(!is.null(earliest_cr_new_ckd_list)) {
+      if(earliest_cr_new_ckd_list %in% restrict_list) {
+        earliest_cr_new_ckd_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_new_ckd_list <- NULL
+      }
     }
-    message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",paste(demog_new_ckd_list),"\nComorbidities:",paste(comorbid_new_ckd_list),"\nMedications:",paste(med_new_ckd_list),"\nPreadmit Cr Period:",paste(earliest_cr_new_ckd_list),sep = " "))
+    cat(paste(c("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",paste(demog_new_ckd_list),"\nComorbidities:",paste(comorbid_new_ckd_list),"\nMedications:",paste(med_new_ckd_list),"\nPreadmit Cr Period:",paste(earliest_cr_new_ckd_list),"\n"),sep = " "))
   }
   variable_list_output <- cat(paste(c("\nFinal New Onset CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
   var_list_new_ckd_nonckd <- c(demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
@@ -336,14 +338,16 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     demog_new_ckd_list <- demog_new_ckd_list[demog_new_ckd_list %in% restrict_list]
     comorbid_new_ckd_list <- comorbid_new_ckd_list[comorbid_new_ckd_list %in% restrict_list]
     med_new_ckd_list <- med_new_ckd_list[med_new_ckd_list %in% restrict_list]
-    if(earliest_cr_new_ckd_list %in% restrict_list) {
-      earliest_cr_new_ckd_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_new_ckd_list <- NULL
+    if(!is.null(earliest_cr_new_ckd_list)) {
+      if(earliest_cr_new_ckd_list %in% restrict_list) {
+        earliest_cr_new_ckd_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_new_ckd_list <- NULL
+      }
     }
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_new_ckd_list,"\nComorbidities:",comorbid_new_ckd_list,"\nMedications:",med_new_ckd_list,"\nPreadmit Cr Period:",earliest_cr_new_ckd_list,sep = " "))
   }
-  variable_list_output <- cat(paste(c("\nFinal Mortality In Non-CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
+  # variable_list_output <- cat(paste(c("\nFinal Mortality In Non-CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
   var_list_death_nonckd <- c(demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
   
   # Run analysis for Mortality
