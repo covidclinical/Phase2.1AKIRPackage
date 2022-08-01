@@ -143,6 +143,13 @@ If `print_rrt_surrogate` is set to TRUE, please ensure that these files have bee
 1) If your site is running a non-Docker based environment running on R 4.1.\*, there is a known issue where the Kaplan-Meier plots produced may be blank
    - We are currently in the midst of attempting to fix this
    - As a workaround, try to run the package in the older R 4.0.2 environment instead
+   
+2)  If your site is running a non-Docker based environment running R 4.2.\* and above, you may encounter the following error when the package is attempting to parse medications:
+```
+Error in `tidyr::spread()`:
+! Each row of output must be identified by a unique combination of keys.
+```
+We do not have a feasible workaround for this issue. This issue has not surfaced in our testing on R 4.0.2 and R 4.1.3 so far. Please raise this issue to us if you encounter this issue on versions older than R 4.2 and we will try to rectify this as soon as possible.
 
 ## Work in Progress
 1) [x] Debugging v0.1.5.0 for any issues after extending baseline serum creatinine definitions to prior 365 days only
