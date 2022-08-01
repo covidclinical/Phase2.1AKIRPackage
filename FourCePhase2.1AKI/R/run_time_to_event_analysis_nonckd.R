@@ -529,10 +529,12 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     demog_new_ckd_akionly_list <- demog_new_ckd_akionly_list[demog_new_ckd_akionly_list %in% restrict_list]
     comorbid_new_ckd_akionly_list <- comorbid_new_ckd_akionly_list[comorbid_new_ckd_akionly_list %in% restrict_list]
     med_new_ckd_akionly_list <- med_new_ckd_akionly_list[med_new_ckd_akionly_list %in% restrict_list]
-    if(earliest_cr_new_ckd_akionly_list %in% restrict_list) {
-      earliest_cr_new_ckd_akionly_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_new_ckd_akionly_list <- NULL
+    if(!is.null(earliest_cr_new_ckd_akionly_list)) {
+      if(earliest_cr_new_ckd_akionly_list %in% restrict_list) {
+        earliest_cr_new_ckd_akionly_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_new_ckd_akionly_list <- NULL
+      }
     }
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_new_ckd_akionly_list,"\nComorbidities:",comorbid_new_ckd_akionly_list,"\nMedications:",med_new_ckd_akionly_list,"\nPreadmit Cr Period:",earliest_cr_new_ckd_akionly_list,sep = " "))
   }
@@ -703,10 +705,12 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     demog_new_ckd_akionly_list <- demog_new_ckd_akionly_list[demog_new_ckd_akionly_list %in% restrict_list]
     comorbid_new_ckd_akionly_list <- comorbid_new_ckd_akionly_list[comorbid_new_ckd_akionly_list %in% restrict_list]
     med_new_ckd_akionly_list <- med_new_ckd_akionly_list[med_new_ckd_akionly_list %in% restrict_list]
-    if(earliest_cr_new_ckd_akionly_list %in% restrict_list) {
-      earliest_cr_new_ckd_akionly_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_new_ckd_akionly_list <- NULL
+    if(!is.null(earliest_cr_new_ckd_akionly_list)) {
+      if(earliest_cr_new_ckd_akionly_list %in% restrict_list) {
+        earliest_cr_new_ckd_akionly_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_new_ckd_akionly_list <- NULL
+      }
     }
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_new_ckd_akionly_list,"\nComorbidities:",comorbid_new_ckd_akionly_list,"\nMedications:",med_new_ckd_akionly_list,"\nPreadmit Cr Period:",earliest_cr_new_ckd_akionly_list,sep = " "))
   }
@@ -875,10 +879,12 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     demog_new_ckd_akionly_list <- demog_new_ckd_akionly_list[demog_new_ckd_akionly_list %in% restrict_list]
     comorbid_new_ckd_akionly_list <- comorbid_new_ckd_akionly_list[comorbid_new_ckd_akionly_list %in% restrict_list]
     med_new_ckd_akionly_list <- med_new_ckd_akionly_list[med_new_ckd_akionly_list %in% restrict_list]
-    if(earliest_cr_new_ckd_akionly_list %in% restrict_list) {
-      earliest_cr_new_ckd_akionly_list <- "preadmit_cr_period"
-    } else {
-      earliest_cr_new_ckd_akionly_list <- NULL
+    if(!is.null(earliest_cr_new_ckd_akionly_list)) {
+      if(earliest_cr_new_ckd_akionly_list %in% restrict_list) {
+        earliest_cr_new_ckd_akionly_list <- "preadmit_cr_period"
+      } else {
+        earliest_cr_new_ckd_akionly_list <- NULL
+      }
     }
     message(paste("\nAfter filtering for custom-specified variables, we have the following:\nDemographics: ",demog_new_ckd_akionly_list,"\nComorbidities:",comorbid_new_ckd_akionly_list,"\nMedications:",med_new_ckd_akionly_list,"\nPreadmit Cr Period:",earliest_cr_new_ckd_akionly_list,sep = " "))
   }
