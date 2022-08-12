@@ -593,7 +593,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
     univ_results_new_ckd_all <- do.call("rbind",univ_results)
-    write.csv(univ_results_new_ckd_all,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_CoxPH_Univariate.csv")),row.names=TRUE)
+    write.csv(univ_results_new_ckd_all,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for New CKD onset on Non-CKD patients with AKI only\n==============\n")
