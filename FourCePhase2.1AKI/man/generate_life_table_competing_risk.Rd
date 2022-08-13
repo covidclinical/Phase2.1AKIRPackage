@@ -5,12 +5,14 @@
 \title{Generates risk tables for combining into a single aggregated life table for computing cumulative incidence curves for AKI recovery and New Onset CKD (competing risk is mortality)}
 \usage{
 generate_life_table_competing_risk(
+  currSiteId,
   aki_index_recovery,
   aki_index_nonckd,
   aki_index_nonckd_akionly,
   aki_index_ckdonly_akionly,
   use_custom_output = FALSE,
-  use_custom_output_dir = "/4ceData/Output"
+  use_custom_output_dir = "/4ceData/Output",
+  ckd_present
 )
 }
 \arguments{

@@ -395,10 +395,19 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     cat("\nNow proceeding to AKI detection code:")
     
     if(!is.null(rrt_old)) {
-        cat("\nFirst removing patients who were previously on RRT (based on procedure codes)...")
-        demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% rrt_old),]
-        observations <- observations[!(observations$patient_id %in% rrt_old),]
-        course <- course[!(course$patient_id %in% rrt_old),]
+      cat("\nFirst creating subset of patients previously on RRT...\n")
+      demographics_rrt <- demographics_filt[demographics_filt$patient_id %in% rrt_old,]
+      observations_rrt <- observations[observations$patient_id %in% rrt_old,]
+      course_rrt <- course[course$patient_id %in% rrt_old,]
+      
+      cat("\nNow removing patients who were previously on RRT (based on procedure codes)...")
+      demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% rrt_old),]
+      observations <- observations[!(observations$patient_id %in% rrt_old),]
+      course <- course[!(course$patient_id %in% rrt_old),]
+    } else {
+      demographics_rrt <- NULL
+      observations_rrt <- NULL
+      course_rrt <- NULL
     }
     
     cat("\nExtracting serum creatinine values...")
@@ -420,7 +429,11 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     cat("\nPatients with at least 1 sCr value in first admission (before subsetting tables): ",length(pts_valid_cr))
     cat("\nCurrent total number of patients in demographics_filt prior to filtering: ",length(demographics_filt$patient_id))
     cat("\nNo. of patients without any serum creatinine during first admission: ",length(demographics_filt$patient_id)-length(pts_valid_cr))
-    demog_no_cr <- demographics_filt[!(demographics_filt$patient_id %in% pts_valid_cr),]
+    
+    demographics_no_valid_cr <- demographics_filt[!(demographics_filt$patient_id %in% pts_valid_cr),]
+    observations_no_valid_cr <- observations[!(observations$patient_id %in% pts_valid_cr),]
+    course_no_valid_cr <- course[!(course$patient_id %in% pts_valid_cr),]
+    
     demographics_filt <- demographics_filt[demographics_filt$patient_id %in% pts_valid_cr,]
     labs_cr_aki <- labs_cr_aki[labs_cr_aki$patient_id %in% pts_valid_cr,]
     cat("\nPatients with at least 1 sCr value during first admission: ",length(unique(labs_cr_aki$patient_id)))
@@ -430,12 +443,21 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     
     # Find patients who have only 1 serum creatinine reading by the end of first admission and remove these patients, i.e. this single serum creatinine value is only occuring during the admission itself and not prior to the admission
     # Lancet reviewer edit: to provide a flag that allows this removal to be disabled
+    
+    demographics_insufficient_cr <- NULL
+    observations_insufficient_cr <- NULL
+    course_insufficient_cr <- NULL
+    
     if(isFALSE(allow_no_prior_cr)) {
       pts_insufficient_cr <- merge(labs_cr_aki,first_discharge,by="patient_id",all.x=TRUE) %>% dplyr::distinct() %>% dplyr::group_by(patient_id) %>% dplyr::filter(days_since_admission <= first_discharge_day) %>% dplyr::filter(max(count_prior_cr) <= 1) %>% dplyr::ungroup()
       pts_insufficient_cr <- unlist(unique(pts_insufficient_cr$patient_id))
       cat("\nNo. of patients without sCr prior to admission: ",length(pts_insufficient_cr))
       labs_cr_aki <- labs_cr_aki[!(labs_cr_aki$patient_id %in% pts_insufficient_cr),]
       cat("\nFinal number of patients after filtering: ",length(unique(labs_cr_aki$patient_id)))
+      cat("\nNow creating separate tables for patients in pts_insufficient_cr ...\n")
+      demographics_insufficient_cr <- demographics_filt[demographics_filt$patient_id %in% pts_insufficient_cr,]
+      observations_insufficient_cr <- observations[observations$patient_id %in% pts_insufficient_cr,]
+      course_insufficient_cr <- course[course$patient_id %in% pts_insufficient_cr,]
     } else {
       cat("\nPatients without pre-admission sCr allowed into analysis.\n")
     }
@@ -735,6 +757,10 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     patients_no_prior_cr <- setdiff(patients_no_prior_cr,unlist(unique(aki_only_index$patient_id)))
     
     
+    demographics_no_prior_cr <- demographics_filt[demographics_filt$patient_id %in% patients_no_prior_cr,]
+    observations_no_prior_cr <- observations[observations$patient_id %in% patients_no_prior_cr,]
+    course_no_prior_cr <- course[course$patient_id %in% patients_no_prior_cr,]
+    
     # Generate the patient list including (1) severity indices from this dplyr::filtered table (2) day of peak Cr
     # severe - 2 = never severe, 4 = severe, AKI
     # aki_only_index <- aki_only_index %>% dplyr::group_by(patient_id) %>% dplyr::mutate(severe = dplyr::if_else(!is.na(time_to_severe),4,2)) %>% dplyr::ungroup()
@@ -875,11 +901,16 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # =======================================================================================
     cat("\nFiltering to exclude patients without at least 2 prior Cr values to peak / only one sCr value in first admission.\n")
     cat("No. of patients without at least 2 Cr values prior to peak: ",length(patients_no_prior_cr),"\n")
-    cat("No. of patients with only one sCr in first admission: ",length(pts_insufficient_cr),"\n")
+    cat("No. of patients with only one sCr by first admission: ",length(pts_insufficient_cr),"\n")
     patients_no_prior_cr <- unique(c(patients_no_prior_cr,pts_insufficient_cr))
     cat("Total number of patients to be excluded for insufficient sCr: ",length(patients_no_prior_cr),"\n")
     
     if(isFALSE(allow_no_prior_cr)) {
+      # Demographics, observation and course tables already generated for excluded patients based on patients_no_prior_cr, pts_insufficient_cr
+      demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% patients_no_prior_cr),]
+      observations <- observations[!(observations$patient_id %in% patients_no_prior_cr),]
+      course <- course[!(course$patient_id %in% patients_no_prior_cr),]
+      
       demographics_filt <- demographics_filt[!(demographics_filt$patient_id %in% patients_no_prior_cr),]
       observations <- observations[!(observations$patient_id %in% patients_no_prior_cr),]
       course <- course[!(course$patient_id %in% patients_no_prior_cr),]
@@ -902,6 +933,9 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
       aki_only_index_baseline_shift <- aki_only_index_baseline_shift[!(aki_only_index_baseline_shift$patient_id %in% patients_no_prior_cr),]
       no_aki_index_baseline_shift <- no_aki_index_baseline_shift[!(no_aki_index_baseline_shift$patient_id %in% patients_no_prior_cr),]
       peak_trend <- peak_trend[!(peak_trend$patient_id %in% patients_no_prior_cr),]
+      
+      first_baseline <- first_baseline[!(first_baseline$patient_id %in% patients_no_prior_cr),]
+      first_baseline_prioronly <- first_baseline_prioronly[!(first_baseline_prioronly$patient_id %in% patients_no_prior_cr),]
       
       medications <- medications[!(medications$patient_id %in% patients_no_prior_cr),]
       med_chronic <- med_chronic[!(med_chronic$patient_id %in% patients_no_prior_cr),]
@@ -930,6 +964,11 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     cat("\nExcluding patients with baseline Cr >= ",ckd_cutoff,"mg/dL...\n")
     esrf_list <- unlist(first_baseline$patient_id[first_baseline$first_baseline_cr >= ckd_cutoff])
     cat("\nNo. of patients with baseline Cr >= 2.25mg/dL: ",length(esrf_list))
+    
+    demographics_baseline_more_2.25 <- demographics_filt[demographics_filt$patient_id %in% esrf_list,]
+    observations_baseline_more_2.25 <- observations[observations$patient_id %in% esrf_list,]
+    course_baseline_more_2.25 <- course[course$patient_id %in% esrf_list,]
+    
     # We will now use the surrogate detection for RRTs
     # We are using this method as there are lack of RRT procedure codes in some sites and Phase 1.1/2.1 does not define these clearly
     # We also do not have access to urea values
@@ -949,10 +988,19 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
         }
         
     }
+    
+    demographics_rrt_surrogate <- NULL
+    observations_rrt_surrogate <- NULL
+    course_rrt_surrogate <- NULL
 
     if(isTRUE(use_rrt_surrogate)) {
         cat("\nYou have opted to use the RRT surrogate results as exclusion criteria as well. Excluding these patients.")
         rrt_detection_prior_list <- unlist(rrt_detection$patient_id[rrt_detection$days_since_admission < 0])
+        
+        demographics_rrt_surrogate <- demographics_filt[demographics_filt$patient_id %in% rrt_detection_prior_list,]
+        observations_rrt_surrogate <- observations[observations$patient_id %in% rrt_detection_prior_list,]
+        course_rrt_surrogate <- course[course$patient_id %in% rrt_detection_prior_list,]
+        
         cat("\nFinal breakdown of omission by RRT/RRT surrogate criteria:
             \nExceeding baseline cutoff of ",ckd_cutoff,"mg/dL: ",length(esrf_list),
             "\nRRT surrogate criteria: ",length(rrt_detection_prior_list),
@@ -1013,7 +1061,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     if(isTRUE(remdesivir_present) | isTRUE(covid19antiviral_present)) {
         med_covid19_new <- med_covid19_new[!(med_covid19_new$patient_id %in% esrf_list),]
     }
-
+    
     # ============================================
     # PREPARING OTHER PRE-REQUISITE TABLES
     # 1) Comorbidities
@@ -1072,6 +1120,134 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # patient_id	days_since_admission
     # days_since_admission = time to first intubation event
     
+    # ======================================================
+    # Supplementary: Preparing tables for excluded patients
+    # ======================================================
+    cat("\nNow creating the relevant tables for excluded patients...\n")
+    cat("\nMerging excluded demographics\n")
+    demographics_excluded_no_cr <- dplyr::bind_rows(demographics_no_valid_cr,demographics_insufficient_cr,demographics_no_prior_cr) %>% dplyr::distinct()
+    if(!is.null(demographics_excluded_no_cr)) demographics_excluded_no_cr$excluded_type <- "insufficient_cr"
+    if(!is.null(demographics_baseline_more_2.25)) demographics_baseline_more_2.25$excluded_type <- "baseline_more_than_2.25"
+    if(!is.null(demographics_rrt)) demographics_rrt$excluded_type <- "rrt_procedure_code"
+    if(!is.null(demographics_rrt_surrogate)) demographics_rrt_surrogate$excluded_type <- "rrt_surrogate"
+    demographics_excluded <- dplyr::bind_rows(demographics_rrt,demographics_excluded_no_cr,demographics_baseline_more_2.25,demographics_rrt_surrogate) %>% dplyr::distinct(patient_id,.keep_all=T)
+    
+    cat("\nMerging excluded observations\n")
+    observations_excluded_no_cr <- dplyr::bind_rows(observations_no_valid_cr,observations_insufficient_cr,observations_no_prior_cr) %>% dplyr::distinct()
+    observations_excluded <- dplyr::bind_rows(observations_rrt,observations_excluded_no_cr,observations_baseline_more_2.25,observations_rrt_surrogate) %>% dplyr::distinct(patient_id,.keep_all=T)
+    
+    cat("\nMerging excluded course\n")
+    course_excluded_no_cr <- dplyr::bind_rows(course_no_valid_cr,course_insufficient_cr,course_no_prior_cr) %>% dplyr::distinct()
+    course_excluded <- dplyr::bind_rows(course_rrt,course_excluded_no_cr,course_baseline_more_2.25,course_rrt_surrogate) %>% dplyr::distinct(patient_id,.keep_all=T)
+    
+    cat("\nCreating comorbid table for excluded patients\n")
+    comorbid_excluded <- rbind(comorbid_icd9,comorbid_icd10)
+    comorbid_excluded <- comorbid_excluded[comorbid_excluded$patient_id %in% demographics_excluded$patient_id,] %>% dplyr::select(patient_id,comorbid_type)
+    if(!is.null(comorbid_excluded)) {
+      comorbid_excluded$present <- 1
+      comorbid_excluded <- comorbid_excluded %>% dplyr::distinct() %>% tidyr::spread(comorbid_type,present)
+      comorbid_excluded[is.na(comorbid_excluded)] <- 0
+      comorbid_list_excluded <- colnames(comorbid_excluded)[-1]
+    } else {
+      comorbid_list_excluded <- NULL
+    }
+    
+    cat("\nNow generating the medications tables for excluded patients:")
+    medications_excluded <- observations_excluded[observations_excluded$concept_type == "MED-CLASS",-c(4,6)] %>% dplyr::arrange(patient_id,days_since_admission,concept_code)
+    # Use 15 days as the cutoff for chronic medications
+    cat("\nGenerating table for chronic medications...")
+    med_chronic_excluded <- medications_excluded[medications_excluded$days_since_admission < -15,]
+    med_new_excluded <- medications_excluded[medications_excluded$days_since_admission >= -15,]
+    
+    # Re-code chronic medications into wide format
+    med_chronic_excluded <- med_chronic_excluded[!duplicated(med_chronic_excluded[,c(1,2,4)]),-c(2,3)]
+    med_chronic_excluded$concept_code <- paste("old",med_chronic_excluded$concept_code,sep="_")
+    med_chronic_excluded$present <- 1
+    med_chronic_excluded <- med_chronic_excluded %>% tidyr::spread(concept_code,present)
+    med_chronic_excluded[is.na(med_chronic_excluded)] <- 0
+    
+    # Create subtable for ACE-i/ARB pre-exposure
+    cat("\nGenerating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
+    acei_present_excluded = ("old_ACEI" %in% colnames(med_chronic_excluded))
+    arb_present_excluded = ("old_ARB" %in% colnames(med_chronic_excluded))
+    med_acearb_chronic_excluded <- NULL
+    if(isTRUE(acei_present_excluded) & isTRUE(arb_present_excluded)) {
+      med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ACEI,old_ARB)
+      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0)) %>% dplyr::ungroup()
+      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+    } else if (isTRUE(acei_present_excluded)) {
+      med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ACEI)
+      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0)) %>% dplyr::ungroup()
+      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+    } else if (isTRUE(arb_present_excluded)) {
+      med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ARB)
+      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0)) %>% dplyr::ungroup()
+      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+    }
+    
+    # med_acearb_chronic_excluded
+    # Headers: patient_id   acei_arb_preexposure
+    
+    # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
+    cat("\nGenerating table for new medications started during the admission...")
+    med_new_excluded <- med_new_excluded[!duplicated(med_new_excluded[,c(1,2,4)]),c(1,4,3)]
+    colnames(med_new_excluded)[3] <- "start_day"
+    
+    # Generate another table with the start date of the new medications
+    med_new_excluded <- med_new_excluded %>% tidyr::spread(concept_code,start_day)
+    #med_new[is.na(med_new)] <- -999
+    
+    # Generate simplified table for determining who were started on COAGA near admission
+    cat("\nGenerating table for COAGA use during the admission...")
+    med_coaga_new_excluded <- NULL
+    coaga_present_excluded <- tryCatch({
+      med_coaga_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
+      med_coaga_new_excluded$COAGA[med_coaga_new$COAGA < -15] <- 0
+      med_coaga_new_excluded$COAGA[med_coaga_new$COAGA >= -15] <- 1
+      TRUE
+    },error= function(c) FALSE)
+    
+    # Generate simplified table for determining who were started on COAGB near admission
+    cat("\nGenerating table for COAGB use during the admission...")
+    med_coagb_new_excluded <- NULL
+    coagb_present_excluded <- tryCatch({
+      med_coagb_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
+      med_coagb_new_excluded$COAGB[med_coagb_new_excluded$COAGB < -15] <- 0
+      med_coagb_new_excluded$COAGB[med_coagb_new_excluded$COAGB >= -15] <- 1
+      TRUE
+    },error=function(c) FALSE)
+    
+    # Generate simplified table for determining who were started on novel antivirals
+    covid19antiviral_present_excluded = ("COVIDVIRAL" %in% colnames(med_new_excluded))
+    remdesivir_present_excluded = ("REMDESIVIR" %in% colnames(med_new_excluded))
+    med_covid19_new_excluded <- NULL
+    if(isTRUE(covid19antiviral_present_excluded) && isTRUE(remdesivir_present_excluded)){
+      cat("\nGenerating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR) - Excluded patients")
+      med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0)),remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0))) %>% dplyr::ungroup()
+      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0 | remdesivir > 0,1,0)) %>% dplyr::ungroup()
+      med_covid19_new_date_excluded <- med_covid19_new_excluded
+      colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
+      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,covidviral,remdesivir)
+    } else if(isTRUE(covid19antiviral_present_excluded)){
+      cat("\nGenerating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
+      med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0))) %>% dplyr::ungroup()
+      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0,1,0)) %>% dplyr::ungroup()
+      med_covid19_new_date_excluded <- med_covid19_new_excluded
+      colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
+      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,covidviral)
+    } else if(isTRUE(remdesivir_present_excluded)){
+      cat("\nGenerating table for experimental COVID-19 treatment... (REMDESIVIR only)")
+      med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0))) %>% dplyr::ungroup()
+      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(remdesivir > 0,1,0)) %>% dplyr::ungroup()
+      med_covid19_new_date_excluded <- med_covid19_new_excluded
+      colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
+      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,remdesivir)
+    }
+    
+    cat("\nNow generating demographics for excluded patients...")
+    try({
+      generate_demog_files_excluded(currSiteId,demographics_excluded,comorbid_excluded,comorbid_list_excluded,coaga_present_excluded,coagb_present_excluded,covid19antiviral_present_excluded,remdesivir_present_excluded,acei_present_excluded,arb_present_excluded,med_coaga_new_excluded,med_coagb_new_excluded,med_covid19_new_excluded,med_acearb_chronic_excluded,is_obfuscated,obfuscation_value,custom_output,custom_output_dir)
+    })
     
     # ==============================
     # Baseline Shift Tables

@@ -15,7 +15,7 @@ runAnalysis(
   skip_qc = FALSE,
   offline = FALSE,
   allow_no_prior_cr = FALSE,
-  use_rrt_surrogate = FALSE,
+  use_rrt_surrogate = TRUE,
   print_rrt_surrogate = FALSE,
   modified_severity = FALSE,
   debug_on = FALSE,

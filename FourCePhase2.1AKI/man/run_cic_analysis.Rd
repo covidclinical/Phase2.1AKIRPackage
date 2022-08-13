@@ -2,23 +2,24 @@
 % Please edit documentation in R/run_cic_analysis.R
 \name{run_cic_analysis}
 \alias{run_cic_analysis}
-\title{Generated cuulatic incidence curves and Fine-Gray models for competing risks of either recovery / new onset CKD (event of interest) against mortality}
+\title{Generated cumulative incidence curves and Fine-Gray models for competing risks of either recovery / new onset CKD (event of interest) against mortality}
 \usage{
 run_cic_analysis(
+  currSiteId,
   aki_index_recovery,
   aki_index_nonckd,
   aki_index_nonckd_akionly,
   aki_index_ckdonly_akionly,
-  med_recovery_list,
-  comorbid_recovery_list,
-  demog_recovery_list,
-  earliest_cr_recovery_list,
+  var_list_recovery_all,
   var_list_new_ckd_nonckd_akionly,
   var_list_recovery_nonckd_akionly,
   var_list_new_ckd_nonckd,
-  var_list_recovery_ckdonly_akionly
+  var_list_recovery_ckdonly_akionly,
+  use_custom_output = FALSE,
+  use_custom_output_dir = "/4ceData/Output",
+  ckd_present = TRUE
 )
 }
 \description{
-Generated cuulatic incidence curves and Fine-Gray models for competing risks of either recovery / new onset CKD (event of interest) against mortality
+Generated cumulative incidence curves and Fine-Gray models for competing risks of either recovery / new onset CKD (event of interest) against mortality
 }

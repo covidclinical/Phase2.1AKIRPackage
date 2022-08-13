@@ -56,9 +56,10 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
   model_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
   model_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
   model_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_4d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
   
-  models_nockd <- list(model1,model2,model3,model4,model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c)
-  models_nockd_labels <- c("Model1","Model2","Model3","Model4","Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C")
+  models_nockd <- list(model1,model2,model3,model4,model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c,model_4d)
+  models_nockd_labels <- c("Model1","Model2","Model3","Model4","Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C","Model_4D")
   
   var_list_recovery_all_aki <- var_list_recovery_all
   
@@ -263,11 +264,15 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
       recoveryFineGrayFormula <- as.formula(paste("survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
       message(paste("Formula for ", models_labels[i],"survival::Surv(time_to_event,event) ~ ",paste(recovery_model,collapse="+")))
       FineGray_recovery <- tidycmprsk::crr(recoveryFineGrayFormula, data=recovery_all_cic,failcode = "Recovery")
-      
       FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
       FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
+      
       write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_All_AKI_FineGray_",models_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_All_AKI_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_recovery_stats,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_All_AKI_FineGray_",models_labels[i],"_stats.csv")),row.names=F)
+      
+      FineGray_recovery_vcov <- vcov(FineGray_recovery)
+      write.csv(FineGray_recovery_vcov,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_All_AKI_FineGray_",models_labels[i],"_vcov.csv")))
+      
       invisible(gc())
     })
   }
@@ -283,7 +288,9 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
       FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
       FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
       write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_recovery_stats,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+      FineGray_recovery_vcov <- vcov(FineGray_recovery)
+      write.csv(FineGray_recovery_vcov,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKI_FineGray_",models_labels[i],"_vcov.csv")))
       invisible(gc())
     })
   }
@@ -300,7 +307,9 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
         FineGray_recovery_summ <- tidycmprsk::tidy(FineGray_recovery,exponentiate=T,conf.int=T) 
         FineGray_recovery_stats <- tidycmprsk::glance(FineGray_recovery)
         write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
-        write.csv(FineGray_recovery_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+        write.csv(FineGray_recovery_stats,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+        FineGray_recovery_vcov <- vcov(FineGray_recovery)
+        write.csv(FineGray_recovery_vcov,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_CKD_FineGray_",models_labels[i],"_vcov.csv")))
         invisible(gc())
       })
     }
@@ -317,7 +326,9 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
       FineGray_newckd_summ <- tidycmprsk::tidy(FineGray_newckd,exponentiate=T,conf.int=T) 
       FineGray_newckd_stats <- tidycmprsk::glance(FineGray_newckd)
       write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_newckd_stats,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+      FineGray_newckd_vcov <- vcov(FineGray_newckd)
+      write.csv(FineGray_newckd_vcov,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_NonCKD_FineGray_",models_labels[i],"_vcov.csv")))
       invisible(gc())
     })
   }
@@ -333,7 +344,9 @@ run_cic_analysis <- function(currSiteId,aki_index_recovery,aki_index_nonckd,aki_
       FineGray_newckd_summ <- tidycmprsk::tidy(FineGray_newckd,exponentiate=T,conf.int=T) 
       FineGray_newckd_stats <- tidycmprsk::glance(FineGray_newckd)
       write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_nockd_labels[i],".csv")),row.names=F)
-      write.csv(FineGray_newckd_summ,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+      write.csv(FineGray_newckd_stats,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_New_CKD_NonCKD_AKIOnly_FineGray_",models_nockd_labels[i],"_stats.csv")),row.names=F)
+      FineGray_newckd_vcov <- vcov(FineGray_newckd)
+      write.csv(FineGray_newckd_vcov,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_NonCKD_AKIOnly_FineGray_",models_labels[i],"_vcov.csv")))
       invisible(gc())
     })
   }

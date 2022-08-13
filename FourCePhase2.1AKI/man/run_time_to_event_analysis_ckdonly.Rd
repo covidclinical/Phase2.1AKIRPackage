@@ -8,20 +8,15 @@ run_time_to_event_analysis_ckdonly(
   siteid,
   aki_index_recovery,
   aki_index_death,
-  med_recovery_list,
-  comorbid_recovery_list,
-  demog_recovery_list,
-  earliest_cr_recovery_list,
-  med_death_list,
-  comorbid_death_list,
-  demog_death_list,
-  earliest_cr_death_list,
+  var_list_recovery,
+  var_list_death,
   obfuscation,
   obfuscation_level,
   restrict_model_corr,
   factor_threshold = 5,
   use_custom_output = FALSE,
-  use_custom_output_dir = "/4ceData/Output"
+  use_custom_output_dir = "/4ceData/Output",
+  input
 )
 }
 \arguments{

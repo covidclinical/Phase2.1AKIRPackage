@@ -21,7 +21,9 @@ run_time_to_event_analysis_nonckd(
   restrict_model_corr,
   factor_threshold = 5,
   use_custom_output = FALSE,
-  use_custom_output_dir = "/4ceData/Output"
+  use_custom_output_dir = "/4ceData/Output",
+  ckd_present = TRUE,
+  input = "/4ceData/Input"
 )
 }
 \arguments{
