@@ -284,7 +284,42 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   demog_time_to_event_tmp <- data.table::as.data.table(demog_time_to_event_tmp)[,sapply(demog_time_to_event_tmp,function(col) nlevels(col) > 1),with=FALSE] 
   demog_list <- colnames(demog_time_to_event_tmp)
   demog_time_to_event <- demog_summ[,c("patient_id",demog_list)]
-  try({demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group == "70to79" | age_group == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()})
+  # Back-up the original age groups
+  try({
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group_original = age_group) %>% dplyr::ungroup()
+    if(length(unique(demog_time_to_event$age_group_original)) > 1) {
+      demog_list <- c(demog_list,"age_group_original")
+    }
+  })
+  try({
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group = dplyr::if_else(age_group_original == "70to79" | age_group_original == "80plus","70_and_above","below_70")) %>% dplyr::ungroup()
+  })
+  try({
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group_2 = dplyr::case_when(
+    age_group_original == "50to69" ~ "50to69",
+    age_group_original == "70to79" | age_group_original == "80plus" ~ "70_and_above",
+    TRUE ~ "below_50")) %>% dplyr::ungroup()
+    if(length(unique(demog_time_to_event$age_group_2)) > 1) {
+      demog_list <- c(demog_list,"age_group_2")
+    }
+  })
+  try({
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group_3 = dplyr::case_when(
+      age_group_original == "50to69" ~ "50to69",
+      age_group_original == "70to79" ~ "70to79",
+      age_group_original == "80plus" ~ "80plus",
+      TRUE ~ "below_50")) %>% dplyr::ungroup()
+    if(length(unique(demog_time_to_event$age_group_3)) > 1) {
+      demog_list <- c(demog_list,"age_group_3")
+    }
+  })
+  try({
+    demog_time_to_event <- demog_time_to_event %>% dplyr::group_by(patient_id) %>% dplyr::mutate(age_group_4 = dplyr::if_else(age_group_original == "50to69" | age_group_original == "70to79" | age_group_original == "80plus","50_and_above","below_50")) %>% dplyr::ungroup()
+    if(length(unique(demog_time_to_event$age_group_4)) > 1) {
+      demog_list <- c(demog_list,"age_group_4")
+    }
+  })
+  
   #in case there is only one age_group level
   
   # Deals with the special case where there is a sex category of others (e.g. KUMC)

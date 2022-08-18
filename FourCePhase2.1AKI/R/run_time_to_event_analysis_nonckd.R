@@ -37,22 +37,52 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   
   # CKD/Non-CKD subgroup
   model_ckd_subgroup_1 <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld")
-  model_ckd_subgroup_2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
+  model_ckd_subgroup_2 <- c("age_group","sex","severe","copd","rheum","vte")
   model_ckd_subgroup_3 <- c("age_group","sex","severe","COAGA","COAGB","covid_rx")
   model_ckd_subgroup_4 <- c("age_group","sex","severe","aki_kdigo_final","acei_arb_preexposure")
   model_ckd_subgroup_1a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld")
-  model_ckd_subgroup_2a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
-  model_ckd_subgroup_3a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
-  model_ckd_subgroup_4a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
-  model_ckd_subgroup_3b <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral")
-  model_ckd_subgroup_4b <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_ckd_subgroup_2a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte")
+  model_ckd_subgroup_3a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_ckd_subgroup_4a <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_ckd_subgroup_3b <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral")
+  model_ckd_subgroup_4b <- c("age_group","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
   model_ckd_subgroup_1c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld")
-  model_ckd_subgroup_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
-  model_ckd_subgroup_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
-  model_ckd_subgroup_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_ckd_subgroup_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte")
+  model_ckd_subgroup_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_ckd_subgroup_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
   
+  # E: Use Models 4A,B,C,D but all the age groups as strata
+  model_ckd_subgroup_1e <- c("age_group_original","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_ckd_subgroup_2e <-  c("age_group_original","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_ckd_subgroup_3e <- c("age_group_original","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+
+  # F: Use Models 4A,B,C,D but split age to three strata (< 50, 50-69, >=70)
+  model_ckd_subgroup_1f <- c("age_group_2","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_ckd_subgroup_2f <-  c("age_group_2","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_ckd_subgroup_3f <- c("age_group_2","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+
+  # G: Use Models 4A,B,C,D but split age by strata (<50,50-69,70-79,>=80)
+  model_ckd_subgroup_1g <- c("age_group_3","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_ckd_subgroup_2g <-  c("age_group_3","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_ckd_subgroup_3g <- c("age_group_3","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+
+  # H: Use Models 4A,B,C,D but split age by >=50 instead of >= 70
+  model_ckd_subgroup_1h <- c("age_group_4","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_ckd_subgroup_2h <-  c("age_group_4","sex","severe","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_ckd_subgroup_3h <- c("age_group_4","sex","severe","preadmit_cr_period","aki_kdigo_final","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+
   models_ckd <- list(model_ckd_subgroup_1,model_ckd_subgroup_2,model_ckd_subgroup_3,model_ckd_subgroup_4,model_ckd_subgroup_1a,model_ckd_subgroup_2a,model_ckd_subgroup_3a,model_ckd_subgroup_4a,model_ckd_subgroup_3b,model_ckd_subgroup_4b,model_ckd_subgroup_1c,model_ckd_subgroup_2c,model_ckd_subgroup_3c,model_ckd_subgroup_4c)
   models_ckd_labels <- c("Model_NonCKD_Subgroup_1","Model_NonCKD_Subgroup_2","Model_NonCKD_Subgroup_3","Model_NonCKD_Subgroup_4","Model_NonCKD_Subgroup_1A","Model_NonCKD_Subgroup_2A","Model_NonCKD_Subgroup_3A","Model_NonCKD_Subgroup_4A","Model_NonCKD_Subgroup_3B","Model_NonCKD_Subgroup_4B","Model_NonCKD_Subgroup_1C","Model_NonCKD_Subgroup_2C","Model_NonCKD_Subgroup_3C","Model_NonCKD_Subgroup_4C")
+  
+  models_ckd_age <- list(model_ckd_subgroup_1e,model_ckd_subgroup_2e,model_ckd_subgroup_3e,
+                         model_ckd_subgroup_1f,model_ckd_subgroup_2f,model_ckd_subgroup_3f,
+                         model_ckd_subgroup_1g,model_ckd_subgroup_2g,model_ckd_subgroup_3g,
+                         model_ckd_subgroup_1h,model_ckd_subgroup_2h,model_ckd_subgroup_3h)
+  
+  models_ckd_age_labels <- c("Model_NonCKD_Subgroup_1E","Model_NonCKD_Subgroup_2E","Model_NonCKD_Subgroup_3E",
+                         "Model_NonCKD_Subgroup_1F","Model_NonCKD_Subgroup_2F","Model_NonCKD_Subgroup_3F",
+                         "Model_NonCKD_Subgroup_1G","Model_NonCKD_Subgroup_2G","Model_NonCKD_Subgroup_3G",
+                         "Model_NonCKD_Subgroup_1H","Model_NonCKD_Subgroup_2H","Model_NonCKD_Subgroup_3H")
   
   # Generate tables intended to assess new onset of new CKD
   if(isTRUE(ckd_present)) {
@@ -160,6 +190,21 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   variable_list_output <- cat(paste(c("\nFinal New Onset CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
   var_list_new_ckd_nonckd <- c(demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
   
+  
+  # Now fix the factoring for age groups
+  if("age_group_original" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_original <- factor(aki_index_nonckd$age_group_original,levels=c("18to25", "26to49", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_2" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_2 <- factor(aki_index_nonckd$age_group_2,levels=c("below_50", "50to69", "70_and_above"))
+  }
+  if("age_group_3" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_3 <- factor(aki_index_nonckd$age_group_3,levels=c("below_50", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_4" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_4 <- factor(aki_index_nonckd$age_group_4,levels=c("below_50", "50_and_above"))
+  }
+  
   # ===========
   
   
@@ -259,6 +304,41 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     })
   }
   
+  cat("\n=================\nRunning Models (minus CKD), Supp (Age), for New CKD onset on Non-CKD patients\n==============\n")
+  for(i in 1:length(models_ckd_age_labels)) {
+    cat(paste0("\nGenerating ", models_ckd_age_labels[i], " (Time to New Onset CKD, All Non-CKD patients)..."))
+    if((i %in% c(1:3) & "age_group_original" %in% demog_new_ckd_list) |
+       (i %in% c(4:6) & "age_group_2" %in% demog_new_ckd_list) |
+       (i %in% c(7:9) & "age_group_3" %in% demog_new_ckd_list) |
+       (i %in% c(10:12) & "age_group_4" %in% demog_new_ckd_list)) {
+      try({
+        new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+        if(isTRUE(restrict_models)) {
+          new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+        }
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd_age[[i]]]
+        newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
+        message(paste("Formula for ", models_ckd_age_labels[i],": survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
+        coxph_new_ckd <- survival::coxph(newckdCoxPHFormula, data=aki_index_nonckd)
+        coxph_new_ckd_summ <- summary(coxph_new_ckd) 
+        print(coxph_new_ckd_summ)
+        coxph_new_ckd_hr <- cbind(coxph_new_ckd_summ$coefficients,coxph_new_ckd_summ$conf.int)[,-c(6,7)]
+        coxph_new_ckd_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_new_ckd_summ$logtest,coxph_new_ckd_summ$sctest,coxph_new_ckd_summ$waldtest))
+        coxph_new_ckd_stats2 <- rbind(data.table::as.data.table(coxph_new_ckd_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_new_ckd_summ$rsq,keep.rownames = T))
+        write.csv(coxph_new_ckd_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_CoxPH_",models_ckd_age_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_new_ckd_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_CoxPH_",models_ckd_age_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_new_ckd_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_CoxPH_",models_ckd_age_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_new_ckd_vcov <- vcov(coxph_new_ckd)
+        write.csv(coxph_new_ckd_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_NewCKD_CoxPH_",models_ckd_age_labels[i],"_vcov.csv")))
+        coxph_new_ckd_plot <- survminer::ggforest(coxph_new_ckd,data=aki_index_nonckd)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_CoxPH_",models_ckd_age_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",models_ckd_age_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
+  }
+  
   # =================================
   # To repeat the above for mortality
   
@@ -351,6 +431,20 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   }
   # variable_list_output <- cat(paste(c("\nFinal Mortality In Non-CKD variable list:",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list),collapse=" "),"\n")
   var_list_death_nonckd <- c(demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+  
+  # Now fix the factoring for age groups
+  if("age_group_original" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_original <- factor(aki_index_nonckd$age_group_original,levels=c("18to25", "26to49", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_2" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_2 <- factor(aki_index_nonckd$age_group_2,levels=c("below_50", "50to69", "70_and_above"))
+  }
+  if("age_group_3" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_3 <- factor(aki_index_nonckd$age_group_3,levels=c("below_50", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_4" %in% demog_new_ckd_list) {
+    aki_index_nonckd$age_group_4 <- factor(aki_index_nonckd$age_group_4,levels=c("below_50", "50_and_above"))
+  }
   
   # Run analysis for Mortality
   cat("\nNow proceeding with time-to-event analysis for Mortality (All Non-CKD patients)...")
@@ -445,6 +539,41 @@ run_time_to_event_analysis_nonckd <- function(siteid,
       ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_CoxPH_",models_ckd_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
       invisible(gc())
     })
+  }
+  
+  cat("\n=================\nRunning Models (minus CKD), Supp (Age), for New CKD onset on Non-CKD patients\n==============\n")
+  for(i in 1:length(models_ckd_age_labels)) {
+    cat(paste0("\nGenerating ", models_ckd_age_labels[i], " (Time to Death, Non-CKD patients)..."))
+    if((i %in% c(1:3) & "age_group_original" %in% demog_new_ckd_list) |
+       (i %in% c(4:6) & "age_group_2" %in% demog_new_ckd_list) |
+       (i %in% c(7:9) & "age_group_3" %in% demog_new_ckd_list) |
+       (i %in% c(10:12) & "age_group_4" %in% demog_new_ckd_list)) {
+      try({
+        new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+        if(isTRUE(restrict_models)) {
+          new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+        }
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd_age[[i]]]
+        newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
+        message(paste("Formula for ", models_ckd_age_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
+        coxph_new_ckd <- survival::coxph(newckdCoxPHFormula, data=aki_index_nonckd)
+        coxph_new_ckd_summ <- summary(coxph_new_ckd) 
+        print(coxph_new_ckd_summ)
+        coxph_new_ckd_hr <- cbind(coxph_new_ckd_summ$coefficients,coxph_new_ckd_summ$conf.int)[,-c(6,7)]
+        coxph_new_ckd_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_new_ckd_summ$logtest,coxph_new_ckd_summ$sctest,coxph_new_ckd_summ$waldtest))
+        coxph_new_ckd_stats2 <- rbind(data.table::as.data.table(coxph_new_ckd_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_new_ckd_summ$rsq,keep.rownames = T))
+        write.csv(coxph_new_ckd_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_CoxPH_",models_ckd_age_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_new_ckd_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_CoxPH_",models_ckd_age_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_new_ckd_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_CoxPH_",models_ckd_age_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_new_ckd_vcov <- vcov(coxph_new_ckd)
+        write.csv(coxph_new_ckd_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_Death_NonCKD_CoxPH_",models_ckd_age_labels[i],"_vcov.csv")))
+        coxph_new_ckd_plot <- survminer::ggforest(coxph_new_ckd,data=aki_index_nonckd)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_CoxPH_",models_ckd_age_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",models_ckd_age_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
   }
   
   # ===================
@@ -628,6 +757,41 @@ run_time_to_event_analysis_nonckd <- function(siteid,
     })
   }
   
+  cat("\n=================\nRunning Models (minus CKD), Supp (Age), for New CKD onset on Non-CKD and AKI Only patients\n==============\n")
+  for(i in 1:length(models_ckd_age_labels)) {
+    cat(paste0("\nGenerating ", models_ckd_age_labels[i], " (Time to New Onset CKD, AKI Patients Only)..."))
+    if((i %in% c(1:3) & "age_group_original" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(4:6) & "age_group_2" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(7:9) & "age_group_3" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(10:12) & "age_group_4" %in% demog_new_ckd_akionly_list)) {
+      try({
+        new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
+        if(isTRUE(restrict_models)) {
+          new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+        }
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd_age[[i]]]
+        newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
+        message(paste("Formula for ", models_ckd_age_labels[i],": survival::Surv(time=time_to_new_ckd,event=new_ckd) ~ ",paste(new_ckd_model,collapse="+")))
+        coxph_new_ckd <- survival::coxph(newckdCoxPHFormula, data=aki_index_nonckd_akionly)
+        coxph_new_ckd_summ <- summary(coxph_new_ckd) 
+        print(coxph_new_ckd_summ)
+        coxph_new_ckd_hr <- cbind(coxph_new_ckd_summ$coefficients,coxph_new_ckd_summ$conf.int)[,-c(6,7)]
+        coxph_new_ckd_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_new_ckd_summ$logtest,coxph_new_ckd_summ$sctest,coxph_new_ckd_summ$waldtest))
+        coxph_new_ckd_stats2 <- rbind(data.table::as.data.table(coxph_new_ckd_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_new_ckd_summ$rsq,keep.rownames = T))
+        write.csv(coxph_new_ckd_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_new_ckd_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_new_ckd_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_new_ckd_vcov <- vcov(coxph_new_ckd)
+        write.csv(coxph_new_ckd_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_NewCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_vcov.csv")))
+        coxph_new_ckd_plot <- survminer::ggforest(coxph_new_ckd,data=aki_index_nonckd_akionly)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_NewCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",models_ckd_age_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
+  }
+  
   # Run analysis for Mortality
   cat("\nNow proceeding with time-to-event analysis for Mortality (Non-CKD patients, AKI Only)...")
   
@@ -723,6 +887,20 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   variable_list_output <- paste(c("Final Mortality (Non-CKD patients, AKI only) variable list:",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list),collapse=" ")
   var_list_death_nonckd_akionly <- c(demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
   
+  # Now fix the factoring for age groups
+  if("age_group_original" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_original <- factor(aki_index_nonckd_akionly$age_group_original,levels=c("18to25", "26to49", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_2" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_2 <- factor(aki_index_nonckd_akionly$age_group_2,levels=c("below_50", "50to69", "70_and_above"))
+  }
+  if("age_group_3" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_3 <- factor(aki_index_nonckd_akionly$age_group_3,levels=c("below_50", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_4" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_4 <- factor(aki_index_nonckd_akionly$age_group_4,levels=c("below_50", "50_and_above"))
+  }
+  
   cat("\nGenerating Kaplan-Meier curves (Non-CKD patients, AKI Only)...")
   # Survival curves stratified by KDIGO stage
   try( {
@@ -753,7 +931,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   cat("\nNow proceeding with Cox PH model time-to-event analysis...")
   cat("\nGenerating univariate Cox PH models (Non-CKD patients, AKI Only)...")
   univ_formulas <- tryCatch({ 
-    sapply(c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
+    sapply(c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list), function(x) as.formula(paste('survival::Surv(time=time_to_death_km,event=deceased) ~ ', x)))
   }, error = function(c) {
     cat("\nError running univariate formulae (univ_formulas).")
     return(NULL)
@@ -771,15 +949,15 @@ run_time_to_event_analysis_nonckd <- function(siteid,
       x <- summary(x)
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
-    univ_results_new_ckd_all <- do.call("rbind",univ_results)
-    write.csv(univ_results_new_ckd_all,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
+    univ_results_new_ckd_akionly_all <- do.call("rbind",univ_results)
+    write.csv(univ_results_new_ckd_akionly_all,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for Mortality (Non-CKD patients, AKI Only)\n==============\n")
   for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to Death, Non-CKD patients, AKI Only)..."))
     try({
-      new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+      new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
       if(isTRUE(restrict_models)) {
         new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
       }
@@ -801,6 +979,43 @@ run_time_to_event_analysis_nonckd <- function(siteid,
       ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_",models_ckd_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
       invisible(gc())
     })
+  }
+  
+  cat("\n=================\nRunning Models (minus CKD), Supp (Age), for Mortality (Non-CKD patients, AKI Only)\n==============\n")
+  for(i in 1:length(models_ckd_age_labels)) {
+    cat(paste0("\nGenerating ", models_ckd_age_labels[i], " (Time to Mortality, Non-CKD, AKI Patients Only)..."))
+    if((i %in% c(1:3) & "age_group_original" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(4:6) & "age_group_2" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(7:9) & "age_group_3" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(10:12) & "age_group_4" %in% demog_new_ckd_akionly_list)) {
+      try({
+        try({
+          new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
+          if(isTRUE(restrict_models)) {
+            new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+          }
+          new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd_age[[i]]]
+          newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
+          message(paste("Formula for ", models_ckd_age_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(new_ckd_model,collapse="+")))
+          coxph_new_ckd <- survival::coxph(newckdCoxPHFormula, data=aki_index_nonckd_akionly)
+          coxph_new_ckd_summ <- summary(coxph_new_ckd) 
+          print(coxph_new_ckd_summ)
+          coxph_new_ckd_hr <- cbind(coxph_new_ckd_summ$coefficients,coxph_new_ckd_summ$conf.int)[,-c(6,7)]
+          coxph_new_ckd_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_new_ckd_summ$logtest,coxph_new_ckd_summ$sctest,coxph_new_ckd_summ$waldtest))
+          coxph_new_ckd_stats2 <- rbind(data.table::as.data.table(coxph_new_ckd_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_new_ckd_summ$rsq,keep.rownames = T))
+          write.csv(coxph_new_ckd_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],".csv")),row.names=TRUE)
+          write.csv(coxph_new_ckd_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+          write.csv(coxph_new_ckd_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+          coxph_new_ckd_vcov <- vcov(coxph_new_ckd)
+          write.csv(coxph_new_ckd_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_vcov.csv")))
+          coxph_new_ckd_plot <- survminer::ggforest(coxph_new_ckd,data=aki_index_nonckd_akionly)
+          ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
+          invisible(gc())
+        })
+      })
+    } else {
+      cat("\nThe age group variable for Model ",models_ckd_age_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
   }
   
   # --------------------
@@ -899,6 +1114,21 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   variable_list_output <- paste(c("Final AKI Recovery (Non-CKD patients, AKI only) variable list:",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list),collapse=" ")
   var_list_recovery_nonckd_akionly <- c(demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
   
+  # Now fix the factoring for age groups
+  if("age_group_original" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_original <- factor(aki_index_nonckd_akionly$age_group_original,levels=c("18to25", "26to49", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_2" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_2 <- factor(aki_index_nonckd_akionly$age_group_2,levels=c("below_50", "50to69", "70_and_above"))
+  }
+  if("age_group_3" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_3 <- factor(aki_index_nonckd_akionly$age_group_3,levels=c("below_50", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_4" %in% demog_new_ckd_akionly_list) {
+    aki_index_nonckd_akionly$age_group_4 <- factor(aki_index_nonckd_akionly$age_group_4,levels=c("below_50", "50_and_above"))
+  }
+  
+  
   cat("\nGenerating Kaplan-Meier curves (AKI Recovery, Non-CKD patients, AKI Only)...")
   # Survival curves stratified by KDIGO stage
   try( {
@@ -929,7 +1159,7 @@ run_time_to_event_analysis_nonckd <- function(siteid,
   cat("\nNow proceeding with Cox PH model time-to-event analysis...")
   cat("\nGenerating univariate Cox PH models (AKI Recovery, Non-CKD patients, AKI Only)...")
   univ_formulas <- tryCatch({ 
-    sapply(c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
+    sapply(c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list), function(x) as.formula(paste('survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ', x)))
   }, error = function(c) {
     cat("\nError running univariate formulae (univ_formulas).")
     return(NULL)
@@ -947,15 +1177,15 @@ run_time_to_event_analysis_nonckd <- function(siteid,
       x <- summary(x)
       return(cbind(x$coefficients,x$conf.int)[,-c(6,7)])
     })
-    univ_results_new_ckd_all <- do.call("rbind",univ_results)
-    write.csv(univ_results_new_ckd_all,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
+    univ_results_new_ckd_akionly <- do.call("rbind",univ_results)
+    write.csv(univ_results_new_ckd_akionly,file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_Univariate.csv")),row.names=TRUE)
   })
   
   cat("\n=================\nRunning Models (minus CKD), Both Original and Supp, for AKI Recovery onset (Non-CKD patients, AKI Only)\n==============\n")
   for(i in 1:length(models_ckd_labels)) {
     cat(paste0("\nGenerating", models_ckd_labels[i], "(Time to AKI Recovery, Non-CKD patients, AKI Only)..."))
     try({
-      new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_list,comorbid_new_ckd_list,med_new_ckd_list,earliest_cr_new_ckd_list)
+      new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
       if(isTRUE(restrict_models)) {
         new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
       }
@@ -977,6 +1207,41 @@ run_time_to_event_analysis_nonckd <- function(siteid,
       ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_",models_ckd_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
       invisible(gc())
     })
+  }
+  
+  cat("\n=================\nRunning Models (minus CKD), Supp (Age), for AKI Recovery onset (Non-CKD patients, AKI Only)\n==============\n")
+  for(i in 1:length(models_ckd_age_labels)) {
+    cat(paste0("\nGenerating ", models_ckd_age_labels[i], " (Time to AKI Recovery, Non-CKD, AKI Patients Only)..."))
+    if((i %in% c(1:3) & "age_group_original" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(4:6) & "age_group_2" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(7:9) & "age_group_3" %in% demog_new_ckd_akionly_list) |
+       (i %in% c(10:12) & "age_group_4" %in% demog_new_ckd_akionly_list)) {
+      try({
+        new_ckd_model <- c("severe","aki_kdigo_final",demog_new_ckd_akionly_list,comorbid_new_ckd_akionly_list,med_new_ckd_akionly_list,earliest_cr_new_ckd_akionly_list)
+        if(isTRUE(restrict_models)) {
+          new_ckd_model <- new_ckd_model[new_ckd_model %in% restrict_list]
+        }
+        new_ckd_model <- new_ckd_model[new_ckd_model %in% models_ckd_age[[i]]]
+        newckdCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(new_ckd_model,collapse="+")))
+        message(paste("Formula for ", models_ckd_age_labels[i],": survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(new_ckd_model,collapse="+")))
+        coxph_new_ckd <- survival::coxph(newckdCoxPHFormula, data=aki_index_nonckd_akionly)
+        coxph_new_ckd_summ <- summary(coxph_new_ckd) 
+        print(coxph_new_ckd_summ)
+        coxph_new_ckd_hr <- cbind(coxph_new_ckd_summ$coefficients,coxph_new_ckd_summ$conf.int)[,-c(6,7)]
+        coxph_new_ckd_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_new_ckd_summ$logtest,coxph_new_ckd_summ$sctest,coxph_new_ckd_summ$waldtest))
+        coxph_new_ckd_stats2 <- rbind(data.table::as.data.table(coxph_new_ckd_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_new_ckd_summ$rsq,keep.rownames = T))
+        write.csv(coxph_new_ckd_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_new_ckd_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_new_ckd_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_new_ckd_vcov <- vcov(coxph_new_ckd)
+        write.csv(coxph_new_ckd_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],"_vcov.csv")))
+        coxph_new_ckd_plot <- survminer::ggforest(coxph_new_ckd,data=aki_index_nonckd_akionly)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recovery_NonCKD_AKIOnly_CoxPH_",models_ckd_age_labels[i],".png")),plot=print(coxph_new_ckd_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",models_ckd_age_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
   }
   
   return(list("aki_index_nonckd" = aki_index_nonckd, "aki_index_nonckd_akionly" = aki_index_nonckd_akionly,"var_list_new_ckd_nonckd_akionly" = var_list_new_ckd_nonckd_akionly, "var_list_recovery_nonckd_akionly" = var_list_recovery_nonckd_akionly, "var_list_death_nonckd_akionly" = var_list_death_nonckd_akionly, "var_list_death_nonckd" = var_list_death_nonckd, "var_list_new_ckd_nonckd" = var_list_new_ckd_nonckd))

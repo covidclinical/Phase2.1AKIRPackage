@@ -81,7 +81,7 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   
   model1 <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld")
-  model2 <- c("age_group","sex","severe","bronchiectasis","copd","rheum","vte")
+  model2 <- c("age_group","sex","severe","copd","rheum","vte")
   model3 <- c("age_group","sex","severe","COAGA","COAGB","covid_rx")
   model4 <- c("age_group","sex","severe","aki_kdigo_final","ckd","acei_arb_preexposure")
   models_original <- list(model1,model2,model3,model4)
@@ -89,30 +89,57 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   # Additional models as requested by Lancet reviewers
   # A: include all variables in stepwise manner
-  model_2a <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
-  model_3a <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
-  model_4a <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2a <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte")
+  model_3a <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4a <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
 
   # B: Split by antiviral type
-  model_3b <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral")
-  model_4b <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_3b <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral")
+  model_4b <- c("age_group","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
 
   # C: Adjust for timing of pre-admission Cr
   model_1c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld")
-  model_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
-  model_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
-  model_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte")
+  model_3c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4c <- c("age_group","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
   
   # D: Include serum creatinine cutoffs (CKD diagnosis coding may be defined using urine criteria as well)
   model_1d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld")
-  model_2d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte")
-  model_3d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx")
-  model_4d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","bronchiectasis","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte")
+  model_3d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx")
+  model_4d <- c("age_group","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  
+  # E: Use Models 4A,B,C,D but all the age groups as strata
+  model_1e <- c("age_group_original","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2e <-  c("age_group_original","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_3e <- c("age_group_original","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_4e <- c("age_group_original","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  
+  # F: Use Models 4A,B,C,D but split age to three strata (< 50, 50-69, >=70)
+  model_1f <- c("age_group_2","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2f <-  c("age_group_2","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_3f <- c("age_group_2","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_4f <- c("age_group_2","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  
+  # G: Use Models 4A,B,C,D but split age by strata (<50,50-69,70-79,>=80)
+  model_1g <- c("age_group_3","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2g <-  c("age_group_3","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_3g <- c("age_group_3","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_4g <- c("age_group_3","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  
+  # H: Use Models 4A,B,C,D but split age by >=50 instead of >= 70
+  model_1h <- c("age_group_4","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_2h <-  c("age_group_4","sex","severe","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","remdesivir","covidviral","acei_arb_preexposure")
+  model_3h <- c("age_group_4","sex","severe","preadmit_cr_period","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
+  model_4h <- c("age_group_4","sex","severe","ckd_stage","aki_kdigo_final","ckd","htn","ihd","cld","copd","rheum","vte","COAGA","COAGB","covid_rx","acei_arb_preexposure")
 
   supp_models <- list(model_2a,model_3a,model_4a,model_3b,model_4b,model_1c,model_2c,model_3c,model_4c,
                       model_1d,model_2d,model_3d,model_4d)
   supp_models_labels <- c("Model_2A","Model_3A","Model_4A","Model_3B","Model_4B","Model_1C","Model_2C","Model_3C","Model_4C"
                           ,"Model_1D","Model_2D","Model_3D","Model_4D")
+  
+  supp_age_models <- list(model_1e,model_2e,model_3e,model_4e,model_1f,model_2f,model_3f,model_4f,model_1g,model_2g,model_3g,model_4g,model_1h,model_2h,model_3h,model_4h)
+  supp_age_models_labels <- c("Model_1E","Model_2E","Model_3E","Model_4E","Model_1F","Model_2F","Model_3F","Model_4F","Model_1G","Model_2G","Model_3G","Model_4G","Model_1H","Model_2H","Model_3H","Model_4H")
   
   restrict_list <- ""
   if(isTRUE(restrict_models)) {
@@ -389,6 +416,20 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   
   var_list_recovery_all <- c(demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
   
+  # Now fix the factoring for age groups
+  if("age_group_original" %in% demog_recovery_list) {
+    aki_index_recovery$age_group_original <- factor(aki_index_recovery$age_group_original,levels=c("18to25", "26to49", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_2" %in% demog_recovery_list) {
+    aki_index_recovery$age_group_2 <- factor(aki_index_recovery$age_group_2,levels=c("below_50", "50to69", "70_and_above"))
+  }
+  if("age_group_3" %in% demog_recovery_list) {
+    aki_index_recovery$age_group_3 <- factor(aki_index_recovery$age_group_3,levels=c("below_50", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_4" %in% demog_recovery_list) {
+    aki_index_recovery$age_group_4 <- factor(aki_index_recovery$age_group_4,levels=c("below_50", "50_and_above"))
+  }
+  
   cat("\nNow proceeding to time-to-Cr recovery analysis...")
   # Now run the actual time-to-event analysis
   
@@ -586,6 +627,42 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       invisible(gc())
     })
   }
+  
+  # Supplemental Age Models
+  cat("\n=================\nSupplemental Age Models\n==============\n")
+  for(i in 1:length(supp_age_models_labels)) {
+    cat(paste0("\nGenerating", supp_age_models_labels[i], "(time to recovery, AKI patients only)..."))
+    if((i %in% c(1:4) & "age_group_original" %in% demog_recovery_list) |
+       (i %in% c(5:8) & "age_group_2" %in% demog_recovery_list) |
+       (i %in% c(9:12) & "age_group_3" %in% demog_recovery_list) |
+       (i %in% c(13:16) & "age_group_4" %in% demog_recovery_list)) {
+      try({
+        recovery_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+        if(isTRUE(restrict_models)) {
+          recovery_model <- recovery_model[recovery_model %in% restrict_list]
+        }
+        recovery_model <- recovery_model[recovery_model %in% supp_age_models[[i]]]
+        recoverCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model,collapse="+")))
+        message(paste("Formula for ", supp_age_models_labels[i],": survival::Surv(time=time_to_ratio1.25,event=recover_1.25x) ~ ",paste(recovery_model,collapse="+")))
+        coxph_recover <- survival::coxph(recoverCoxPHFormula, data=aki_index_recovery)
+        coxph_recover_summ <- summary(coxph_recover) 
+        print(coxph_recover_summ)
+        coxph_recover_hr <- cbind(coxph_recover_summ$coefficients,coxph_recover_summ$conf.int)[,-c(6,7)]
+        coxph_recover_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_recover_summ$logtest,coxph_recover_summ$sctest,coxph_recover_summ$waldtest))
+        coxph_recover_stats2 <- rbind(data.table::as.data.table(coxph_recover_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_recover_summ$rsq,keep.rownames = T))
+        write.csv(coxph_recover_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Supp_",supp_age_models_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_recover_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Supp_",supp_age_models_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_recover_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Supp_",supp_age_models_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_recover_vcov <- vcov(coxph_recover)
+        write.csv(coxph_recover_vcov,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Supp_",supp_age_models_labels[i],"_vcov.csv")))
+        coxph_recover_plot <- survminer::ggforest(coxph_recover,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Recover_CoxPH_Supp_",supp_age_models_labels[i],".png")),plot=print(coxph_recover_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",supp_age_models_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
+  }
 
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
   
@@ -778,6 +855,42 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Supp_",supp_models_labels[i],".png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
       invisible(gc())
     })
+  }
+  
+  # Supplemental Age Models
+  cat("\n=================\nSupplemental Age Models\n==============\n")
+  for(i in 1:length(supp_age_models_labels)) {
+    cat(paste0("\nGenerating", supp_age_models_labels[i], "(time to recovery, AKI patients only)..."))
+    if((i %in% c(1:4) & "age_group_original" %in% demog_recovery_list) |
+       (i %in% c(5:8) & "age_group_2" %in% demog_recovery_list) |
+       (i %in% c(9:12) & "age_group_3" %in% demog_recovery_list) |
+       (i %in% c(13:16) & "age_group_4" %in% demog_recovery_list)) {
+      try({
+        death_model <- c("severe","aki_kdigo_final",demog_recovery_list,comorbid_recovery_list,med_recovery_list,earliest_cr_recovery_list,ckd_staging_recovery_list)
+        if(isTRUE(restrict_models)) {
+          death_model <- death_model[death_model %in% restrict_list]
+        }
+        death_model <- death_model[death_model %in% supp_age_models[[i]]]
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
+        message(paste("Formula for ", supp_age_models_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
+        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_recovery)
+        coxph_death_summ <- summary(coxph_death) 
+        print(coxph_death_summ)
+        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
+        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
+        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Supp_",supp_age_models_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_death_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Supp_",supp_age_models_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Supp_",supp_age_models_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_vcov <- vcov(coxph_death)
+        write.csv(coxph_death_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Supp_",supp_age_models_labels[i],"_vcov.csv")))
+        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_recovery)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_AKIOnly_CoxPH_Supp_",supp_age_models_labels[i],".png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",supp_age_models_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
   }
   
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")
@@ -1015,6 +1128,20 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
   var_list_death_all <- c(demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_death_list)
   # readr::write_lines(variable_list_death,file.path(dir.output, paste0(currSiteId, "_custom_equation.txt")),append=T)
   
+  # Now fix the factoring for age groups
+  if("age_group_original" %in% demog_death_list) {
+    aki_index_death$age_group_original <- factor(aki_index_death$age_group_original,levels=c("18to25", "26to49", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_2" %in% demog_death_list) {
+    aki_index_death$age_group_2 <- factor(aki_index_death$age_group_2,levels=c("below_50", "50to69", "70_and_above"))
+  }
+  if("age_group_3" %in% demog_death_list) {
+    aki_index_death$age_group_3 <- factor(aki_index_death$age_group_3,levels=c("below_50", "50to69", "70to79", "80plus"))
+  }
+  if("age_group_4" %in% demog_death_list) {
+    aki_index_death$age_group_4 <- factor(aki_index_death$age_group_4,levels=c("below_50", "50_and_above"))
+  }
+  
   # 4) Run analysis
   cat("\nNow proceeding with time-to-event analysis...")
   cat("\nGenerating Kaplan-Meier curves (time to death, all patients)...")
@@ -1224,6 +1351,42 @@ run_time_to_event_analysis <- function(siteid, base_table, aki_episodes,aki_labs
       ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Supp_",supp_models_labels[i],".png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
       invisible(gc())
     })
+  }
+  
+  # Supplemental Age models
+  cat("\n===============================\nSupplemental Age Models (Mortality, All)\n===============================\n")
+  for(i in 1:length(supp_age_models_labels)) {
+    cat(paste0("\nGenerating", supp_age_models_labels[i], "(time to death, all patients)..."))
+    if((i %in% c(1:4) & "age_group_original" %in% demog_death_list) |
+       (i %in% c(5:8) & "age_group_2" %in% demog_death_list) |
+       (i %in% c(9:12) & "age_group_3" %in% demog_death_list) |
+       (i %in% c(13:16) & "age_group_4" %in% demog_death_list)) {
+      try({
+        death_model <- c("severe","aki_kdigo_final",demog_death_list,comorbid_death_list,med_death_list,earliest_cr_death_list,ckd_staging_recovery_list)
+        if(isTRUE(restrict_models)) {
+          death_model <- death_model[death_model %in% restrict_list]
+        }
+        death_model <- death_model[death_model %in% supp_age_models[[i]]]
+        deathCoxPHFormula <- as.formula(paste("survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
+        message(paste("Formula for ", supp_age_models_labels[i],": survival::Surv(time=time_to_death_km,event=deceased) ~ ",paste(death_model,collapse="+")))
+        coxph_death <- survival::coxph(deathCoxPHFormula, data=aki_index_death)
+        coxph_death_summ <- summary(coxph_death) 
+        print(coxph_death_summ)
+        coxph_death_hr <- cbind(coxph_death_summ$coefficients,coxph_death_summ$conf.int)[,-c(6,7)]
+        coxph_death_stats1 <- cbind(c("logtest","sctest","waldtest"),rbind(coxph_death_summ$logtest,coxph_death_summ$sctest,coxph_death_summ$waldtest))
+        coxph_death_stats2 <- rbind(data.table::as.data.table(coxph_death_summ$concordance,keep.rownames = T),data.table::as.data.table(coxph_death_summ$rsq,keep.rownames = T))
+        write.csv(coxph_death_hr,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Supp_",supp_age_models_labels[i],".csv")),row.names=TRUE)
+        write.csv(coxph_death_stats1,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Supp_",supp_age_models_labels[i],"_teststats.csv")),row.names=FALSE,col.names = FALSE)
+        write.csv(coxph_death_stats2,file=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Supp_",supp_age_models_labels[i],"_concord_rsq.csv")),row.names=FALSE,col.names = FALSE)
+        coxph_death_vcov <- vcov(coxph_death)
+        write.csv(coxph_death_vcov,file=file.path(dir.output,paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Supp_",supp_age_models_labels[i],"_vcov.csv")))
+        coxph_death_plot <- survminer::ggforest(coxph_death,data=aki_index_death)
+        ggplot2::ggsave(filename=file.path(dir.output, paste0(currSiteId, "_TimeToEvent_Death_All_CoxPH_Supp_",supp_age_models_labels[i],".png")),plot=print(coxph_death_plot),width=20,height=20,units="cm")
+        invisible(gc())
+      })
+    } else {
+      cat("\nThe age group variable for Model ",supp_age_models_labels[i]," is not available. Check if the lowest quantity in all levels meets the required threshhold of events.\n")
+    }
   }
   
   cat("\nIf you are getting any errors with model generation - do note that it may actually be normal to get errors\nif your site numbers are low (especially for model 3). Please check your data to see if the appropriate\nnumber of events occur for each factor level.")

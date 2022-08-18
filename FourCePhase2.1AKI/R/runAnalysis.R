@@ -901,7 +901,7 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     # =======================================================================================
     cat("\nFiltering to exclude patients without at least 2 prior Cr values to peak / only one sCr value in first admission.\n")
     cat("No. of patients without at least 2 Cr values prior to peak: ",length(patients_no_prior_cr),"\n")
-    cat("No. of patients with only one sCr by first admission: ",length(pts_insufficient_cr),"\n")
+    cat("No. of patients with only one sCr by end of first admission: ",length(pts_insufficient_cr),"\n")
     patients_no_prior_cr <- unique(c(patients_no_prior_cr,pts_insufficient_cr))
     cat("Total number of patients to be excluded for insufficient sCr: ",length(patients_no_prior_cr),"\n")
     
@@ -995,16 +995,16 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
 
     if(isTRUE(use_rrt_surrogate)) {
         cat("\nYou have opted to use the RRT surrogate results as exclusion criteria as well. Excluding these patients.")
-        rrt_detection_prior_list <- unlist(rrt_detection$patient_id[rrt_detection$days_since_admission < 0])
+        rrt_detection_prior_list <- unlist(unique(rrt_detection$patient_id[rrt_detection$days_since_admission < 0]))
         
         demographics_rrt_surrogate <- demographics_filt[demographics_filt$patient_id %in% rrt_detection_prior_list,]
         observations_rrt_surrogate <- observations[observations$patient_id %in% rrt_detection_prior_list,]
         course_rrt_surrogate <- course[course$patient_id %in% rrt_detection_prior_list,]
         
         cat("\nFinal breakdown of omission by RRT/RRT surrogate criteria:
-            \nExceeding baseline cutoff of ",ckd_cutoff,"mg/dL: ",length(esrf_list),
-            "\nRRT surrogate criteria: ",length(rrt_detection_prior_list),
-            "\nRRT codes: ",length(rrt_old))
+            \nExceeding baseline cutoff of ",ckd_cutoff,"mg/dL: ",length(unique(esrf_list)),
+            "\nRRT surrogate criteria: ",length(unique(rrt_detection_prior_list)),
+            "\nRRT codes: ",length(unique(rrt_old)))
         exclusion_criteria <- data.frame(c("RRT","No_Prior_sCr","Baseline_2.25","RRT_Surrogate","Total"),c(length(rrt_old),length(patients_no_prior_cr),length(esrf_list),length(rrt_detection_prior_list),length(unique(c(patients_no_prior_cr,esrf_list,rrt_detection_prior_list,rrt_old)))))
         colnames(exclusion_criteria) <- c("Exclusion Criteria","Counts")
         exclusion_criteria$siteid <- currSiteId
