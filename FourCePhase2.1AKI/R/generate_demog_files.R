@@ -110,6 +110,7 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
   demog_summ$severe <- factor(demog_summ$severe,levels=c(0,1),labels=c("Non-severe","Severe"))
   demog_summ$deceased <- factor(demog_summ$deceased,levels=c(0,1),labels=c("Alive","Deceased"))
   demog_summ$aki <- factor(demog_summ$aki,levels=c(0,1),labels=c("No AKI","AKI"))
+  try({demog_summ$ckd <- factor(demog_summ$ckd,levels=c(0,1),labels=c("Non-CKD","CKD"))})
   demog_summ$aki_kdigo_grade <- factor(demog_summ$aki_kdigo_grade,levels=c(0,1,2,3),labels=c("No AKI","Stage 1","Stage 2","Stage 3"))
   demog_summ$ckd_stage <- factor(demog_summ$ckd_stage,levels=c(0,1,2),labels=c("egfr_90_and_above","egfr_60_to_90","egfr_30_to_60"))
   demog_summ$preadmit_cr_period <- factor(demog_summ$preadmit_cr_period,levels=c("zero_to_90_days","91_to_180_days","181_to_365_days"))
@@ -202,6 +203,52 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     demog_obf <- demog_obf %>% dplyr::group_by(category) %>% dplyr::mutate(No_AKI_perc = No_AKI / no_aki_total * 100, AKI_perc = AKI/aki_total * 100, total_perc = total/total_pop * 100) %>% dplyr::ungroup()
     write.csv(demog_obf,file=file.path(dir.output, paste0(currSiteId, "_TableOne_obfuscated",file_suffix)),row.names=F,na="NA")
     
+    # Then print demographics table stratified by CKD diagnosis code
+    cat("\nAttempting to stratify by CKD diagnosis code...")
+    try({
+      demog_nonckd_vs_ckd_obf <- demog_summ %>% dplyr::group_by(ckd) %>% dplyr::count() %>% tidyr::pivot_wider(names_from = "ckd",values_from = "n")
+      demog_nonckd_vs_ckd_obf$category <- "n"
+      demog_nonckd_vs_ckd_obf <- demog_nonckd_vs_ckd_obf[,c(3,1,2)]
+      demog_nonckd_vs_ckd_obf$p_val <- NA
+      colnames(demog_nonckd_vs_ckd_obf) <- c("category","Non_CKD","CKD","p_val")
+      for(i in 1:length(table_one_vars)) {
+        try({
+          tmp <- demog_summ %>% dplyr::group_by(ckd) %>% dplyr::count(get(table_one_vars[i])) %>% tidyr::pivot_wider(names_from="ckd",values_from = "n")
+          tmp[is.na(tmp)] <- 0
+          colnames(tmp) <- c("category","Non_CKD","CKD")
+          tmp <- tmp %>% dplyr::mutate(category = paste0(table_one_vars[i],"_",category))
+          
+          # tryCatch statements attempt to catch instances where the Fisher's test may fail due to insufficient convergent cycles
+          p_value <- tryCatch({
+            cat(paste0(c("Attempting Fisher's test for ",table_one_vars[i],"\n")))
+            fisher.test(data.frame(tmp[-1],row.names=tmp$category))$p.value
+          }, error = function(e) {
+            message("Failed running Fisher's exact test for ",table_one_vars[i],", proceeding with Monte Carlo simulation.")
+            tryCatch({
+              fisher.test(data.frame(tmp[-1],row.names=tmp$category),simulate.p.value=TRUE)$p.value
+            },error=function(e){
+              message("Failed running Fisher's exact test even with Monte Carlo simulation. A default P-value of NA will be printed - please inspect data.")
+              return(NA)
+            })
+          })
+          tmp$p_val = p_value
+          colnames(tmp) <- c("category","Non_CKD","CKD","p_val")
+          demog_nonckd_vs_ckd_obf <- rbind(demog_nonckd_vs_ckd_obf,tmp)
+          rm(tmp)
+          rm(p_value)
+        })
+      }
+      
+      demog_nonckd_vs_ckd_obf <- demog_nonckd_vs_ckd_obf %>% dplyr::group_by(category) %>% dplyr::mutate(total = Non_CKD + CKD) %>% dplyr::ungroup()
+      nonckd_total <- demog_nonckd_vs_ckd_obf$Non_CKD[1]
+      ckd_total <- demog_nonckd_vs_ckd_obf$CKD[1]
+      total_pop <- demog_nonckd_vs_ckd_obf$total[1]
+      demog_nonckd_vs_ckd_obf <- demog_nonckd_vs_ckd_obf %>% dplyr::group_by(category) %>% dplyr::mutate(Non_CKD_perc = Non_CKD / nonckd_total * 100, CKD_perc = CKD/ckd_total * 100, total_perc = total/total_pop * 100) %>% dplyr::ungroup()
+      demog_nonckd_vs_ckd_obf$Non_CKD[demog_nonckd_vs_ckd_obf$Non_CKD < obfuscation_value] <- 0
+      demog_nonckd_vs_ckd_obf$CKD[demog_nonckd_vs_ckd_obf$CKD < obfuscation_value] <- 0
+      write.csv(demog_nonckd_vs_ckd_obf,file=file.path(dir.output, paste0(currSiteId, "_TableOne_NonCKD_vs_CKD_obfuscated",file_suffix)),row.names=F,na="NA")
+    })
+    
     # Then print table stratified by CKD staging status
     cat("\nAttempting to generate demographics table stratified by CKD stage and obfuscated\n")
     try({
@@ -270,6 +317,12 @@ generate_demog_files <- function(siteid, demog_table,aki_labs,
     table_one <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="aki",addOverall = T)
     export_table_one <- print(table_one,showAllLevels=TRUE,formatOptions=list(big.mark=","))
     write.csv(export_table_one,file=file.path(dir.output, paste0(currSiteId, "_TableOne",file_suffix)))
+    
+    try({
+      table_one_ckd <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="ckd",addOverall = T)
+      export_table_one_ckd <- print(table_one_ckd,showAllLevels=TRUE,formatOptions=list(big.mark=","))
+      write.csv(export_table_one_ckd,file=file.path(dir.output, paste0(currSiteId, "_TableOne_NonCKD_vs_CKD",file_suffix)))
+    })
     
     try({
       table_one_ckd <- tableone::CreateTableOne(data=demog_summ,vars=table_one_vars,strata="ckd_stage",addOverall = T)
