@@ -1155,94 +1155,114 @@ runAnalysis <- function(is_obfuscated=TRUE,factor_cutoff = 5, ckd_cutoff = 2.25,
     cat("\nNow generating the medications tables for excluded patients:")
     medications_excluded <- observations_excluded[observations_excluded$concept_type == "MED-CLASS",-c(4,6)] %>% dplyr::arrange(patient_id,days_since_admission,concept_code)
     # Use 15 days as the cutoff for chronic medications
-    cat("\nGenerating table for chronic medications...")
-    med_chronic_excluded <- medications_excluded[medications_excluded$days_since_admission < -15,]
-    med_new_excluded <- medications_excluded[medications_excluded$days_since_admission >= -15,]
-    
-    # Re-code chronic medications into wide format
-    med_chronic_excluded <- med_chronic_excluded[!duplicated(med_chronic_excluded[,c(1,2,4)]),-c(2,3)]
-    med_chronic_excluded$concept_code <- paste("old",med_chronic_excluded$concept_code,sep="_")
-    med_chronic_excluded$present <- 1
-    med_chronic_excluded <- med_chronic_excluded %>% tidyr::spread(concept_code,present)
-    med_chronic_excluded[is.na(med_chronic_excluded)] <- 0
-    
-    # Create subtable for ACE-i/ARB pre-exposure
-    cat("\nGenerating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
-    acei_present_excluded = ("old_ACEI" %in% colnames(med_chronic_excluded))
-    arb_present_excluded = ("old_ARB" %in% colnames(med_chronic_excluded))
-    med_acearb_chronic_excluded <- NULL
-    if(isTRUE(acei_present_excluded) & isTRUE(arb_present_excluded)) {
-      med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ACEI,old_ARB)
-      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0)) %>% dplyr::ungroup()
-      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
-    } else if (isTRUE(acei_present_excluded)) {
-      med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ACEI)
-      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0)) %>% dplyr::ungroup()
-      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
-    } else if (isTRUE(arb_present_excluded)) {
-      med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ARB)
-      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0)) %>% dplyr::ungroup()
-      med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+    if(nrow(medications_excluded) > 0) {
+      cat("\nGenerating table for chronic medications...")
+      med_chronic_excluded <- medications_excluded[medications_excluded$days_since_admission < -15,]
+      med_new_excluded <- medications_excluded[medications_excluded$days_since_admission >= -15,]
+      
+      # Re-code chronic medications into wide format
+      med_chronic_excluded <- med_chronic_excluded[!duplicated(med_chronic_excluded[,c(1,2,4)]),-c(2,3)]
+      med_chronic_excluded$concept_code <- paste("old",med_chronic_excluded$concept_code,sep="_")
+      med_chronic_excluded$present <- 1
+      med_chronic_excluded <- med_chronic_excluded %>% tidyr::spread(concept_code,present)
+      med_chronic_excluded[is.na(med_chronic_excluded)] <- 0
+      
+      # Create subtable for ACE-i/ARB pre-exposure
+      cat("\nGenerating table for prior ACE-inhibitor (ACEI) or angiotensin receptor blocker (ARB) use...")
+      acei_present_excluded = ("old_ACEI" %in% colnames(med_chronic_excluded))
+      arb_present_excluded = ("old_ARB" %in% colnames(med_chronic_excluded))
+      med_acearb_chronic_excluded <- NULL
+      if(isTRUE(acei_present_excluded) & isTRUE(arb_present_excluded)) {
+        med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ACEI,old_ARB)
+        med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI + old_ARB > 0,1,0)) %>% dplyr::ungroup()
+        med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+      } else if (isTRUE(acei_present_excluded)) {
+        med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ACEI)
+        med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ACEI > 0,1,0)) %>% dplyr::ungroup()
+        med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+      } else if (isTRUE(arb_present_excluded)) {
+        med_acearb_chronic_excluded <- med_chronic_excluded %>% dplyr::select(patient_id,old_ARB)
+        med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(acei_arb_preexposure = ifelse(old_ARB > 0,1,0)) %>% dplyr::ungroup()
+        med_acearb_chronic_excluded <- med_acearb_chronic_excluded %>% dplyr::select(patient_id,acei_arb_preexposure)
+      }
+      # med_acearb_chronic_excluded
+      # Headers: patient_id   acei_arb_preexposure
+      
+      # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
+      cat("\nGenerating table for new medications started during the admission...")
+      med_new_excluded <- med_new_excluded[!duplicated(med_new_excluded[,c(1,2,4)]),c(1,4,3)]
+      colnames(med_new_excluded)[3] <- "start_day"
+      
+      # Generate another table with the start date of the new medications
+      med_new_excluded <- med_new_excluded %>% tidyr::spread(concept_code,start_day)
+      #med_new[is.na(med_new)] <- -999
+      
+      # Generate simplified table for determining who were started on COAGA near admission
+      cat("\nGenerating table for COAGA use during the admission...")
+      med_coaga_new_excluded <- NULL
+      coaga_present_excluded <- tryCatch({
+        med_coaga_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
+        med_coaga_new_excluded$COAGA[med_coaga_new$COAGA < -15] <- 0
+        med_coaga_new_excluded$COAGA[med_coaga_new$COAGA >= -15] <- 1
+        TRUE
+      },error= function(c) FALSE)
+      
+      # Generate simplified table for determining who were started on COAGB near admission
+      cat("\nGenerating table for COAGB use during the admission...")
+      med_coagb_new_excluded <- NULL
+      coagb_present_excluded <- tryCatch({
+        med_coagb_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
+        med_coagb_new_excluded$COAGB[med_coagb_new_excluded$COAGB < -15] <- 0
+        med_coagb_new_excluded$COAGB[med_coagb_new_excluded$COAGB >= -15] <- 1
+        TRUE
+      },error=function(c) FALSE)
+      
+      # Generate simplified table for determining who were started on novel antivirals
+      covid19antiviral_present_excluded = ("COVIDVIRAL" %in% colnames(med_new_excluded))
+      remdesivir_present_excluded = ("REMDESIVIR" %in% colnames(med_new_excluded))
+      med_covid19_new_excluded <- NULL
+      if(isTRUE(covid19antiviral_present_excluded) && isTRUE(remdesivir_present_excluded)){
+        cat("\nGenerating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR) - Excluded patients")
+        med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0)),remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0))) %>% dplyr::ungroup()
+        med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0 | remdesivir > 0,1,0)) %>% dplyr::ungroup()
+        med_covid19_new_date_excluded <- med_covid19_new_excluded
+        colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
+        med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,covidviral,remdesivir)
+      } else if(isTRUE(covid19antiviral_present_excluded)){
+        cat("\nGenerating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
+        med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0))) %>% dplyr::ungroup()
+        med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0,1,0)) %>% dplyr::ungroup()
+        med_covid19_new_date_excluded <- med_covid19_new_excluded
+        colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
+        med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,covidviral)
+      } else if(isTRUE(remdesivir_present_excluded)){
+        cat("\nGenerating table for experimental COVID-19 treatment... (REMDESIVIR only)")
+        med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0))) %>% dplyr::ungroup()
+        med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(remdesivir > 0,1,0)) %>% dplyr::ungroup()
+        med_covid19_new_date_excluded <- med_covid19_new_excluded
+        colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
+        med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,remdesivir)
+      }
+    } else {
+      med_chronic_excluded <- NULL
+      med_new_excluded <- NULL
+      acei_present_excluded <- NULL
+      arb_present_excluded <- NULL
+      med_acearb_chronic_excluded <- NULL
+      med_new_excluded <- NULL
+      med_coaga_new_excluded <- NULL
+      med_coagb_new_excluded <- NULL
+      med_covid19_new_excluded <- NULL
+      coaga_present_excluded <- FALSE
+      coagb_present_excluded <- FALSE
+      covid19antiviral_present_excluded <- FALSE
+      remdesivir_present_excluded <- FALSE
     }
     
-    # med_acearb_chronic_excluded
-    # Headers: patient_id   acei_arb_preexposure
     
-    # For simplicity of initial analysis, we will use the earliest date where each new medication class is used.
-    cat("\nGenerating table for new medications started during the admission...")
-    med_new_excluded <- med_new_excluded[!duplicated(med_new_excluded[,c(1,2,4)]),c(1,4,3)]
-    colnames(med_new_excluded)[3] <- "start_day"
     
-    # Generate another table with the start date of the new medications
-    med_new_excluded <- med_new_excluded %>% tidyr::spread(concept_code,start_day)
-    #med_new[is.na(med_new)] <- -999
     
-    # Generate simplified table for determining who were started on COAGA near admission
-    cat("\nGenerating table for COAGA use during the admission...")
-    med_coaga_new_excluded <- NULL
-    coaga_present_excluded <- tryCatch({
-      med_coaga_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COAGA) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGA == min(COAGA,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
-      med_coaga_new_excluded$COAGA[med_coaga_new$COAGA < -15] <- 0
-      med_coaga_new_excluded$COAGA[med_coaga_new$COAGA >= -15] <- 1
-      TRUE
-    },error= function(c) FALSE)
     
-    # Generate simplified table for determining who were started on COAGB near admission
-    cat("\nGenerating table for COAGB use during the admission...")
-    med_coagb_new_excluded <- NULL
-    coagb_present_excluded <- tryCatch({
-      med_coagb_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COAGB) %>% dplyr::group_by(patient_id) %>% dplyr::filter(COAGB == min(COAGB,na.rm=TRUE)) %>% dplyr::ungroup() %>% dplyr::distinct()
-      med_coagb_new_excluded$COAGB[med_coagb_new_excluded$COAGB < -15] <- 0
-      med_coagb_new_excluded$COAGB[med_coagb_new_excluded$COAGB >= -15] <- 1
-      TRUE
-    },error=function(c) FALSE)
-    
-    # Generate simplified table for determining who were started on novel antivirals
-    covid19antiviral_present_excluded = ("COVIDVIRAL" %in% colnames(med_new_excluded))
-    remdesivir_present_excluded = ("REMDESIVIR" %in% colnames(med_new_excluded))
-    med_covid19_new_excluded <- NULL
-    if(isTRUE(covid19antiviral_present_excluded) && isTRUE(remdesivir_present_excluded)){
-      cat("\nGenerating table for experimental COVID-19 treatment... (both COVIDVIRAL and REMDESIVIR) - Excluded patients")
-      med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COVIDVIRAL,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0)),remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0))) %>% dplyr::ungroup()
-      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0 | remdesivir > 0,1,0)) %>% dplyr::ungroup()
-      med_covid19_new_date_excluded <- med_covid19_new_excluded
-      colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
-      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,covidviral,remdesivir)
-    } else if(isTRUE(covid19antiviral_present_excluded)){
-      cat("\nGenerating table for experimental COVID-19 treatment... (COVIDVIRAL only)")
-      med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,COVIDVIRAL) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covidviral=ifelse(is.na(COVIDVIRAL),0,ifelse(COVIDVIRAL>=0,1,0))) %>% dplyr::ungroup()
-      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(covidviral > 0,1,0)) %>% dplyr::ungroup()
-      med_covid19_new_date_excluded <- med_covid19_new_excluded
-      colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
-      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,covidviral)
-    } else if(isTRUE(remdesivir_present_excluded)){
-      cat("\nGenerating table for experimental COVID-19 treatment... (REMDESIVIR only)")
-      med_covid19_new_excluded <- med_new_excluded %>% dplyr::select(patient_id,REMDESIVIR) %>% dplyr::group_by(patient_id) %>% dplyr::mutate(remdesivir=ifelse(is.na(REMDESIVIR),0,ifelse(REMDESIVIR>=0,1,0))) %>% dplyr::ungroup()
-      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::group_by(patient_id) %>% dplyr::mutate(covid_rx = ifelse(remdesivir > 0,1,0)) %>% dplyr::ungroup()
-      med_covid19_new_date_excluded <- med_covid19_new_excluded
-      colnames(med_covid19_new_date_excluded)[2] <- "covid_rx_start"
-      med_covid19_new_excluded <- med_covid19_new_excluded %>% dplyr::select(patient_id,covid_rx,remdesivir)
-    }
     
     cat("\nNow generating demographics for excluded patients...")
     try({
